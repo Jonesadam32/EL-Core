@@ -1,0 +1,18 @@
+# Release ZIPs (don't store in Git - they're redundant with tagged versions)
+releases/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.cursor/
+.vscode/
+*.swp
+
+# Node (if we add build tools later)
+node_modules/
+
+# WordPress (if local dev is ever added)
+wp-content/
+wp-config.php

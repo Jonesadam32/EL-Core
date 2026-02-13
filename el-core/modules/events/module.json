@@ -1,0 +1,87 @@
+{
+    "name": "Events & Calendar",
+    "slug": "events",
+    "version": "1.0.0",
+    "description": "Event creation, RSVP tracking, and calendar display for programs and organizations.",
+    "author": "Expanded Learning Solutions",
+
+    "requires": {
+        "el_core": "1.0.0",
+        "php": "8.0",
+        "modules": []
+    },
+
+    "capabilities": [
+        "manage_events",
+        "create_events",
+        "rsvp_events",
+        "view_events"
+    ],
+
+    "default_role_mapping": {
+        "administrator": ["manage_events", "create_events", "rsvp_events", "view_events"],
+        "editor": ["create_events", "rsvp_events", "view_events"],
+        "author": ["rsvp_events", "view_events"],
+        "subscriber": ["rsvp_events", "view_events"]
+    },
+
+    "database": {
+        "version": 1,
+        "tables": {
+            "el_events": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "title": "VARCHAR(255) NOT NULL",
+                "description": "LONGTEXT",
+                "start_date": "DATETIME NOT NULL",
+                "end_date": "DATETIME NULL",
+                "location": "VARCHAR(255) DEFAULT ''",
+                "max_attendees": "INT UNSIGNED DEFAULT 0",
+                "created_by": "BIGINT UNSIGNED DEFAULT 0",
+                "status": "VARCHAR(20) DEFAULT 'published'",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_event_rsvps": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "event_id": "BIGINT UNSIGNED NOT NULL",
+                "user_id": "BIGINT UNSIGNED NOT NULL",
+                "status": "VARCHAR(20) DEFAULT 'attending'",
+                "rsvp_date": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            }
+        }
+    },
+
+    "shortcodes": [
+        {
+            "tag": "el_event_list",
+            "file": "shortcodes/event-list.php",
+            "description": "Displays upcoming events as cards or list",
+            "params": {
+                "limit": { "type": "integer", "default": 6 },
+                "layout": { "type": "string", "default": "cards", "options": ["cards", "list"] }
+            }
+        },
+        {
+            "tag": "el_event_rsvp",
+            "file": "shortcodes/event-rsvp.php",
+            "description": "RSVP button for a specific event",
+            "params": {
+                "event_id": { "type": "integer", "required": true }
+            }
+        }
+    ],
+
+    "settings": [
+        {
+            "key": "default_event_duration",
+            "label": "Default Event Duration (hours)",
+            "type": "number",
+            "default": 2
+        },
+        {
+            "key": "require_rsvp",
+            "label": "Require RSVP for all events",
+            "type": "boolean",
+            "default": false
+        }
+    ]
+}

@@ -1,0 +1,221 @@
+/**
+ * EL Core — Base Component Styles
+ * 
+ * All colors reference CSS custom properties (--el-primary, etc.)
+ * which are injected by the Asset Loader from brand settings.
+ * This means these styles automatically match any client's branding.
+ */
+
+/* ═══════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════ */
+
+.el-component {
+    font-family: var(--el-font-body, 'Inter', sans-serif);
+    line-height: 1.6;
+    color: #333;
+}
+
+.el-component * {
+    box-sizing: border-box;
+}
+
+/* ═══════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════ */
+
+.el-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--el-font-body, 'Inter', sans-serif);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    text-decoration: none;
+}
+
+.el-btn-primary {
+    background: var(--el-primary, #1a1a2e);
+    color: #fff;
+    border-color: var(--el-primary, #1a1a2e);
+}
+
+.el-btn-primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.el-btn-accent {
+    background: var(--el-accent, #e94560);
+    color: #fff;
+    border-color: var(--el-accent, #e94560);
+}
+
+.el-btn-outline {
+    background: transparent;
+    color: var(--el-primary, #1a1a2e);
+    border-color: var(--el-primary, #1a1a2e);
+}
+
+.el-btn-outline:hover {
+    background: var(--el-primary, #1a1a2e);
+    color: #fff;
+}
+
+.el-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ═══════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════ */
+
+.el-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    border: 2px dashed #e0e0e0;
+    border-radius: 8px;
+}
+
+.el-error {
+    color: #e94560;
+    padding: 10px;
+    font-size: 14px;
+}
+
+/* ═══════════════════════════════════════════
+   EVENT LIST — CARDS LAYOUT
+   ═══════════════════════════════════════════ */
+
+.el-event-list.el-layout-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.el-event-card {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    transition: box-shadow 0.2s ease;
+}
+
+.el-event-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.el-event-date-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    height: 60px;
+    background: var(--el-primary, #1a1a2e);
+    color: #fff;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.el-event-month {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.el-event-day {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.el-event-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.el-event-title {
+    font-family: var(--el-font-heading, 'Inter', sans-serif);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--el-primary, #1a1a2e);
+}
+
+.el-event-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.el-event-excerpt {
+    font-size: 14px;
+    color: #555;
+    margin: 0;
+}
+
+/* ═══════════════════════════════════════════
+   EVENT LIST — LIST LAYOUT
+   ═══════════════════════════════════════════ */
+
+.el-event-list.el-layout-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.el-layout-list .el-event-card {
+    padding: 16px;
+}
+
+/* ═══════════════════════════════════════════
+   RSVP COMPONENT
+   ═══════════════════════════════════════════ */
+
+.el-event-rsvp {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.el-rsvp-status {
+    font-size: 14px;
+    color: #28a745;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+
+@media (max-width: 600px) {
+    .el-event-list.el-layout-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .el-event-card {
+        flex-direction: column;
+    }
+
+    .el-event-date-badge {
+        flex-direction: row;
+        gap: 8px;
+        width: fit-content;
+        height: auto;
+        padding: 6px 12px;
+    }
+}
