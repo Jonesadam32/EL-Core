@@ -1,6 +1,6 @@
 # EL Core
 
-**Version:** 1.0.0  
+**Version:** 1.2.1  
 **Author:** Expanded Learning Solutions LLC
 
 ## What Is This?
