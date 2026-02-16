@@ -51,8 +51,11 @@ class EL_Database {
             return;
         }
 
-        // First time: create all tables
+        // First time: create all tables (only in admin to avoid loading upgrade.php on frontend)
         if ( $installed_version === 0 && isset( $db_config['tables'] ) ) {
+            if ( ! is_admin() ) {
+                return; // Skip schema creation on frontend — will run on next admin page load
+            }
             foreach ( $db_config['tables'] as $table_name => $columns ) {
                 $this->create_table( $table_name, $columns );
             }

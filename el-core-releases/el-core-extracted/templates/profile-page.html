@@ -1,0 +1,39 @@
+<!-- 
+    EL Core — User Profile Page Template
+    
+    Paste into WordPress: Pages → Add New → ⋮ menu → Code Editor
+    Then switch back to Visual to edit headings, text, spacing visually.
+    
+    The [el_user_profile] shortcode renders the interactive profile component.
+    Everything else is standard Gutenberg blocks you can edit visually.
+-->
+
+<!-- wp:group {"layout":{"type":"constrained","contentSize":"640px"}} -->
+<div class="wp-block-group">
+
+    <!-- wp:spacer {"height":"40px"} -->
+    <div style="height:40px" aria-hidden="true" class="wp-block-spacer"></div>
+    <!-- /wp:spacer -->
+
+    <!-- wp:heading {"textAlign":"center","level":1,"fontSize":"x-large"} -->
+    <h1 class="wp-block-heading has-text-align-center has-x-large-font-size">Your Profile</h1>
+    <!-- /wp:heading -->
+
+    <!-- wp:paragraph {"align":"center"} -->
+    <p class="has-text-align-center">View and manage your account information.</p>
+    <!-- /wp:paragraph -->
+
+    <!-- wp:spacer {"height":"24px"} -->
+    <div style="height:24px" aria-hidden="true" class="wp-block-spacer"></div>
+    <!-- /wp:spacer -->
+
+    <!-- wp:shortcode -->
+    [el_user_profile editable="true"]
+    <!-- /wp:shortcode -->
+
+    <!-- wp:spacer {"height":"40px"} -->
+    <div style="height:40px" aria-hidden="true" class="wp-block-spacer"></div>
+    <!-- /wp:spacer -->
+
+</div>
+<!-- /wp:group -->

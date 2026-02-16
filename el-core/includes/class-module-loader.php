@@ -102,40 +102,57 @@ class EL_Module_Loader {
             return false;
         }
 
-        // Load dependencies first
-        $required_modules = $manifest['requires']['modules'] ?? [];
-        foreach ( $required_modules as $dep ) {
-            if ( ! isset( $this->instances[ $dep ] ) ) {
-                $this->load_module( $dep );
+        try {
+            // Load dependencies first
+            $required_modules = $manifest['requires']['modules'] ?? [];
+            foreach ( $required_modules as $dep ) {
+                if ( ! isset( $this->instances[ $dep ] ) ) {
+                    $this->load_module( $dep );
+                }
             }
-        }
 
-        // Process database schema (creates tables / runs migrations)
-        if ( isset( $manifest['database'] ) ) {
-            $this->core->database->process_module_schema( $slug, $manifest['database'] );
-        }
-
-        // Register capabilities
-        if ( isset( $manifest['capabilities'] ) ) {
-            $this->core->roles->register_module_capabilities( $slug, $manifest );
-        }
-
-        // Register shortcodes
-        if ( isset( $manifest['shortcodes'] ) ) {
-            $this->register_shortcodes( $slug, $manifest['shortcodes'] );
-        }
-
-        // Load the main module class
-        $class_file = EL_CORE_MODULES_DIR . "{$slug}/class-{$slug}-module.php";
-        if ( file_exists( $class_file ) ) {
-            require_once $class_file;
-
-            // Convert slug to class name: events → EL_Events_Module
-            $class_name = 'EL_' . str_replace( '-', '_', ucwords( $slug, '-' ) ) . '_Module';
-
-            if ( class_exists( $class_name ) ) {
-                $this->instances[ $slug ] = $class_name::instance();
+            // Process database schema (creates tables / runs migrations)
+            if ( isset( $manifest['database'] ) ) {
+                $this->core->database->process_module_schema( $slug, $manifest['database'] );
             }
+
+            // Register capabilities
+            if ( isset( $manifest['capabilities'] ) ) {
+                $this->core->roles->register_module_capabilities( $slug, $manifest );
+            }
+
+            // Register shortcodes
+            if ( isset( $manifest['shortcodes'] ) ) {
+                $this->register_shortcodes( $slug, $manifest['shortcodes'] );
+            }
+
+            // Load the main module class
+            $class_file = EL_CORE_MODULES_DIR . "{$slug}/class-{$slug}-module.php";
+            if ( file_exists( $class_file ) ) {
+                require_once $class_file;
+
+                // Convert slug to class name: events → EL_Events_Module
+                $class_name = 'EL_' . str_replace( '-', '_', ucwords( $slug, '-' ) ) . '_Module';
+
+                if ( class_exists( $class_name ) ) {
+                    $this->instances[ $slug ] = $class_name::instance();
+                }
+            }
+        } catch ( \Throwable $e ) {
+            error_log( "EL Core: Module '{$slug}' failed to load: " . $e->getMessage() );
+            // Deactivate the broken module so it doesn't crash the site again
+            $this->active = array_values( array_diff( $this->active, [ $slug ] ) );
+            $this->core->settings->set_active_modules( $this->active );
+            
+            if ( is_admin() ) {
+                add_action( 'admin_notices', function() use ( $slug, $e ) {
+                    echo '<div class="notice notice-error"><p>';
+                    echo '<strong>EL Core:</strong> Module "' . esc_html( $slug ) . '" was automatically deactivated due to an error: ';
+                    echo esc_html( $e->getMessage() );
+                    echo '</p></div>';
+                });
+            }
+            return false;
         }
 
         return true;

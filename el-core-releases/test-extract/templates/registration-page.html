@@ -1,0 +1,39 @@
+<!-- 
+    EL Core — Registration Page Template
+    
+    Paste into WordPress: Pages → Add New → ⋮ menu → Code Editor
+    Then switch back to Visual to edit headings, text, spacing visually.
+    
+    The [el_register_form] shortcode renders the interactive form.
+    Everything else is standard Gutenberg blocks you can edit visually.
+-->
+
+<!-- wp:group {"layout":{"type":"constrained","contentSize":"600px"}} -->
+<div class="wp-block-group">
+
+    <!-- wp:spacer {"height":"40px"} -->
+    <div style="height:40px" aria-hidden="true" class="wp-block-spacer"></div>
+    <!-- /wp:spacer -->
+
+    <!-- wp:heading {"textAlign":"center","level":1,"fontSize":"x-large"} -->
+    <h1 class="wp-block-heading has-text-align-center has-x-large-font-size">Create Your Account</h1>
+    <!-- /wp:heading -->
+
+    <!-- wp:paragraph {"align":"center","fontSize":"medium"} -->
+    <p class="has-text-align-center has-medium-font-size">Join our learning community. Registration takes less than a minute.</p>
+    <!-- /wp:paragraph -->
+
+    <!-- wp:spacer {"height":"24px"} -->
+    <div style="height:24px" aria-hidden="true" class="wp-block-spacer"></div>
+    <!-- /wp:spacer -->
+
+    <!-- wp:shortcode -->
+    [el_register_form]
+    <!-- /wp:shortcode -->
+
+    <!-- wp:spacer {"height":"40px"} -->
+    <div style="height:40px" aria-hidden="true" class="wp-block-spacer"></div>
+    <!-- /wp:spacer -->
+
+</div>
+<!-- /wp:group -->

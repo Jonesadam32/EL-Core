@@ -1,0 +1,111 @@
+{
+    "name": "Registration & Onboarding",
+    "slug": "registration",
+    "version": "1.0.0",
+    "description": "Custom registration forms with configurable workflows: open, approval-based, invite-only, or closed. Extends WordPress user system with custom profile fields.",
+    "author": "Expanded Learning Solutions",
+
+    "requires": {
+        "el_core": "1.0.0",
+        "php": "8.0",
+        "modules": []
+    },
+
+    "capabilities": [
+        "manage_registration",
+        "create_invites",
+        "view_registrations"
+    ],
+
+    "default_role_mapping": {
+        "administrator": ["manage_registration", "create_invites", "view_registrations"],
+        "editor": ["view_registrations"]
+    },
+
+    "database": {
+        "version": 1,
+        "tables": {
+            "el_invites": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "code": "VARCHAR(64) NOT NULL UNIQUE",
+                "created_by": "BIGINT UNSIGNED NOT NULL DEFAULT 0",
+                "role": "VARCHAR(64) DEFAULT ''",
+                "max_uses": "INT UNSIGNED DEFAULT 1",
+                "use_count": "INT UNSIGNED DEFAULT 0",
+                "expires_at": "DATETIME NULL",
+                "status": "VARCHAR(20) DEFAULT 'active'",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            }
+        }
+    },
+
+    "shortcodes": [
+        {
+            "tag": "el_register_form",
+            "file": "shortcodes/register-form.php",
+            "description": "Registration form with configurable fields, invite code support, and workflow enforcement",
+            "params": {
+                "redirect": { "type": "string", "default": "" }
+            }
+        },
+        {
+            "tag": "el_user_profile",
+            "file": "shortcodes/user-profile.php",
+            "description": "User profile display and editor for custom registration fields",
+            "params": {
+                "editable": { "type": "boolean", "default": true }
+            }
+        }
+    ],
+
+    "settings": [
+        {
+            "key": "registration_mode",
+            "label": "Registration Mode",
+            "type": "string",
+            "default": "closed"
+        },
+        {
+            "key": "email_verification",
+            "label": "Require Email Verification",
+            "type": "boolean",
+            "default": true
+        },
+        {
+            "key": "default_role",
+            "label": "Default Role for New Users",
+            "type": "string",
+            "default": "subscriber"
+        },
+        {
+            "key": "allow_role_selection",
+            "label": "Allow Role Selection on Registration",
+            "type": "boolean",
+            "default": false
+        },
+        {
+            "key": "allowed_roles",
+            "label": "Roles Available for Selection (comma-separated slugs)",
+            "type": "string",
+            "default": ""
+        },
+        {
+            "key": "redirect_after_register",
+            "label": "Redirect URL After Registration",
+            "type": "string",
+            "default": ""
+        },
+        {
+            "key": "approval_email_notify",
+            "label": "Email Admins When Registration Needs Approval",
+            "type": "boolean",
+            "default": true
+        },
+        {
+            "key": "custom_fields",
+            "label": "Custom Profile Fields (JSON configuration)",
+            "type": "string",
+            "default": "[{\"key\":\"el_organization\",\"label\":\"Organization\",\"type\":\"text\",\"required\":false},{\"key\":\"el_job_title\",\"label\":\"Job Title\",\"type\":\"text\",\"required\":false},{\"key\":\"el_phone\",\"label\":\"Phone Number\",\"type\":\"tel\",\"required\":false},{\"key\":\"el_district\",\"label\":\"School District\",\"type\":\"text\",\"required\":false}]"
+        }
+    ]
+}

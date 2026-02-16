@@ -1,4 +1,4 @@
-# EL Core — Project Brief
+# EL Core â€” Project Brief
 
 > **Purpose:** This document is the primary knowledge source for the EL Core WordPress plugin project. It captures all architecture decisions, what has been built, what is planned, coding conventions, and workflow context. Any conversation in this project should have full context from this document.
 
@@ -11,11 +11,11 @@
 
 ### What Is EL Core?
 
-EL Core is a modular WordPress plugin that serves as the foundation for educational technology platforms built by Expanded Learning Solutions LLC. It provides LMS, events, certificates, analytics, registration, and more — all configurable per installation through an admin UI.
+EL Core is a modular WordPress plugin that serves as the foundation for educational technology platforms built by Expanded Learning Solutions LLC. It provides LMS, events, certificates, analytics, registration, and more â€” all configurable per installation through an admin UI.
 
 ### The Business Problem
 
-Fred (the developer/owner) builds custom educational platforms for organizations — school districts, after-school programs, youth organizations. Previously, each client got a custom-coded solution (like the Bold Youth Project, which grew to 65,000+ lines). This approach doesn't scale: every new client means rebuilding similar features from scratch, and updates to one installation don't benefit others.
+Fred (the developer/owner) builds custom educational platforms for organizations â€” school districts, after-school programs, youth organizations. Previously, each client got a custom-coded solution (like the Bold Youth Project, which grew to 65,000+ lines). This approach doesn't scale: every new client means rebuilding similar features from scratch, and updates to one installation don't benefit others.
 
 ### The Solution
 
@@ -97,7 +97,7 @@ The core handles ALL infrastructure automatically based on the manifest:
 3. Push to WordPress via MCP or paste into block editor Code view
 4. Page appears as editable blocks with embedded shortcodes
 5. Plugin powers the interactive shortcode components
-6. Admin can edit text, headings, layout visually — no developer needed
+6. Admin can edit text, headings, layout visually â€” no developer needed
 
 ---
 
@@ -107,51 +107,51 @@ The core handles ALL infrastructure automatically based on the manifest:
 
 ```
 el-core/
-├── el-core.php                          # Main plugin loader, constants, activation hooks
-├── uninstall.php                        # Cleanup on plugin deletion
-├── README.md
-│
-├── includes/                            # Core system classes
-│   ├── class-el-core.php                # Orchestrator (singleton, boot sequence)
-│   ├── class-settings.php               # Settings framework (wp_options, groups, caching)
-│   ├── class-database.php               # Schema manager (versioning, migrations, queries)
-│   ├── class-module-loader.php          # Module discovery, validation, activation
-│   ├── class-roles.php                  # Capabilities engine, role mapping
-│   ├── class-asset-loader.php           # CSS/JS loading, brand variable injection
-│   ├── class-ajax-handler.php           # Standardized AJAX with nonce verification
-│   ├── class-ai-client.php              # Claude/OpenAI API wrapper with usage tracking
-│   └── functions.php                    # Global helper functions (API boundary)
-│
-├── admin/                               # Admin-side UI
-│   ├── views/
-│   │   ├── settings-general.php         # Dashboard overview
-│   │   ├── settings-brand.php           # Colors, logo, fonts, AI config
-│   │   ├── settings-modules.php         # Module toggle UI
-│   │   └── settings-roles.php           # Role-capability matrix
-│   ├── css/admin.css
-│   └── js/admin.js
-│
-├── assets/                              # Shared frontend assets
-│   ├── css/el-core.css                  # Component styles using CSS variables
-│   └── js/el-core.js                    # AJAX helper, RSVP handler
-│
-├── modules/
-│   └── events/                          # First module (proof of concept)
-│       ├── module.json                  # Manifest
-│       ├── class-events-module.php      # Business logic
-│       └── shortcodes/
-│           ├── event-list.php           # [el_event_list] - cards/list display
-│           └── event-rsvp.php           # [el_event_rsvp] - toggle RSVP button
-│
-└── templates/
-    └── events-page.html                 # Gutenberg block markup template
+â”œâ”€â”€ el-core.php                          # Main plugin loader, constants, activation hooks
+â”œâ”€â”€ uninstall.php                        # Cleanup on plugin deletion
+â”œâ”€â”€ README.md
+â”‚
+â”œâ”€â”€ includes/                            # Core system classes
+â”‚   â”œâ”€â”€ class-el-core.php                # Orchestrator (singleton, boot sequence)
+â”‚   â”œâ”€â”€ class-settings.php               # Settings framework (wp_options, groups, caching)
+â”‚   â”œâ”€â”€ class-database.php               # Schema manager (versioning, migrations, queries)
+â”‚   â”œâ”€â”€ class-module-loader.php          # Module discovery, validation, activation
+â”‚   â”œâ”€â”€ class-roles.php                  # Capabilities engine, role mapping
+â”‚   â”œâ”€â”€ class-asset-loader.php           # CSS/JS loading, brand variable injection
+â”‚   â”œâ”€â”€ class-ajax-handler.php           # Standardized AJAX with nonce verification
+â”‚   â”œâ”€â”€ class-ai-client.php              # Claude/OpenAI API wrapper with usage tracking
+â”‚   â””â”€â”€ functions.php                    # Global helper functions (API boundary)
+â”‚
+â”œâ”€â”€ admin/                               # Admin-side UI
+â”‚   â”œâ”€â”€ views/
+â”‚   â”‚   â”œâ”€â”€ settings-general.php         # Dashboard overview
+â”‚   â”‚   â”œâ”€â”€ settings-brand.php           # Colors, logo, fonts, AI config
+â”‚   â”‚   â”œâ”€â”€ settings-modules.php         # Module toggle UI
+â”‚   â”‚   â””â”€â”€ settings-roles.php           # Role-capability matrix
+â”‚   â”œâ”€â”€ css/admin.css
+â”‚   â””â”€â”€ js/admin.js
+â”‚
+â”œâ”€â”€ assets/                              # Shared frontend assets
+â”‚   â”œâ”€â”€ css/el-core.css                  # Component styles using CSS variables
+â”‚   â””â”€â”€ js/el-core.js                    # AJAX helper, RSVP handler
+â”‚
+â”œâ”€â”€ modules/
+â”‚   â””â”€â”€ events/                          # First module (proof of concept)
+â”‚       â”œâ”€â”€ module.json                  # Manifest
+â”‚       â”œâ”€â”€ class-events-module.php      # Business logic
+â”‚       â””â”€â”€ shortcodes/
+â”‚           â”œâ”€â”€ event-list.php           # [el_event_list] - cards/list display
+â”‚           â””â”€â”€ event-rsvp.php           # [el_event_rsvp] - toggle RSVP button
+â”‚
+â””â”€â”€ templates/
+    â””â”€â”€ events-page.html                 # Gutenberg block markup template
 ```
 
 ### Core Classes Summary
 
 **class-el-core.php (Orchestrator)**
 - Singleton pattern: `EL_Core::instance()`
-- Boot order: Settings → Database → Roles → Modules → Assets → AJAX → AI
+- Boot order: Settings â†’ Database â†’ Roles â†’ Modules â†’ Assets â†’ AJAX â†’ AI
 - Registers admin menu with subpages
 - All subsystems accessible: `$core->settings`, `$core->database`, etc.
 
@@ -164,7 +164,7 @@ el-core/
 
 **class-database.php (Schema Manager)**
 - Tracks installed versions in `el_core_schema_versions` option
-- `process_module_schema()` — compares installed vs declared, runs migrations
+- `process_module_schema()` â€” compares installed vs declared, runs migrations
 - Uses WordPress `dbDelta()` for safe table creation
 - Convenience methods: `insert()`, `update()`, `delete()`, `get()`, `query()`, `count()`
 - Supports operators in where clauses: `['start_date >' => '2024-01-01']`
@@ -178,10 +178,10 @@ el-core/
 
 **class-roles.php (Permissions Engine)**
 - Collects capabilities from all active module manifests
-- `apply_default_mappings()` — sets initial role permissions on activation
-- `get_roles_with_caps()` — feeds the admin matrix UI
-- `update_role_capabilities()` — saves admin form changes
-- `create_role()` / `remove_role()` — custom role management
+- `apply_default_mappings()` â€” sets initial role permissions on activation
+- `get_roles_with_caps()` â€” feeds the admin matrix UI
+- `update_role_capabilities()` â€” saves admin form changes
+- `create_role()` / `remove_role()` â€” custom role management
 
 **class-asset-loader.php**
 - Enqueues `el-core.css` and `el-core.js` on frontend
@@ -212,16 +212,16 @@ el-core/
 **Capabilities:** `manage_events`, `create_events`, `rsvp_events`, `view_events`
 
 **Database Tables:**
-- `el_events` — id, title, description, start_date, end_date, location, max_attendees, created_by, status, created_at
-- `el_event_rsvps` — id, event_id, user_id, status, rsvp_date
+- `el_events` â€” id, title, description, start_date, end_date, location, max_attendees, created_by, status, created_at
+- `el_event_rsvps` â€” id, event_id, user_id, status, rsvp_date
 
 **Shortcodes:**
-- `[el_event_list limit="6" layout="cards|list"]` — Displays upcoming events as cards or list items
-- `[el_event_rsvp event_id="123"]` — RSVP toggle button with AJAX
+- `[el_event_list limit="6" layout="cards|list"]` â€” Displays upcoming events as cards or list items
+- `[el_event_rsvp event_id="123"]` â€” RSVP toggle button with AJAX
 
 **AJAX Actions:**
-- `rsvp_event` — Toggle RSVP (creates or cancels), checks capacity
-- `create_event` — Create new event (requires `create_events` capability)
+- `rsvp_event` â€” Toggle RSVP (creates or cancels), checks capacity
+- `create_event` â€” Create new event (requires `create_events` capability)
 
 **What the module class does NOT do:** Create tables, register shortcodes, add settings pages, manage capabilities. All of that is handled by core reading the module.json manifest.
 
@@ -229,7 +229,7 @@ el-core/
 
 ## 4. WHAT NEEDS TO BE BUILT
 
-### Immediate Next: Registration Module
+### Phase 2: Registration Module
 
 Build as a module (not core) because different installations need different registration flows:
 - Some clients want open self-registration
@@ -246,7 +246,53 @@ Expected features:
 - Email verification
 - Registration shortcodes for frontend pages
 
-### Phase 3: Theme Foundation (EL Theme)
+### Phase 3: Tutorials Module
+
+A module (not core) that ships **pre-activated by default**. Every installation gets it out of the box, but it can be turned off without breaking anything — no other module depends on it to function. This follows the architecture test: if other code doesn’t need it to work, it’s a module.
+
+Expected features:
+- Tutorial content management (video embeds, HTML, Scribe documents, uploaded files)
+- Categorization and tagging (by module, by user role, by topic)
+- Contextual triggers — “show this tutorial when a user first visits this page”
+- Multiple delivery methods: popup/modal, sidebar panel, inline embed
+- Completion tracking — “user has seen this, don’t show again”
+- Tutorial library page where users can browse and search
+- Shortcodes for embedding tutorials and tutorial lists in pages
+
+### Phase 4: Support Agent Module
+
+An AI-powered help system that uses `class-ai-client.php` (core infrastructure) and **declares a dependency on the Tutorials module** in its `module.json`. The agent searches and shares tutorials as part of its responses.
+
+Expected features:
+- Chat widget (floating button, opens conversation panel)
+- System prompt built dynamically from active modules, site content, and tutorial library
+- Answers “how do I...” questions by searching tutorials and site documentation
+- Creates support tickets (simple ticket table in its own schema)
+- Walks users through troubleshooting steps
+- Shares direct links to relevant tutorials
+- Escalates to a real person when it can’t resolve the issue
+
+**Important architecture distinction — three AI-powered features, three separate concerns:**
+
+| Feature | Module | Purpose | Knowledge Base |
+|---------|--------|---------|----------------|
+| **Support Agent** | support-agent | Help users navigate the platform | Tutorials, site docs, FAQs |
+| **AI Tutor** | LMS (sub-feature) | Help users learn course content | Course materials, curriculum |
+| **AI Client** | Core (infrastructure) | API wrapper used by both | N/A — it’s plumbing |
+
+The Support Agent answers “how do I submit my assignment.” The AI Tutor answers “explain photosynthesis.” They share the same underlying API client but serve fundamentally different purposes with different system prompts and knowledge bases.
+
+### Phase 5: LMS Module
+
+Highest priority revenue-driving module. Courses, lessons, enrollments, progress tracking, completions. The AI Tutor is a sub-feature within the LMS module, not a separate module, because it exists solely to support course learning.
+
+### Phase 6: Remaining Modules
+
+1. **Certificates Module** — PDF generation, completion certificates, badge system
+2. **Analytics Module** — Dashboards, reports, data export
+3. **Notifications Module** — Email templates, in-app notifications, digest emails
+
+### Phase 7: Theme Foundation (EL Theme)
 
 - Companion block theme
 - Reads brand settings from EL Core plugin
@@ -255,21 +301,13 @@ Expected features:
 - Responsive framework
 - `theme.json` with EL Core brand integration
 
-### Phase 4: Remaining Modules
-
-Priority order (LMS is the revenue driver):
-
-1. **LMS Module** — Courses, lessons, enrollments, progress tracking, completions
-2. **Certificates Module** — PDF generation, completion certificates, badge system
-3. **Analytics Module** — Dashboards, reports, data export
-4. **Notifications Module** — Email templates, in-app notifications, digest emails
-
-### Phase 5: AI Page Generation Pipeline
+### Phase 8: AI Page Generation Pipeline
 
 - Claude generates Gutenberg block markup from natural language descriptions
 - Page template library
 - MCP integration for direct page creation
 - Block pattern library for common educational page layouts
+
 
 ---
 
@@ -304,13 +342,13 @@ Priority order (LMS is the revenue driver):
 Every module follows identical structure:
 ```
 modules/{slug}/
-├── module.json
-├── class-{slug}-module.php
-├── shortcodes/
-├── ajax/         (optional, if module needs custom AJAX beyond standard hooks)
-├── assets/
-│   ├── css/
-│   └── js/
+â”œâ”€â”€ module.json
+â”œâ”€â”€ class-{slug}-module.php
+â”œâ”€â”€ shortcodes/
+â”œâ”€â”€ ajax/         (optional, if module needs custom AJAX beyond standard hooks)
+â”œâ”€â”€ assets/
+â”‚   â”œâ”€â”€ css/
+â”‚   â””â”€â”€ js/
 ```
 
 Module classes contain ONLY business logic. No infrastructure code (no `CREATE TABLE`, no `add_shortcode()`, no settings page rendering).
@@ -330,10 +368,12 @@ Module classes contain ONLY business logic. No infrastructure code (no `CREATE T
 ### Environment
 
 - **Hosting:** Rocket.net (managed WordPress hosting, no local dev environment)
+- **Local repo:** `C:\Github\EL Core\` — source files and project assets
+- **Release ZIPs:** `C:\Github\EL Core\releases\` — packaged plugin versions ready for upload
 - **WordPress MCP:** Connected to `...scqz.wpdns.site` — can read/write files directly on server
-- **Plugin delivery:** ZIP files uploaded through WordPress admin → Plugins → Add New → Upload
+- **Plugin delivery:** ZIP files uploaded through WordPress admin → Plugins → Add New → Upload Plugin (not FTP, not file editor)
 - **Iteration:** Changes made via MCP `wp_fs_write` commands for file edits, or new ZIP uploads for major changes
-- **Local files:** `C:\Github\EL Core\` on Fred's machine (accessible via Filesystem tools)
+- **MCP connections:** WordPress site, Filesystem access, and Chrome extension are account-level and persist across projects
 
 ### How We Work
 
@@ -429,8 +469,8 @@ Module classes contain ONLY business logic. No infrastructure code (no `CREATE T
 
 ## 9. COMPANION DOCUMENTS
 
-- **el-core-architecture-guide.docx** — Deep-dive learning document explaining the "why" behind every architecture decision. 10 chapters covering fundamentals through implementation. Dual-purpose: architecture blueprint AND potential course material.
-- **el-core-v1.0.0.zip** — The current plugin package, ready for WordPress installation.
+- **el-core-architecture-guide.docx** â€” Deep-dive learning document explaining the "why" behind every architecture decision. 10 chapters covering fundamentals through implementation. Dual-purpose: architecture blueprint AND potential course material.
+- **el-core-v1.0.0.zip** â€” The current plugin package, ready for WordPress installation.
 
 ---
 
@@ -449,13 +489,15 @@ Module classes contain ONLY business logic. No infrastructure code (no `CREATE T
 - [ ] Registration module (next to build)
 
 **PLANNED:**
-- [ ] Event admin creation form (so events can be created without SQL)
-- [ ] EL Theme (companion block theme)
-- [ ] LMS module (highest priority after registration — revenue driver)
+- [ ] Tutorials module (pre-activated by default, content management for help resources)
+- [ ] Support Agent module (AI-powered help, depends on Tutorials)
+- [ ] LMS module (revenue driver, includes AI Tutor sub-feature)
 - [ ] Certificates module
 - [ ] Analytics module
 - [ ] Notifications module
+- [ ] EL Theme (companion block theme)
 - [ ] AI page generation pipeline
+- [ ] Event admin creation form (so events can be created without SQL)
 
 **KNOWN GAPS:**
 - No event creation admin UI yet (events must be created via SQL or AJAX)

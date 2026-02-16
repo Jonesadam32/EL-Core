@@ -1,0 +1,46 @@
+{
+    "name": "AI Integration",
+    "slug": "ai-integration",
+    "version": "1.0.0",
+    "description": "OpenAI API integration for AI-powered features like transcript analysis and content generation",
+    "author": "Expanded Learning Solutions",
+
+    "requires": {
+        "el_core": "1.0.0",
+        "php": "8.0",
+        "modules": []
+    },
+
+    "capabilities": [
+        "manage_ai_settings"
+    ],
+
+    "default_role_mapping": {
+        "administrator": ["manage_ai_settings"]
+    },
+
+    "database": {
+        "version": 1,
+        "tables": {},
+        "migrations": {}
+    },
+
+    "shortcodes": [],
+
+    "settings": [
+        {
+            "key": "openai_api_key",
+            "label": "OpenAI API Key",
+            "type": "string",
+            "default": "",
+            "description": "Your OpenAI API key (stored encrypted)"
+        },
+        {
+            "key": "ai_model",
+            "label": "AI Model",
+            "type": "string",
+            "default": "gpt-4o-mini",
+            "description": "Which OpenAI model to use for AI operations"
+        }
+    ]
+}
