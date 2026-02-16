@@ -89,6 +89,11 @@ class EL_Database {
     /**
      * Create a table from a column definition array
      * 
+     * WordPress dbDelta() is very picky about SQL format:
+     * - No "IF NOT EXISTS"
+     * - PRIMARY KEY must be on separate line with two spaces before it
+     * - Column definitions need proper spacing
+     * 
      * @param string $table_name Unprefixed table name (e.g., 'el_courses')
      * @param array  $columns    Column definitions
      */
@@ -97,12 +102,32 @@ class EL_Database {
         $charset   = $this->wpdb->get_charset_collate();
 
         $column_sql = [];
+        $primary_key = null;
+
         foreach ( $columns as $col_name => $col_def ) {
-            $column_sql[] = "    {$col_name} {$col_def}";
+            // Check if this column has PRIMARY KEY inline
+            if ( stripos( $col_def, 'PRIMARY KEY' ) !== false ) {
+                // Remove PRIMARY KEY from column definition
+                $col_def = preg_replace( '/\s*PRIMARY\s+KEY\s*/i', ' ', $col_def );
+                $col_def = trim( $col_def );
+                // Add NOT NULL if not present (required for primary key)
+                if ( stripos( $col_def, 'NOT NULL' ) === false ) {
+                    $col_def .= ' NOT NULL';
+                }
+                $primary_key = $col_name;
+            }
+            $column_sql[] = "{$col_name} {$col_def}";
         }
 
-        $sql = "CREATE TABLE IF NOT EXISTS {$full_name} (\n";
+        // Build SQL - dbDelta needs exact formatting
+        $sql = "CREATE TABLE {$full_name} (\n";
         $sql .= implode( ",\n", $column_sql );
+        
+        // Add PRIMARY KEY on separate line (two spaces before PRIMARY KEY is required by dbDelta)
+        if ( $primary_key ) {
+            $sql .= ",\n  PRIMARY KEY  ({$primary_key})";
+        }
+        
         $sql .= "\n) {$charset};";
 
         // Use dbDelta for safe table creation

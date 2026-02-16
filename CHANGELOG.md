@@ -2,6 +2,14 @@
 
 All notable changes to EL Core will be documented in this file.
 
+## [1.2.3] - 2026-02-16
+
+### Fixed
+- Fixed database table creation for WordPress dbDelta() compatibility
+- PRIMARY KEY now on separate line as required by dbDelta
+- Removed IF NOT EXISTS (dbDelta handles this automatically)
+- This fixes the events module activation crash
+
 ## [1.2.2] - 2026-02-15
 
 ### Fixed
