@@ -2,6 +2,11 @@
 
 All notable changes to EL Core will be documented in this file.
 
+## [1.2.2] - 2026-02-15
+
+### Fixed
+- Corrected ZIP file structure to include proper el-core/ folder wrapper for WordPress compatibility
+
 ## [1.2.1] - 2026-02-15
 
 ### Changed
