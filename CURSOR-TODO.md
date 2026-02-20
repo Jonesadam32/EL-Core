@@ -5,7 +5,7 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** February 20, 2026
-> **Plugin Version:** v1.3.0
+> **Plugin Version:** v1.4.0
 > **Deployed On:** expandedlearningsolutions.com
 > **Local Repo:** `C:\Github\EL Core\`
 > **Plugin Source:** `C:\Github\EL Core\el-core\`
@@ -26,11 +26,11 @@
 
 > Goal: Confirm everything that's been built actually works on the live site.
 
-- [ ] Delete `el-core/modules/project-management/` — fully replaced by expand-site
-- [ ] Run `build-zip.ps1` to produce `el-core.zip`
-- [ ] Confirm ZIP builds without errors
-- [ ] Bump version to `1.4.0` in `el-core.php` plugin header AND `EL_CORE_VERSION` constant
-- [ ] Update `CHANGELOG.md` with v1.4.0 entry
+- [x] Delete `el-core/modules/project-management/` — fully replaced by expand-site
+- [x] Run `build-zip.ps1` to produce `el-core.zip`
+- [x] Confirm ZIP builds without errors
+- [x] Bump version to `1.4.0` in `el-core.php` plugin header AND `EL_CORE_VERSION` constant
+- [x] Update `CHANGELOG.md` with v1.4.0 entry
 - [ ] Upload ZIP to expandedlearningsolutions.com — WordPress Admin → Plugins → Add New → Upload Plugin
 - [ ] Verify plugin activates without PHP errors
 - [ ] Verify Expand Site module appears in EL Core → Modules admin page

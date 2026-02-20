@@ -5,7 +5,7 @@
 >
 > **Last Updated:** February 20, 2026
 > **Updated By:** Claude
-> **Current Plugin Version:** 1.3.0
+> **Current Plugin Version:** 1.4.0
 
 ---
 
@@ -55,11 +55,11 @@ The agent reads the handoff doc and works only in its scope. Update START-HERE w
 |--------|-----------|----------|--------|
 | Events | modules/events/ | Claude | Functional, no admin UI |
 | Registration | modules/registration/ | Claude | Code complete, untested |
-| Expand Site | modules/expand-site/ | Cursor | Core files done, shortcodes/CSS/JS still needed |
+| Expand Site | modules/expand-site/ | Cursor | Complete: shortcodes, CSS, JS built |
 | Fluent CRM Integration | modules/fluent-crm-integration/ | Cursor | Functional |
 | AI Integration | modules/ai-integration/ | Cursor | Functional |
 
-> ⚠️ `modules/project-management/` must be deleted — it is fully replaced by `modules/expand-site/`
+> ✅ `modules/project-management/` deleted — replaced by `modules/expand-site/`
 
 ### Key Files
 - `CHANGELOG.md` — version history
@@ -72,28 +72,21 @@ The agent reads the handoff doc and works only in its scope. Update START-HERE w
 
 ## WHAT WAS DONE THIS SESSION (February 20, 2026)
 
-Cursor built the Expand Site module core files:
-- `module.json` — 5 tables (el_es_*), 3 capabilities, 4 shortcodes, 3 settings
-- `class-expand-site-module.php` — singleton, STAGES constant, all query/action methods, 9 AJAX handlers
-- `admin/views/project-list.php` — stats grid, filter bar, data table, create modal
-- `admin/views/project-detail.php` — pipeline progress bar, 5 tabs, stage/deliverable/page modals
-- `admin/views/project-form.php` — full edit form using EL_Admin_UI
+Cursor completed Phase 1 deploy prep and Expand Site client portal:
+- Deleted `modules/project-management/` (replaced by expand-site)
+- Built 4 shortcodes: project-portal, project-status, page-review, feedback-form
+- Built `expand-site.css` and `expand-site.js` (el-es- prefix, ELCore.ajax)
+- Added `es_client_review_page` AJAX handler for page approval
+- Bumped version to 1.4.0, updated CHANGELOG, ran build-zip.ps1
 
 ---
 
 ## WHAT NEEDS TO HAPPEN NEXT
 
-### For Cursor — Expand Site (shortcodes, CSS, JS):
-Read `cursor-prompt-expand-site-v3.md` for full details. Summary:
-
-1. **Delete `modules/project-management/`** — replaced by expand-site
-2. **Build shortcode files** in `modules/expand-site/shortcodes/`:
-   - `project-portal.php` → `el_shortcode_project_portal`
-   - `project-status.php` → `el_shortcode_project_status`
-   - `page-review.php` → `el_shortcode_page_review`
-   - `feedback-form.php` → `el_shortcode_feedback_form`
-3. **Build `assets/css/expand-site.css`** — el-es- prefix, brand variables
-4. **Build `assets/js/expand-site.js`** — vanilla JS, ELCore.ajax()
+### For Cursor — Phase 1 verification (user actions):
+1. **Upload** `el-core.zip` to expandedlearningsolutions.com (WordPress Admin → Plugins → Add New → Upload)
+2. Verify plugin activates, Expand Site appears, create test project, test shortcodes on frontend
+3. Continue to Phase 2 (Canvas) or Phase 3 (Expand Site polish) per CURSOR-TODO.md
 
 ### For Claude — Core Infrastructure:
 1. Canvas Page System — bypasses Gutenberg for AI-generated pages

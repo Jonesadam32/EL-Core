@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.0] — 2026-02-20
+### Added
+- Expand Site module: 4 client portal shortcodes (`[el_project_portal]`, `[el_project_status]`, `[el_page_review]`, `[el_feedback_form]`)
+- Expand Site assets: `expand-site.css`, `expand-site.js` with `el-es-` prefix and brand variables
+- AJAX handler `es_client_review_page` for client page approval/revision
+
+### Changed
+- Deleted `modules/project-management/` — fully replaced by `modules/expand-site/`
+- Session handoff: added workstream startup prompts to START-HERE-NEXT-SESSION.md
+
+---
+
 ## [1.3.0] — 2026-02-20
 ### Added
 - `includes/class-admin-ui.php` — Admin UI framework with 19 static component methods
