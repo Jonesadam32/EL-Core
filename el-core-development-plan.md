@@ -40,7 +40,7 @@ Tasks marked ⚡ Parallel can be worked on in Cursor at the same time Claude is 
 
 **Admin Pages:** Dashboard ✅ | Brand ✅ | Modules ✅ | Roles ✅
 
-**Modules Built:** Events (functional, no admin UI) | Registration (code complete, untested)
+**Modules Built:** Events (functional, no admin UI) | Registration (code complete, untested) | Expand Site (core files done, shortcodes/CSS/JS remaining) | Fluent CRM Integration (functional) | AI Integration (functional)
 
 **Key Decisions Already Made:**
 - Canvas page system bypasses Gutenberg for AI-generated pages
@@ -95,28 +95,19 @@ These are foundational pieces that other work depends on.
 > When complete, Claude reads from filesystem to review and integrate.
 
 ### B1. Module Foundation ⭐ Priority
-- [ ] Create `modules/expand-site/module.json` manifest — 🟢 Cursor
-  - Tables: el_es_projects, el_es_stages, el_es_deliverables, el_es_feedback, el_es_pages, el_es_change_orders
-  - Capabilities: manage_expand_site, view_expand_site, review_expand_site
-  - Depends on: registration module
-- [ ] Create `modules/expand-site/class-expand-site-module.php` — 🟢 Cursor
-  - Project CRUD operations
-  - Stage transition logic and validation
-  - Approval gate enforcement
-  - AJAX handlers (both priv and nopriv)
+- [x] Create `modules/expand-site/module.json` manifest — 🟢 Cursor
+- [x] Create `modules/expand-site/class-expand-site-module.php` — 🟢 Cursor
 
 ### B2. Admin Dashboard (Internal)
-- [ ] Project list view (all projects with status/stage indicators) — 🟢 Cursor
-- [ ] Project detail view (stage history, deliverables, feedback) — 🟢 Cursor
-- [ ] Create new project form — 🟢 Cursor
-- [ ] Stage advancement controls (with validation) — 🟢 Cursor
-- [ ] Deliverable upload and management — 🟢 Cursor
+- [x] Project list view — 🟢 Cursor
+- [x] Project detail view — 🟢 Cursor
+- [x] Create/edit project form — 🟢 Cursor
 
 ### B3. Client Portal Shortcodes
-- [ ] `[el_project_portal]` — Client dashboard showing their project — 🟢 Cursor
-- [ ] `[el_project_status]` — Visual progress across 8 stages — 🟢 Cursor
-- [ ] `[el_page_review]` — Review interface for deliverables — 🟢 Cursor
-- [ ] `[el_feedback_form]` — Structured feedback submission — 🟢 Cursor
+- [x] `[el_project_portal]` — 🟢 Cursor
+- [x] `[el_project_status]` — 🟢 Cursor
+- [x] `[el_page_review]` — 🟢 Cursor
+- [x] `[el_feedback_form]` — 🟢 Cursor
 
 ### B4. Feedback System
 - [ ] Structured review forms with specific questions per stage — 🟢 Cursor
@@ -124,8 +115,8 @@ These are foundational pieces that other work depends on.
 - [ ] Change order flagging and pricing — 🟢 Cursor
 
 ### B5. Frontend Assets
-- [ ] `modules/expand-site/assets/css/expand-site.css` (using `el-es-` class prefix) — 🟢 Cursor
-- [ ] `modules/expand-site/assets/js/expand-site.js` — 🟢 Cursor
+- [x] `modules/expand-site/assets/css/expand-site.css` — 🟢 Cursor
+- [x] `modules/expand-site/assets/js/expand-site.js` — 🟢 Cursor
 
 ### B6. Integration Review (After Cursor Completes)
 - [ ] Claude reads Cursor output from filesystem — 🔵 Claude
@@ -330,6 +321,7 @@ These are foundational pieces that other work depends on.
 | Feb 15 | 6 | Created Expand Site process document | v1.0.0 |
 | Feb 20 | 7 | Built class-admin-ui.php, updated admin.css, rebuilt dashboard | v1.3.0 |
 | Feb 20 | 8 | Created development plan v2.0 (this document) | v1.3.0 |
+| Feb 20 | 9 | Cursor built Expand Site module — all core files, admin views, shortcodes, CSS, JS. Deleted project-management module. | v1.3.0 |
 | | | | |
 | | | | |
 | | | | |
