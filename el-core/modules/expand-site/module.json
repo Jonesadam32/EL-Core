@@ -1,0 +1,147 @@
+{
+    "name": "Expand Site",
+    "slug": "expand-site",
+    "version": "1.0.0",
+    "description": "8-stage client site-building pipeline with project management, deliverable tracking, client feedback, and change orders.",
+    "author": "Expanded Learning Solutions",
+
+    "requires": {
+        "el_core": "1.0.0",
+        "php": "8.0",
+        "modules": []
+    },
+
+    "capabilities": [
+        "manage_expand_site",
+        "view_expand_site",
+        "submit_feedback"
+    ],
+
+    "default_role_mapping": {
+        "administrator": ["manage_expand_site", "view_expand_site", "submit_feedback"],
+        "editor": ["view_expand_site", "submit_feedback"],
+        "subscriber": ["view_expand_site", "submit_feedback"]
+    },
+
+    "database": {
+        "version": 1,
+        "tables": {
+            "el_es_projects": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "name": "VARCHAR(255) NOT NULL",
+                "client_name": "VARCHAR(255) NOT NULL",
+                "client_user_id": "BIGINT UNSIGNED DEFAULT 0",
+                "current_stage": "TINYINT UNSIGNED DEFAULT 1",
+                "status": "VARCHAR(20) DEFAULT 'active'",
+                "budget_range_low": "DECIMAL(10,2) DEFAULT 0",
+                "budget_range_high": "DECIMAL(10,2) DEFAULT 0",
+                "final_price": "DECIMAL(10,2) DEFAULT 0",
+                "scope_locked_at": "DATETIME NULL",
+                "notes": "LONGTEXT",
+                "created_by": "BIGINT UNSIGNED DEFAULT 0",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_stage_history": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "stage": "TINYINT UNSIGNED NOT NULL",
+                "action": "VARCHAR(20) DEFAULT 'entered'",
+                "notes": "TEXT",
+                "acted_by": "BIGINT UNSIGNED DEFAULT 0",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_deliverables": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "stage": "TINYINT UNSIGNED NOT NULL",
+                "title": "VARCHAR(255) NOT NULL",
+                "description": "TEXT",
+                "file_url": "VARCHAR(500) DEFAULT ''",
+                "file_type": "VARCHAR(50) DEFAULT ''",
+                "review_status": "VARCHAR(20) DEFAULT 'pending'",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_feedback": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "deliverable_id": "BIGINT UNSIGNED DEFAULT 0",
+                "stage": "TINYINT UNSIGNED NOT NULL",
+                "user_id": "BIGINT UNSIGNED NOT NULL",
+                "feedback_type": "VARCHAR(20) DEFAULT 'revision'",
+                "content": "LONGTEXT NOT NULL",
+                "status": "VARCHAR(20) DEFAULT 'pending'",
+                "is_change_order": "TINYINT(1) DEFAULT 0",
+                "change_order_price": "DECIMAL(10,2) DEFAULT 0",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_pages": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "page_name": "VARCHAR(255) NOT NULL",
+                "page_url": "VARCHAR(500) DEFAULT ''",
+                "status": "VARCHAR(20) DEFAULT 'planned'",
+                "sort_order": "INT UNSIGNED DEFAULT 0",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            }
+        },
+        "migrations": {}
+    },
+
+    "shortcodes": [
+        {
+            "tag": "el_project_portal",
+            "file": "shortcodes/project-portal.php",
+            "description": "Client-facing project dashboard showing current stage, deliverables, and feedback options",
+            "params": {
+                "project_id": { "type": "integer", "default": 0 }
+            }
+        },
+        {
+            "tag": "el_project_status",
+            "file": "shortcodes/project-status.php",
+            "description": "Visual stage progress bar for a project",
+            "params": {
+                "project_id": { "type": "integer", "default": 0 }
+            }
+        },
+        {
+            "tag": "el_page_review",
+            "file": "shortcodes/page-review.php",
+            "description": "Page-by-page deliverable review interface for clients",
+            "params": {
+                "project_id": { "type": "integer", "default": 0 }
+            }
+        },
+        {
+            "tag": "el_feedback_form",
+            "file": "shortcodes/feedback-form.php",
+            "description": "Structured feedback submission form for clients",
+            "params": {
+                "project_id": { "type": "integer", "default": 0 },
+                "deliverable_id": { "type": "integer", "default": 0 }
+            }
+        }
+    ],
+
+    "settings": [
+        {
+            "key": "default_budget_low",
+            "label": "Default Budget Range (Low)",
+            "type": "number",
+            "default": 3000
+        },
+        {
+            "key": "default_budget_high",
+            "label": "Default Budget Range (High)",
+            "type": "number",
+            "default": 10000
+        },
+        {
+            "key": "enable_client_portal",
+            "label": "Enable Client Portal Shortcodes",
+            "type": "boolean",
+            "default": true
+        }
+    ]
+}

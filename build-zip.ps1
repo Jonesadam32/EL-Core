@@ -5,7 +5,7 @@
 # which Linux servers cannot extract into subdirectories. This script uses
 # .NET ZipFile API to ensure forward slashes per the ZIP specification.
 
-$version = "1.2.7"
+$version = "1.3.0"
 $source  = "C:\Github\EL Core\el-core"
 $downloadsZip = "C:\Users\Fred Jones\Downloads\el-core.zip"
 $backupDir = "C:\Github\EL Core\old-versions\v$version"

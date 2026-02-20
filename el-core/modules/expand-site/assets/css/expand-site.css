@@ -1,0 +1,280 @@
+/**
+ * Expand Site — Client Portal Styles
+ *
+ * Uses brand variables: --el-primary, --el-accent, --el-text, --el-bg
+ * Does NOT restyle core classes (el-form, el-field, el-btn).
+ */
+
+/* ═══════════════════════════════════════════
+   PORTAL
+   ═══════════════════════════════════════════ */
+
+.el-es-portal {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.el-es-portal-header {
+    margin-bottom: 1.5rem;
+}
+
+.el-es-portal-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--el-text, #333);
+    margin: 0 0 0.25rem 0;
+}
+
+.el-es-portal-stage {
+    color: var(--el-primary, #1a1a2e);
+    font-weight: 500;
+    margin: 0;
+}
+
+.el-es-portal-deliverables,
+.el-es-portal-feedback {
+    margin-bottom: 1.5rem;
+}
+
+.el-es-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--el-text, #333);
+    margin: 0 0 0.75rem 0;
+}
+
+.el-es-empty {
+    color: #999;
+    font-style: italic;
+    margin: 0;
+}
+
+.el-es-deliverable-list,
+.el-es-feedback-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.el-es-deliverable-item,
+.el-es-feedback-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.el-es-deliverable-item:last-child,
+.el-es-feedback-item:last-child {
+    border-bottom: none;
+}
+
+.el-es-deliverable-title {
+    font-weight: 500;
+}
+
+.el-es-deliverable-link {
+    margin-left: 0.5rem;
+    color: var(--el-accent, #e94560);
+    text-decoration: none;
+}
+
+.el-es-deliverable-link:hover {
+    text-decoration: underline;
+}
+
+/* ═══════════════════════════════════════════
+   STAGE BAR (8-step progress)
+   ═══════════════════════════════════════════ */
+
+.el-es-stage-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+}
+
+.el-es-stage-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    min-width: 80px;
+    transition: all 0.2s ease;
+}
+
+.el-es-stage-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.el-es-stage-label {
+    font-size: 11px;
+    text-align: center;
+    margin-top: 0.25rem;
+}
+
+.el-es-stage-completed {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.el-es-stage-completed .el-es-stage-number {
+    background: var(--el-primary, #1a1a2e);
+    color: #fff;
+}
+
+.el-es-stage-completed .el-es-stage-label {
+    color: var(--el-text, #333);
+}
+
+.el-es-stage-current {
+    background: var(--el-primary, #1a1a2e);
+}
+
+.el-es-stage-current .el-es-stage-number {
+    background: #fff;
+    color: var(--el-primary, #1a1a2e);
+}
+
+.el-es-stage-current .el-es-stage-label {
+    color: #fff;
+}
+
+.el-es-stage-upcoming {
+    background: #f5f5f5;
+}
+
+.el-es-stage-upcoming .el-es-stage-number {
+    background: #ddd;
+    color: #999;
+}
+
+.el-es-stage-upcoming .el-es-stage-label {
+    color: #999;
+}
+
+/* ═══════════════════════════════════════════
+   PAGE REVIEW
+   ═══════════════════════════════════════════ */
+
+.el-es-page-review {
+    max-width: 700px;
+}
+
+.el-es-page-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.el-es-page-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+}
+
+.el-es-page-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.el-es-page-name {
+    font-weight: 500;
+}
+
+.el-es-page-link {
+    margin-left: 0.5rem;
+    color: var(--el-accent, #e94560);
+    text-decoration: none;
+}
+
+.el-es-page-link:hover {
+    text-decoration: underline;
+}
+
+.el-es-page-status {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    font-size: 12px;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+}
+
+.el-es-status-planned,
+.el-es-status-pending {
+    background: #f0f0f0;
+    color: #666;
+}
+
+.el-es-status-approved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.el-es-status-needs_revision,
+.el-es-status-needs-revision {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.el-es-page-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.el-es-page-status-msg {
+    margin-top: 1rem;
+    padding: 0.5rem;
+}
+
+/* ═══════════════════════════════════════════
+   FEEDBACK FORM
+   ═══════════════════════════════════════════ */
+
+.el-es-feedback-form {
+    max-width: 600px;
+}
+
+.el-es-feedback-form-inner .el-field {
+    margin-bottom: 1rem;
+}
+
+.el-es-feedback-form-inner label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    color: var(--el-text, #333);
+}
+
+.el-es-feedback-form-inner select,
+.el-es-feedback-form-inner textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: inherit;
+}
+
+.el-es-feedback-form-inner textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.el-es-feedback-submit {
+    margin-top: 0.5rem;
+}
+
+.el-es-feedback-status {
+    margin-top: 1rem;
+}

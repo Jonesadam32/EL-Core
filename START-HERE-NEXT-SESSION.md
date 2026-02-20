@@ -91,7 +91,7 @@ Read `cursor-prompt-expand-site-v3.md` for full details. Summary:
 - Asset files: `expand-site.css`, `expand-site.js`
 - CSS class prefix: `el-es-` for all Expand Site components
 - Admin UI uses `EL_Admin_UI::*` exclusively — no raw HTML
-- Deploy via ZIP only — run `build-zip.ps1`, upload through WP Admin
+- Deploy via ZIP only — Cursor runs `build-zip.ps1` when needed, upload through WP Admin
 - ZIP filename: always `el-core.zip` (no version number)
 - WordPress MCP is NOT connected — no wp_fs_write or MCP tools
 - Canvas page system is core infrastructure, not a module
@@ -101,7 +101,7 @@ Read `cursor-prompt-expand-site-v3.md` for full details. Summary:
 
 ## DEPLOYMENT RULES
 
-- Run `build-zip.ps1` from repo root (uses .NET ZipFile, NOT Compress-Archive)
+- Cursor runs `build-zip.ps1` from repo root when a deployment build is needed (uses .NET ZipFile, NOT Compress-Archive)
 - Upload `el-core.zip` via WordPress Admin → Plugins → Add New → Upload Plugin
 - Version bump: update plugin header AND `EL_CORE_VERSION` constant (two places)
 - Update `CHANGELOG.md` with every version bump

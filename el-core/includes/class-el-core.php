@@ -49,6 +49,7 @@ class EL_Core {
     private function load_dependencies(): void {
         $includes = EL_CORE_DIR . 'includes/';
 
+        require_once $includes . 'class-admin-ui.php';
         require_once $includes . 'class-settings.php';
         require_once $includes . 'class-database.php';
         require_once $includes . 'class-roles.php';
