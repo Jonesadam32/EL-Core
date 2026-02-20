@@ -1,8 +1,10 @@
 # EL Core — Architecture Handoff for Cursor AI
 
-> **Purpose:** This document gives you (the AI assistant in Cursor) complete context on the EL Core WordPress plugin — its architecture, every file, coding conventions, design decisions, and critical lessons learned during development. Use this as your primary reference when working on this codebase.
+> **Purpose:** This document gives you (Cursor) complete context on the EL Core WordPress plugin — its architecture, every file, coding conventions, design decisions, and critical lessons learned. Use this as your primary reference when working on this codebase.
 >
-> **Last Updated:** February 15, 2026
+> **Last Updated:** February 20, 2026
+> **Current Plugin Version:** v1.3.0
+> **Deployed On:** expandedlearningsolutions.com
 
 ---
 
@@ -16,38 +18,7 @@ EL Core is a modular WordPress plugin that serves as the foundation for educatio
 
 ---
 
-## 2. ORIGIN STORY & WHY IT EXISTS
-
-EL Core was born from converting the Bold Youth Project — a custom-coded educational platform that grew to 65,000+ lines. Bold Youth worked but had five structural problems that became the driving design principles for EL Core:
-
-### Problem 1: PHP Configuration File → Admin UI Settings
-Bold Youth used `bold-youth-config.php` requiring PHP edits to toggle features. A syntax error crashes the site. Non-technical admins couldn't change anything.
-
-**EL Core solution:** All settings stored in `wp_options`, managed through admin UI checkboxes and forms. The `EL_Settings` class handles groups stored as serialized arrays with in-memory caching.
-
-### Problem 2: Hardcoded User Roles → Capability-Based Permissions
-Bold Youth baked role names like `boldyouth_student` into code. Next client uses completely different role names.
-
-**EL Core solution:** Code checks CAPABILITIES (`manage_courses`), never role names. Each installation maps capabilities to their own custom roles. The `EL_Roles` class manages a role-capability matrix exposed in the admin UI.
-
-### Problem 3: No Database Migrations → Automatic Schema Versioning
-Bold Youth required manual SQL changes per installation. 15 installations = 15 manual updates.
-
-**EL Core solution:** Modules declare schema version in `module.json`. The `EL_Database` class tracks installed versions in `el_core_schema_versions` option and runs migrations automatically on plugin update using `dbDelta()`.
-
-### Problem 4: No Brand Configuration → Admin-Managed Branding
-Colors lived in a `BRAND-COLORS.md` file with CSS variables embedded in code.
-
-**EL Core solution:** Admin uploads logo, picks colors/fonts in settings page. Stored in database. Injected as CSS custom properties (`--el-primary`, `--el-accent`, etc.) automatically by the `EL_Asset_Loader` class.
-
-### Problem 5: Monolithic Shortcodes → Component-Level Shortcodes
-Bold Youth used monolithic shortcodes like `[boldyouth_group_projects]` that rendered entire interfaces. Admins couldn't edit headings, layout, or text without going back to the developer.
-
-**EL Core solution:** Component-level shortcodes (`[el_event_list]`, `[el_event_rsvp]`) that render ONE focused piece. These are combined with native WordPress blocks in the Gutenberg block editor. Admins edit text and layout visually; the plugin powers the interactive data-driven components.
-
----
-
-## 3. TWO-LAYER ARCHITECTURE
+## 2. TWO-LAYER ARCHITECTURE
 
 | Layer | Responsibility | Changed By |
 |-------|---------------|------------|
@@ -58,7 +29,7 @@ The plugin exposes helper functions (like `el_core_get_brand_colors()`). The the
 
 ---
 
-## 4. MODULE SYSTEM — THE CORE DESIGN PATTERN
+## 3. MODULE SYSTEM — THE CORE DESIGN PATTERN
 
 **Modules declare WHAT they need. Core handles HOW.**
 
@@ -83,20 +54,20 @@ The core automatically:
 If other code depends on it to function → it's **core**.
 If it's a feature, even one every installation uses → it's a **module**.
 
-Settings, database, roles, modules, assets, AJAX, AI client = core (modules literally can't work without them).
-Events, Registration, Tutorials, LMS = modules (can be toggled without breaking anything).
+Settings, database, roles, modules, assets, AJAX, AI client, admin UI = core.
+Events, Registration, Expand Site, Tutorials, LMS = modules.
 
 ---
 
-## 5. FILE STRUCTURE & EVERY FILE EXPLAINED
+## 4. FILE STRUCTURE
 
 ```
 el-core/
-├── el-core.php                          # Main plugin loader
+├── el-core.php                          # Main plugin loader, constants, activation hooks
 ├── uninstall.php                        # Cleanup on plugin deletion
 ├── README.md
 │
-├── includes/                            # Core system classes (9 files)
+├── includes/                            # Core system classes (10 files)
 │   ├── class-el-core.php                # Orchestrator singleton
 │   ├── class-settings.php               # Settings framework
 │   ├── class-database.php               # Schema manager
@@ -105,9 +76,10 @@ el-core/
 │   ├── class-asset-loader.php           # CSS/JS loading, brand injection
 │   ├── class-ajax-handler.php           # Standardized AJAX
 │   ├── class-ai-client.php              # Claude/OpenAI API wrapper
+│   ├── class-admin-ui.php               # Shared admin UI framework (added v1.3.0)
 │   └── functions.php                    # Global helper functions (API boundary)
 │
-├── admin/                               # Admin-side UI
+├── admin/                               # Core admin-side UI
 │   ├── views/
 │   │   ├── settings-general.php         # Dashboard overview
 │   │   ├── settings-brand.php           # Colors, logo, fonts, AI config
@@ -120,34 +92,56 @@ el-core/
 │   ├── css/el-core.css                  # Component styles (CSS variables)
 │   └── js/el-core.js                    # AJAX helper, form handlers, RSVP
 │
-├── modules/
-│   ├── events/                          # First module (proof of concept)
-│   │   ├── module.json
-│   │   ├── class-events-module.php
-│   │   └── shortcodes/
-│   │       ├── event-list.php           # [el_event_list]
-│   │       └── event-rsvp.php           # [el_event_rsvp]
-│   │
-│   └── registration/                    # Second module (Phase 2)
-│       ├── module.json
-│       ├── class-registration-module.php
-│       └── shortcodes/
-│           ├── register-form.php        # [el_register_form]
-│           └── user-profile.php         # [el_user_profile]
-│
-└── templates/                           # Gutenberg block markup templates
-    ├── events-page.html
-    ├── registration-page.html
-    └── profile-page.html
+└── modules/
+    ├── events/                          # Events with RSVP — functional, no admin UI
+    │   ├── module.json
+    │   ├── class-events-module.php
+    │   └── shortcodes/
+    │       ├── event-list.php           # [el_event_list]
+    │       └── event-rsvp.php           # [el_event_rsvp]
+    │
+    ├── registration/                    # User registration — code complete, untested
+    │   ├── module.json
+    │   ├── class-registration-module.php
+    │   └── shortcodes/
+    │       ├── register-form.php        # [el_register_form]
+    │       └── user-profile.php        # [el_user_profile]
+    │
+    ├── expand-site/                     # Site-building client management (YOUR module)
+    │   ├── module.json
+    │   ├── class-expand-site-module.php
+    │   ├── admin/views/
+    │   │   ├── project-list.php
+    │   │   ├── project-detail.php
+    │   │   └── project-form.php
+    │   ├── shortcodes/
+    │   │   ├── project-portal.php       # [el_project_portal]
+    │   │   ├── project-status.php       # [el_project_status]
+    │   │   ├── page-review.php          # [el_page_review]
+    │   │   └── feedback-form.php        # [el_feedback_form]
+    │   └── assets/
+    │       ├── css/expand-site.css
+    │       └── js/expand-site.js
+    │
+    ├── fluent-crm-integration/          # FluentCRM sync — functional
+    │   ├── module.json
+    │   └── class-fluent-crm-integration-module.php
+    │
+    └── ai-integration/                  # AI features — functional
+        ├── module.json
+        ├── class-ai-integration-module.php
+        └── admin/settings-page.php
 ```
+
+> ⚠️ `modules/project-management/` has been deleted. It is fully replaced by `modules/expand-site/`.
 
 ---
 
-## 6. CORE CLASSES — HOW THEY WORK
+## 5. CORE CLASSES — HOW THEY WORK
 
 ### Boot Sequence (class-el-core.php)
 
-The orchestrator is a singleton (`EL_Core::instance()`) that boots subsystems in dependency order:
+Singleton (`EL_Core::instance()`) that boots in dependency order:
 
 1. **Settings** → everything reads config
 2. **Database** → modules need schema management
@@ -162,7 +156,7 @@ All subsystems are public properties: `$core->settings`, `$core->database`, etc.
 ### Settings (class-settings.php)
 
 - Groups stored as serialized arrays: `el_core_brand`, `el_core_ai`, `el_core_modules`, `el_mod_{slug}`
-- In-memory caching per request (no repeated `get_option()` calls)
+- In-memory caching per request
 - Brand CSS variable generation: `get_brand_css_variables()`
 - WordPress Settings API integration with sanitization callbacks
 
@@ -182,10 +176,14 @@ All subsystems are public properties: `$core->settings`, `$core->database`, etc.
 - Resolves dependencies (auto-activates required modules)
 - Prevents deactivation if other modules depend on it
 - Registers shortcodes from manifest declarations
-- Converts slug to class name: `events` → `EL_Events_Module`
+- Converts slug to class name: `expand-site` → `EL_Expand_Site_Module`
 
 **CRITICAL PATTERN — Shortcode function naming:**
-The module loader derives function names from shortcode tags. Tag `el_register_form` → strips `el_` prefix → function `el_shortcode_register_form`. If the function name doesn't match this convention, the shortcode won't register and you'll get an error log.
+The module loader strips the `el_` prefix from the tag and prepends `el_shortcode_`:
+- Tag `el_project_portal` → function `el_shortcode_project_portal`
+- Tag `el_event_list` → function `el_shortcode_event_list`
+
+If the function name doesn't match, you'll see `EL Core: Shortcode function 'xxx' not found for tag 'yyy'` in the error log.
 
 ### AJAX Handler (class-ajax-handler.php)
 
@@ -195,11 +193,26 @@ The module loader derives function names from shortcode tags. Tag `el_register_f
 - Modules hook into `el_core_ajax_nopriv_{action_name}` for guest requests
 - Static response helpers: `EL_AJAX_Handler::success()`, `EL_AJAX_Handler::error()`
 
+### Admin UI Framework (class-admin-ui.php) — Added v1.3.0
+
+**Every admin view in every module uses this class.** Never write raw HTML for admin tables, forms, or cards. Always use the framework methods.
+
+Key methods (read the class file for full API):
+- `EL_Admin_UI::page_wrap($title, $content)` — standard page wrapper
+- `EL_Admin_UI::card($title, $content, $actions)` — card component
+- `EL_Admin_UI::data_table($headers, $rows, $options)` — sortable table
+- `EL_Admin_UI::form_field($args)` — renders labeled input/select/textarea
+- `EL_Admin_UI::button($label, $args)` — button component
+- `EL_Admin_UI::notice($message, $type)` — info/success/warning/error notice
+
+Always read `includes/class-admin-ui.php` before building admin views. The available components and their parameters are defined there.
+
 ### Asset Loader (class-asset-loader.php)
 
 - Enqueues `el-core.css` and `el-core.js` on frontend
 - `wp_localize_script` provides `elCore.ajaxUrl` and `elCore.nonce` to JS
 - Injects brand CSS custom properties via `<style>` tag in `<head>`
+- Module-specific assets are enqueued by each module class
 
 ### AI Client (class-ai-client.php)
 
@@ -220,11 +233,9 @@ These are the **API boundary**. Themes and external code use these, never class 
 
 ---
 
-## 7. MODULES IN DETAIL
+## 6. MODULES IN DETAIL
 
-### Events Module (Proof of Concept — Complete)
-
-**Purpose:** First module built to prove the architecture works. Events with RSVP functionality.
+### Events Module (Functional — No Admin UI)
 
 **Capabilities:** `manage_events`, `create_events`, `rsvp_events`, `view_events`
 
@@ -233,18 +244,12 @@ These are the **API boundary**. Themes and external code use these, never class 
 - `el_event_rsvps` — id, event_id, user_id, status, rsvp_date
 
 **Shortcodes:**
-- `[el_event_list limit="6" layout="cards|list"]` — Displays upcoming events
-- `[el_event_rsvp event_id="123"]` — RSVP toggle button with AJAX
+- `[el_event_list limit="6" layout="cards|list"]`
+- `[el_event_rsvp event_id="123"]`
 
-**AJAX Actions:**
-- `rsvp_event` — Toggle RSVP (creates or cancels), checks capacity
-- `create_event` — Create new event (requires `create_events` capability)
+**Known gap:** No event creation admin UI — events require SQL or AJAX.
 
-**Known gap:** No event creation admin UI — events must be created via SQL or AJAX.
-
-### Registration Module (Phase 2 — Built, Needs Testing)
-
-**Purpose:** User registration with configurable workflows: open, approval-based, invite-only, or closed.
+### Registration Module (Code Complete — Untested)
 
 **Capabilities:** `manage_registration`, `create_invites`, `view_registrations`
 
@@ -253,164 +258,66 @@ These are the **API boundary**. Themes and external code use these, never class 
 
 **Shortcodes:**
 - `[el_register_form]` — Registration form with all workflow support
-- `[el_user_profile]` — Profile display and editor for custom fields
+- `[el_user_profile]` — Profile display and editor
 
 **Settings (stored as `el_mod_registration`):**
 - `registration_mode` → open / approval / invite / closed
-- `email_verification` → boolean (independent of mode)
-- `default_role` → what role new users get
-- `allow_role_selection` / `allowed_roles` → role picker on form
+- `email_verification` → boolean
+- `default_role`, `allow_role_selection`, `allowed_roles`
 - `custom_fields` → JSON array of field definitions
-- `redirect_after_register` → URL after signup
-- `approval_email_notify` → notify admins on new registrations
+- `redirect_after_register`, `approval_email_notify`
 
-**Security layers:**
-- Honeypot field (hidden `website_url` input — bots fill it, humans don't)
-- Rate limiting (5 attempts per IP per 15 minutes, stored as transients)
-- Nonce verification on all AJAX
-- WordPress default registration disabled and redirected
-- Login blocked for pending/unverified users via `authenticate` filter at priority 30
-- Expiring one-time email verification tokens (hashed, 24-hour expiry)
+**Security layers:** Honeypot field, rate limiting (5/IP/15min via transients), nonce verification, authentication filter at priority 30, hashed one-time email verification tokens.
 
-**Lifecycle hooks for future modules:**
-- `el_registration_before_validate`
-- `el_registration_before_create`
-- `el_registration_after_create`
-- `el_registration_after_verify_email`
-- `el_registration_after_approval`
-- `el_registration_after_rejection`
+### Expand Site Module (YOUR MODULE — Built by Cursor)
+
+**Purpose:** Fred's site-building service (Expand Site) client pipeline management. 8-stage workflow from Qualification through Delivery. Client-facing portal so clients can track progress, review deliverables, and submit feedback.
+
+**8-Stage Pipeline:**
+1. Qualification
+2. Discovery
+3. Scope Lock
+4. Visual Identity
+5. Wireframes
+6. Build
+7. Review
+8. Delivery
+
+**Capabilities:** `manage_projects`, `view_own_project`, `submit_feedback`
+
+**Database Tables (all use `el_es_` prefix):**
+- `el_es_projects` — project records
+- `el_es_stage_history` — stage transition log
+- `el_es_deliverables` — deliverable items per stage
+- `el_es_feedback` — client feedback submissions
+- `el_es_pages` — pages being delivered for review
+
+**Shortcodes:**
+- `[el_project_portal]` → function `el_shortcode_project_portal`
+- `[el_project_status]` → function `el_shortcode_project_status`
+- `[el_page_review]` → function `el_shortcode_page_review`
+- `[el_feedback_form]` → function `el_shortcode_feedback_form`
+
+**CSS prefix:** `el-es-` for all components
+**Asset files:** `assets/css/expand-site.css`, `assets/js/expand-site.js`
 
 ---
 
-## 8. CODING CONVENTIONS — FOLLOW THESE EXACTLY
+## 7. CODING CONVENTIONS — FOLLOW THESE EXACTLY
 
 ### PHP
 
 - **No namespaces.** Uses `EL_` prefix for all classes (WordPress convention)
 - **Singleton pattern:** All module classes use `ModuleName::instance()`
 - **Type declarations:** PHP 8.0+ with typed parameters, return types, nullable types
-- **Class naming:** `EL_Module_Name` → file is `class-module-name.php`
+- **Class naming:** `EL_Expand_Site_Module` → file is `class-expand-site-module.php`
 - **Global functions:** Prefixed with `el_core_`
 - **Sanitization:** All user input sanitized (`sanitize_text_field`, `absint`, `wp_kses_post`, `esc_url_raw`)
 - **Nonce verification:** All form submissions and AJAX requests
 - **Text domain:** `el-core`
 
-### CSS
-
-- All colors use CSS custom properties: `var(--el-primary)`, `var(--el-accent)`, etc.
-- Component class prefix: `el-` (e.g., `el-event-card`, `el-btn-primary`)
-- Layout class convention: `el-layout-cards`, `el-layout-list`
-- Component wrapper: `el-component` class on outermost element
-- Form elements: `el-field`, `el-label`, `el-input`, `el-select`, `el-textarea`
-- Buttons: `el-btn`, `el-btn-primary`, `el-btn-accent`, `el-btn-outline`
-- Notices: `el-notice`, `el-notice-info`, `el-notice-success`, `el-notice-warning`, `el-notice-error`
-
-### JavaScript
-
-- Vanilla JS for frontend (no jQuery dependency on frontend)
-- jQuery used in admin only (WordPress provides it)
-- Global `ELCore.ajax()` method for all AJAX calls
-- Event delegation on `document` for dynamically rendered components
-- `elCore.ajaxUrl` and `elCore.nonce` provided by `wp_localize_script`
-
-### Module Structure Convention
-
-Every module follows this exact structure:
-```
-modules/{slug}/
-├── module.json
-├── class-{slug}-module.php
-├── shortcodes/
-├── ajax/         (optional)
-└── assets/       (optional)
-    ├── css/
-    └── js/
-```
-
-### Shortcode Convention
-
-- Tag format: `el_{component_name}` (e.g., `el_event_list`, `el_user_profile`)
-- Function format: `el_shortcode_{component_name}` (e.g., `el_shortcode_event_list`)
-- Each shortcode renders ONE focused component, not an entire page
-- All shortcode output uses brand CSS variables
-- **Shortcodes return HTML strings (never echo)**
-
----
-
-## 9. CRITICAL LESSONS LEARNED
-
-These are things that were discovered and fixed during development. They'll save you debugging time.
-
-### Lesson 1: CSS Class Names Must Match Across All Three Layers
-
-**What happened:** The shortcode PHP files were initially written with class names like `el-form-group`, `el-form-label`, `el-form-input`. The CSS file used `el-field`, `el-label`, `el-input`. The JavaScript selectors referenced yet a third set. Nothing styled correctly and interactive features didn't work.
-
-**The rule:** There are THREE files that must agree on class names:
-1. Shortcode PHP (HTML output) — e.g., `register-form.php`
-2. CSS — `el-core.css`
-3. JavaScript — `el-core.js`
-
-When you add a component, check ALL THREE. The canonical names are defined in the CSS. Shortcodes and JS must match them.
-
-**Current canonical CSS class names:**
-- Form wrapper: `el-form`
-- Field wrapper: `el-field`
-- Labels: `el-label`
-- Text inputs: `el-input`
-- Select dropdowns: `el-select`
-- Textareas: `el-textarea`
-- Required markers: `el-required`
-- Submit wrapper: `el-field-submit`
-- Side-by-side fields: `el-field-row`
-- Form footer: `el-form-footer`
-- Status messages: `el-form-status`
-- Component wrapper: `el-component`
-
-### Lesson 2: Shortcode Function Name Derivation
-
-**What happened:** Shortcodes wouldn't register because the function name didn't match what the module loader expected.
-
-**The rule:** The module loader strips the `el_` prefix from the tag and prepends `el_shortcode_`:
-- Tag `el_register_form` → function `el_shortcode_register_form`
-- Tag `el_event_list` → function `el_shortcode_event_list`
-- Tag `el_user_profile` → function `el_shortcode_user_profile`
-
-If you name the function wrong, you'll see `EL Core: Shortcode function 'xxx' not found for tag 'yyy'` in the error log.
-
-### Lesson 3: Module Settings Key Format
-
-**What happened:** Settings weren't loading for modules because the key format wasn't consistent.
-
-**The rule:** Module settings are stored under `el_mod_{slug}`. The Registration module stores its settings in `el_mod_registration`. When accessing settings from within a module class, use:
 ```php
-$this->core->settings->get('mod_registration', 'registration_mode', 'closed');
-```
-Note the `mod_` prefix in the group name.
-
-### Lesson 4: Guest AJAX Requires Both Hooks
-
-**What happened:** Registration form AJAX failed for non-logged-in users.
-
-**The rule:** For any AJAX action that guest (non-logged-in) users need, you must register BOTH hooks:
-```php
-add_action('el_core_ajax_register_user', [$this, 'handle_register_user']);
-add_action('el_core_ajax_nopriv_register_user', [$this, 'handle_register_user']);
-```
-The `nopriv` variant is for guests. Without it, non-authenticated users get "Authentication required."
-
-### Lesson 5: Email Verification Uses GET, Not AJAX
-
-**What happened:** The email verification link handler was registered on `template_redirect` but the actual method body was never written, so clicking the link in the email did nothing.
-
-**The rule:** Email verification links use GET parameters (`?el_action=verify_email&user=X&token=Y`) intercepted on `template_redirect`, NOT the AJAX system. This is because the user clicks a link in their email — they're not submitting a form. The `handle_verification_link()` method on the Registration module handles this by:
-1. Checking for the `el_action=verify_email` query parameter
-2. Validating the user ID and token
-3. Rendering a standalone page using `get_header()`/`get_footer()` and `exit`
-
-### Lesson 6: The Singleton Pattern Must Be Consistent
-
-**The rule:** Every module class uses this exact pattern:
-```php
+// Singleton pattern — every module class uses this exactly
 class EL_Module_Name {
     private static ?EL_Module_Name $instance = null;
     
@@ -427,43 +334,99 @@ class EL_Module_Name {
     }
 }
 ```
-The constructor is **private**. All access goes through `::instance()`. The module loader calls this when activating a module.
 
-### Lesson 7: Modules Must NOT Do Infrastructure Work
+### CSS
 
-**What happened:** Early drafts had modules creating their own database tables and registering their own shortcodes. This duplicated core functionality and broke when the core evolved.
+- All colors use CSS custom properties: `var(--el-primary)`, `var(--el-accent)`, etc.
+- Shared component prefix: `el-` (e.g., `el-event-card`, `el-btn-primary`)
+- Expand Site component prefix: `el-es-` (e.g., `el-es-project-card`, `el-es-stage-bar`)
+- Component wrapper: `el-component` class on outermost element
+- Form elements: `el-field`, `el-label`, `el-input`, `el-select`, `el-textarea`
+- Buttons: `el-btn`, `el-btn-primary`, `el-btn-accent`, `el-btn-outline`
+- Notices: `el-notice`, `el-notice-info`, `el-notice-success`, `el-notice-warning`, `el-notice-error`
 
-**The rule:** Modules declare infrastructure needs in `module.json`. They never call:
-- `$wpdb->query("CREATE TABLE...")` — declare tables in module.json
-- `add_shortcode()` — declare shortcodes in module.json
-- Capability registration — declare in module.json
-- Settings page rendering — core handles it from module.json
+### JavaScript
 
-The module class file contains ONLY business logic, AJAX handlers, and helper methods.
-
-### Lesson 8: Token Security Pattern
-
-**The rule for email verification tokens (and any future one-time tokens):**
-1. Generate a random string: `wp_generate_password(32, false, false)`
-2. Store the HASH: `wp_hash_password($raw_token)`
-3. Send the RAW token in the email/link
-4. On verification, check with `wp_check_password($raw_token, $stored_hash)`
-5. Delete the token after use (one-time only)
-6. Set an expiration timestamp and check it before validating
-
-Never store raw tokens. Never reuse tokens.
-
-### Lesson 9: WordPress Authentication Hook Priority
-
-**The rule:** The `authenticate` filter at priority 30 runs AFTER WordPress validates the username/password at priority 20. This is intentional — we only block login for users who passed credential checks but have a pending/rejected registration status or unverified email. If you hook at a lower priority, you'd interfere with WordPress's own authentication.
-
-### Lesson 10: Rate Limiting Uses Transients
-
-**The rule:** Registration rate limiting uses WordPress transients keyed by `md5($ip)` with a 15-minute TTL. This is simple and works without external dependencies. The limit is 5 attempts per IP per window. The increment happens BEFORE the registration attempt (not after success), so failed attempts count too.
+- Vanilla JS for frontend (no jQuery dependency on frontend)
+- jQuery used in admin only (WordPress provides it)
+- Global `ELCore.ajax()` method for all AJAX calls
+- Event delegation on `document` for dynamically rendered components
+- `elCore.ajaxUrl` and `elCore.nonce` provided by `wp_localize_script`
 
 ---
 
-## 10. MODULE.JSON SCHEMA REFERENCE
+## 8. CRITICAL LESSONS LEARNED
+
+### Lesson 1: CSS Class Names Must Match Across All Three Layers
+
+There are THREE files that must agree on class names:
+1. Shortcode PHP (HTML output)
+2. CSS file
+3. JavaScript file
+
+**Canonical shared CSS class names:**
+- Form wrapper: `el-form`
+- Field wrapper: `el-field`
+- Labels: `el-label`
+- Text inputs: `el-input`
+- Select dropdowns: `el-select`
+- Textareas: `el-textarea`
+- Required markers: `el-required`
+- Submit wrapper: `el-field-submit`
+- Side-by-side fields: `el-field-row`
+- Form footer: `el-form-footer`
+- Status messages: `el-form-status`
+- Component wrapper: `el-component`
+
+### Lesson 2: Shortcode Function Name Derivation
+
+The module loader strips `el_` prefix from the tag and prepends `el_shortcode_`:
+- Tag `el_project_portal` → function `el_shortcode_project_portal`
+- Tag `el_event_list` → function `el_shortcode_event_list`
+
+### Lesson 3: Module Settings Key Format
+
+Module settings stored under `el_mod_{slug}`. Access from within module class:
+```php
+$this->core->settings->get('mod_expand_site', 'setting_key', 'default');
+```
+
+### Lesson 4: Guest AJAX Requires Both Hooks
+
+For any AJAX action that non-logged-in users need:
+```php
+add_action('el_core_ajax_my_action', [$this, 'handle_my_action']);
+add_action('el_core_ajax_nopriv_my_action', [$this, 'handle_my_action']);
+```
+
+### Lesson 5: Modules Must NOT Do Infrastructure Work
+
+Modules declare needs in `module.json`. They never call:
+- `$wpdb->query("CREATE TABLE...")` — declare in module.json
+- `add_shortcode()` — declare in module.json
+- Capability registration — declare in module.json
+- Settings page rendering — core handles from module.json
+
+### Lesson 6: Admin UI — Always Use the Framework
+
+Never write raw HTML for admin tables, cards, or forms. Always use `EL_Admin_UI::*` methods. Read `includes/class-admin-ui.php` before building any admin view.
+
+### Lesson 7: Token Security Pattern
+
+1. Generate: `wp_generate_password(32, false, false)`
+2. Store the HASH: `wp_hash_password($raw_token)`
+3. Send the RAW token in the email/link
+4. Verify: `wp_check_password($raw_token, $stored_hash)`
+5. Delete token after use (one-time only)
+6. Check expiration timestamp before validating
+
+### Lesson 8: WordPress Authentication Hook Priority
+
+The `authenticate` filter at priority 30 runs AFTER WordPress validates credentials at priority 20. Hook at 30 to block users who passed credential checks but have pending/unverified status.
+
+---
+
+## 9. MODULE.JSON SCHEMA REFERENCE
 
 ```json
 {
@@ -495,8 +458,7 @@ Never store raw tokens. Never reuse tokens.
             }
         },
         "migrations": {
-            "2": ["ALTER TABLE el_table_name ADD COLUMN new_col VARCHAR(255)"],
-            "3": ["ALTER TABLE el_table_name ADD INDEX idx_col (new_col)"]
+            "2": ["ALTER TABLE el_table_name ADD COLUMN new_col VARCHAR(255)"]
         }
     },
 
@@ -524,69 +486,41 @@ Never store raw tokens. Never reuse tokens.
 
 ---
 
-## 11. CURRENT STATUS & WHAT'S LEFT
+## 10. DEVELOPMENT ENVIRONMENT
 
-### Completed
-- Core foundation (all 9 infrastructure classes)
-- Admin settings pages (Dashboard, Brand, Modules, Roles)
-- Events module (database, business logic, shortcodes, AJAX)
-- Registration module (business logic, shortcodes, AJAX, email verification, invite codes, approval workflow)
-- Frontend CSS with brand variable system
-- Frontend JS with AJAX helper, registration form handler, profile form handler, RSVP handler
-- Gutenberg page templates for events, registration, and profile pages
-
-### Registration Module — Fully Built But Untested on Live Site
-All code is written. Needs deployment to a WordPress site for testing. The module handles:
-- Four registration modes (open, approval, invite-only, closed)
-- Email verification with secure token system
-- Invite code management with expiration and usage limits
-- Custom profile fields (JSON-configured)
-- Login enforcement for pending/unverified users
-- Admin approval/rejection workflow
-- Rate limiting and honeypot spam protection
-
-### Planned Modules (Future)
-1. **Tutorials** — content management for help resources (ships pre-activated by default)
-2. **Support Agent** — AI-powered help (depends on Tutorials module)
-3. **LMS** — courses, lessons, progress, AI Tutor sub-feature (revenue driver)
-4. **Certificates** — PDF generation, completion certificates
-5. **Analytics** — dashboards, reports, data export
-6. **Notifications** — email templates, in-app notifications
-7. **EL Theme** — companion block theme
-8. **AI Page Generation Pipeline** — Claude generates Gutenberg block markup from prompts
-
-### Known Gaps
-- No event creation admin UI (events require SQL or AJAX)
-- `uninstall.php` capability cleanup needs improvement
-- No REST API endpoints yet (AJAX only)
-- Block pattern registration system not yet built (planned for Phase 7/8)
-
----
-
-## 12. DEVELOPMENT ENVIRONMENT
-
-- **PHP:** 8.0+ required (checked on activation)
+- **PHP:** 8.0+ required
 - **WordPress:** 6.0+ required
-- **Database:** MySQL via WordPress `$wpdb`
 - **Hosting:** Rocket.net (managed WordPress hosting)
+- **Deployed on:** expandedlearningsolutions.com
 - **Local repo:** `C:\Github\EL Core\` — source files
-- **Release ZIPs:** `C:\Github\EL Core\releases\` — packaged plugin versions
-- **Deployment:** ZIP files uploaded through WordPress admin → Plugins → Add New → Upload Plugin
+- **Plugin source:** `C:\Github\EL Core\el-core\`
+- **Build script:** `C:\Github\EL Core\build-zip.ps1` — uses .NET ZipFile, NOT Compress-Archive
+- **Deployment:** ZIP upload via WordPress Admin → Plugins → Add New → Upload Plugin
+- **WordPress MCP is NOT connected** — do not use wp_fs_write or any MCP tools
 - **Plugin text domain:** `el-core`
-- **All table names prefixed:** `{wp_prefix}el_` (e.g., `wp_el_events`)
-- **All option names prefixed:** `el_core_` or `el_mod_`
+- **Table prefix:** `{wp_prefix}el_`
+- **Option prefix:** `el_core_` or `el_mod_`
+
+### ZIP Build Rule
+
+```powershell
+# Run from repo root
+.\build-zip.ps1
+```
+
+Always outputs `el-core.zip` (no version number in filename). Upload through WP Admin. Version bump requires updating BOTH the plugin header in `el-core.php` AND the `EL_CORE_VERSION` constant.
 
 ---
 
-## 13. QUICK REFERENCE — ADDING A NEW MODULE
+## 11. QUICK REFERENCE — ADDING A NEW MODULE
 
 1. Create `modules/{slug}/module.json` with all declarations
-2. Create `modules/{slug}/class-{slug}-module.php` with business logic
-3. Create shortcode files in `modules/{slug}/shortcodes/`
-4. Add CSS for new components to `assets/css/el-core.css`
-5. Add JS handlers to `assets/js/el-core.js`
-6. Verify class names match across PHP, CSS, and JS
-7. Register AJAX hooks in the module constructor (both priv and nopriv if needed)
-8. Create Gutenberg page template in `templates/`
+2. Create `modules/{slug}/class-{slug}-module.php` with business logic only
+3. Create shortcode files in `modules/{slug}/shortcodes/` — function names must follow derivation rule
+4. Create module-specific assets in `modules/{slug}/assets/css/` and `assets/js/`
+5. Use `el-{slug}-` CSS prefix for all module components
+6. Register AJAX hooks in constructor (both priv and nopriv if needed)
+7. Use `EL_Admin_UI::*` for all admin views — never raw HTML
+8. Verify CSS class names match across PHP, CSS, and JS
 
-The module loader will automatically discover the module, register its shortcodes, create its tables, and register its capabilities — all from `module.json`.
+The module loader handles discovery, shortcode registration, table creation, and capability registration automatically from `module.json`.

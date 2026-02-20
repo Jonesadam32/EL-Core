@@ -9,6 +9,24 @@
 
 ---
 
+## HOW TO START A SESSION (Two workstreams in Cursor)
+
+When you open a new chat, paste one of these to set the workstream:
+
+**Expand Site workstream** (shortcodes, CSS, JS, module features):
+```
+Read @START-HERE-NEXT-SESSION.md. I'm working on the Expand Site workstream.
+```
+
+**Core workstream** (Canvas, Admin UI, infrastructure):
+```
+Read @START-HERE-NEXT-SESSION.md. I'm working on the Core workstream.
+```
+
+The agent reads the handoff doc and works only in its scope. Update START-HERE when you finish.
+
+---
+
 ## CURRENT STATE
 
 ### Deployed
