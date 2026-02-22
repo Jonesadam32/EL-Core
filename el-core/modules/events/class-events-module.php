@@ -12,17 +12,17 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class EL_Events_Module {
 
     private static ?EL_Events_Module $instance = null;
-    private EL_Core $core;
+    private ?EL_Core $core = null;
 
-    public static function instance(): self {
+    public static function instance( ?EL_Core $core = null ): self {
         if ( null === self::$instance ) {
-            self::$instance = new self();
+            self::$instance = new self( $core );
         }
         return self::$instance;
     }
 
-    private function __construct() {
-        $this->core = EL_Core::instance();
+    private function __construct( ?EL_Core $core = null ) {
+        $this->core = $core;
         $this->init_hooks();
     }
 
@@ -33,6 +33,24 @@ class EL_Events_Module {
         // AJAX handlers
         add_action( 'el_core_ajax_rsvp_event', [ $this, 'handle_rsvp' ] );
         add_action( 'el_core_ajax_create_event', [ $this, 'handle_create_event' ] );
+
+        // Register admin menu at priority 20 (after core at priority 10)
+        add_action( 'admin_menu', [ $this, 'register_admin_pages' ], 20 );
+    }
+
+    public function register_admin_pages(): void {
+        add_submenu_page(
+            'el-core',
+            __( 'Events', 'el-core' ),
+            __( 'Events', 'el-core' ),
+            'manage_options',
+            'el-core-events',
+            [ $this, 'render_admin_page' ]
+        );
+    }
+
+    public function render_admin_page(): void {
+        echo '<div class="wrap"><h1>Events</h1><p>Events admin coming soon.</p></div>';
     }
 
     // ═══════════════════════════════════════════

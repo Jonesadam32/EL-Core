@@ -9,6 +9,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 $module = EL_Expand_Site_Module::instance();
 
+// Get deadline warning threshold from settings
+$warning_days = $module->core->settings->get( 'mod_expand-site', 'deadline_warning_days', 2 );
+
 // Filters
 $status_filter = sanitize_text_field( $_GET['status'] ?? '' );
 $stage_filter  = absint( $_GET['stage'] ?? 0 );
@@ -24,12 +27,26 @@ if ( $stage_filter ) {
 
 $projects = $module->get_all_projects( $where );
 
+// Auto-flag projects with expired deadlines
+$now = current_time( 'mysql' );
+foreach ( $projects as $project ) {
+    if ( $project->deadline && $project->deadline < $now && ! $project->flagged_at ) {
+        // Auto-flag expired projects
+        $module->core->database->update( 'el_es_projects', [
+            'flagged_at'  => $now,
+            'flag_reason' => 'Deadline expired',
+        ], [ 'id' => $project->id ] );
+        $project->flagged_at = $now;
+        $project->flag_reason = 'Deadline expired';
+    }
+}
+
 // Apply search filter in PHP (name or client_name)
 if ( $search ) {
     $search_lower = strtolower( $search );
     $projects = array_filter( $projects, function( $p ) use ( $search_lower ) {
-        return str_contains( strtolower( $p->name ), $search_lower )
-            || str_contains( strtolower( $p->client_name ), $search_lower );
+        return strpos( strtolower( $p->name ), $search_lower ) !== false
+            || strpos( strtolower( $p->client_name ), $search_lower ) !== false;
     } );
 }
 
@@ -90,15 +107,122 @@ $html .= EL_Admin_UI::filter_bar( [
             ],
         ],
     ],
-    'hidden' => [ 'page' => 'el-expand-site' ],
+    'hidden' => [ 'page' => 'el-core-projects' ],
 ] );
 
-// Project table
-$rows = [];
+// Separate projects needing attention (flagged or deadline warning)
+$needs_attention = [];
+$regular_projects = [];
+
 foreach ( $projects as $p ) {
+    $needs_attention_flag = false;
+    
+    // Check if flagged
+    if ( $p->flagged_at ) {
+        $needs_attention_flag = true;
+    }
+    
+    // Check if deadline is approaching (within warning days)
+    if ( $p->deadline && ! $p->flagged_at ) {
+        $deadline_time = strtotime( $p->deadline );
+        $warning_time = strtotime( "+{$warning_days} days" );
+        if ( $deadline_time <= $warning_time ) {
+            $needs_attention_flag = true;
+        }
+    }
+    
+    if ( $needs_attention_flag ) {
+        $needs_attention[] = $p;
+    } else {
+        $regular_projects[] = $p;
+    }
+}
+
+// Build "Projects Needing Attention" section
+$attention_html = '';
+if ( ! empty( $needs_attention ) ) {
+    $attention_rows = [];
+    foreach ( $needs_attention as $p ) {
+        $stage_num  = (int) $p->current_stage;
+        $stage_badge = EL_Admin_UI::badge( [
+            'label'   => $stage_num . '. ' . $module->get_stage_name( $stage_num ),
+            'variant' => EL_Expand_Site_Module::get_stage_badge_variant( $stage_num ),
+        ] );
+        
+        $status_badges = '';
+        
+        // Flagged badge
+        if ( $p->flagged_at ) {
+            $status_badges .= EL_Admin_UI::badge( [
+                'label'   => 'HELD UP',
+                'variant' => 'error',
+            ] );
+            $status_badges .= ' ';
+        }
+        
+        // Deadline warning/overdue badge
+        if ( $p->deadline ) {
+            $deadline_time = strtotime( $p->deadline );
+            $now_time = time();
+            
+            if ( $deadline_time < $now_time ) {
+                $days_overdue = floor( ( $now_time - $deadline_time ) / 86400 );
+                $status_badges .= EL_Admin_UI::badge( [
+                    'label'   => $days_overdue . 'd OVERDUE',
+                    'variant' => 'error',
+                ] );
+            } else {
+                $warning_time = strtotime( "+{$warning_days} days" );
+                if ( $deadline_time <= $warning_time ) {
+                    $days_left = ceil( ( $deadline_time - $now_time ) / 86400 );
+                    $status_badges .= EL_Admin_UI::badge( [
+                        'label'   => $days_left . 'd left',
+                        'variant' => 'warning',
+                    ] );
+                }
+            }
+        }
+        
+        $actions = EL_Admin_UI::btn( [
+            'label'   => __( 'View', 'el-core' ),
+            'variant' => 'primary',
+            'icon'    => 'visibility',
+            'url'     => admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ),
+        ] );
+        
+        $attention_rows[] = [
+            'name'      => '<strong><a href="' . esc_url( admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ) ) . '">'
+                          . esc_html( $p->name ) . '</a></strong>'
+                          . '<br><small>' . esc_html( $p->client_name ) . '</small>',
+            'stage'     => $stage_badge,
+            'status'    => $status_badges,
+            'deadline'  => $p->deadline ? date_i18n( 'M j, Y', strtotime( $p->deadline ) ) : '—',
+            '__actions' => $actions,
+        ];
+    }
+    
+    $attention_html = EL_Admin_UI::card( [
+        'title'   => __( 'Projects Needing Attention', 'el-core' ),
+        'icon'    => 'warning',
+        'variant' => 'warning',
+        'content' => EL_Admin_UI::data_table( [
+            'columns' => [
+                [ 'key' => 'name',     'label' => __( 'Project / Client', 'el-core' ) ],
+                [ 'key' => 'stage',    'label' => __( 'Stage', 'el-core' ) ],
+                [ 'key' => 'status',   'label' => __( 'Status', 'el-core' ) ],
+                [ 'key' => 'deadline', 'label' => __( 'Deadline', 'el-core' ) ],
+            ],
+            'rows'  => $attention_rows,
+        ] ),
+    ] );
+}
+
+// Project table (regular projects)
+$rows = [];
+foreach ( $regular_projects as $p ) {
     $stage_num  = (int) $p->current_stage;
     $stage_badge = EL_Admin_UI::badge( [
-        'label'   => $stage_num . '. ' . EL_Expand_Site_Module::get_stage_name( $stage_num ),
+        'label'   => $stage_num . '. ' . $module->get_stage_name( $stage_num ),
         'variant' => EL_Expand_Site_Module::get_stage_badge_variant( $stage_num ),
     ] );
     $status_badge = EL_Admin_UI::badge( [
@@ -113,19 +237,51 @@ foreach ( $projects as $p ) {
         $budget = '$' . number_format( $p->budget_range_low, 0 )
                 . ' – $' . number_format( $p->budget_range_high, 0 );
     }
+    
+    // Get stakeholder count
+    $stakeholders = $module->get_stakeholders( (int) $p->id );
+    $stakeholder_count = count( $stakeholders );
+    
+    // Deadline column with warning badge if approaching
+    $deadline_display = '—';
+    if ( $p->deadline ) {
+        $deadline_time = strtotime( $p->deadline );
+        $now_time = time();
+        $deadline_display = date_i18n( 'M j, Y', $deadline_time );
+        
+        // Check if deadline is approaching
+        $warning_time = strtotime( "+{$warning_days} days" );
+        if ( $deadline_time <= $warning_time && $deadline_time > $now_time ) {
+            $days_left = ceil( ( $deadline_time - $now_time ) / 86400 );
+            $deadline_display .= ' ' . EL_Admin_UI::badge( [
+                'label'   => $days_left . 'd left',
+                'variant' => 'warning',
+            ] );
+        }
+    }
 
     $actions = EL_Admin_UI::btn( [
         'label'   => __( 'View', 'el-core' ),
         'variant' => 'ghost',
         'icon'    => 'visibility',
-        'url'     => admin_url( 'admin.php?page=el-expand-site&project=' . $p->id ),
+        'url'     => admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ),
+    ] );
+    
+    $actions .= EL_Admin_UI::btn( [
+        'label'   => __( 'Delete', 'el-core' ),
+        'variant' => 'ghost',
+        'icon'    => 'trash',
+        'class'   => 'el-es-delete-project-btn',
+        'data'    => [ 'project-id' => $p->id, 'project-name' => $p->name ],
     ] );
 
     $rows[] = [
-        'name'      => '<strong><a href="' . esc_url( admin_url( 'admin.php?page=el-expand-site&project=' . $p->id ) ) . '">'
+        'name'      => '<strong><a href="' . esc_url( admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ) ) . '">'
                       . esc_html( $p->name ) . '</a></strong>'
                       . '<br><small>' . esc_html( $p->client_name ) . '</small>',
         'stage'     => $stage_badge,
+        'users'     => $stakeholder_count > 0 ? $stakeholder_count : '—',
+        'deadline'  => $deadline_display,
         'budget'    => $budget,
         'status'    => $status_badge,
         'created'   => date_i18n( 'M j, Y', strtotime( $p->created_at ) ),
@@ -133,16 +289,20 @@ foreach ( $projects as $p ) {
     ];
 }
 
+$html .= $attention_html;
+
 $html .= EL_Admin_UI::card( [
     'title'   => __( 'All Projects', 'el-core' ),
     'icon'    => 'list-view',
     'content' => EL_Admin_UI::data_table( [
         'columns' => [
-            [ 'key' => 'name',    'label' => __( 'Project / Client', 'el-core' ) ],
-            [ 'key' => 'stage',   'label' => __( 'Current Stage', 'el-core' ) ],
-            [ 'key' => 'budget',  'label' => __( 'Budget', 'el-core' ) ],
-            [ 'key' => 'status',  'label' => __( 'Status', 'el-core' ) ],
-            [ 'key' => 'created', 'label' => __( 'Created', 'el-core' ) ],
+            [ 'key' => 'name',     'label' => __( 'Project / Client', 'el-core' ) ],
+            [ 'key' => 'stage',    'label' => __( 'Current Stage', 'el-core' ) ],
+            [ 'key' => 'users',    'label' => __( 'Users', 'el-core' ) ],
+            [ 'key' => 'deadline', 'label' => __( 'Deadline', 'el-core' ) ],
+            [ 'key' => 'budget',   'label' => __( 'Budget', 'el-core' ) ],
+            [ 'key' => 'status',   'label' => __( 'Status', 'el-core' ) ],
+            [ 'key' => 'created',  'label' => __( 'Created', 'el-core' ) ],
         ],
         'rows'  => $rows,
         'empty' => [

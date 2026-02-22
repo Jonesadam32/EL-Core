@@ -32,7 +32,13 @@ if ( isset( $_POST['el_save_modules'] ) && check_admin_referer( 'el_core_modules
     // Activate newly checked modules
     foreach ( $new_active as $slug ) {
         if ( ! in_array( $slug, $active, true ) ) {
-            $core->modules->activate( $slug );
+            $result = $core->modules->activate( $slug );
+            if ( ! $result ) {
+                echo '<div class="notice notice-error"><p>';
+                echo 'Failed to activate <strong>' . esc_html( $discovered[$slug]['name'] ?? $slug ) . '</strong>. ';
+                echo 'Check error log for details.';
+                echo '</p></div>';
+            }
         }
     }
 

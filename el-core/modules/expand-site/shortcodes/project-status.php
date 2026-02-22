@@ -1,64 +1,73 @@
 <?php
 /**
  * Shortcode: [el_project_status]
- *
- * Visual 8-step progress bar: completed filled, current highlighted, upcoming muted.
- * If no project_id, auto-detects from logged-in user's client_user_id.
+ * 
+ * Visual 8-step progress bar showing project stage progression.
+ * Can be used standalone or embedded in other views.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-function el_shortcode_project_status( $atts ): string {
-	$atts = shortcode_atts( [
-		'project_id' => 0,
-	], $atts, 'el_project_status' );
+function el_shortcode_project_status( $atts ) {
+    $atts = shortcode_atts( [
+        'project_id' => 0,
+    ], $atts );
 
-	$project_id = absint( $atts['project_id'] );
+    $project_id = absint( $atts['project_id'] );
 
-	if ( ! is_user_logged_in() ) {
-		return '<div class="el-component el-es-stage-bar">'
-			. '<div class="el-notice el-notice-warning">'
-			. '<p>' . esc_html__( 'Please log in to view project status.', 'el-core' )
-			. ' <a href="' . esc_url( wp_login_url( get_permalink() ) ) . '">' . esc_html__( 'Log in', 'el-core' ) . '</a></p>'
-			. '</div></div>';
-	}
+    if ( ! $project_id ) {
+        return '<div class="el-component el-es-stage-bar"><p class="el-notice el-notice-warning">' 
+            . esc_html__( 'Project ID required.', 'el-core' ) . '</p></div>';
+    }
 
-	$module = EL_Expand_Site_Module::instance();
+    $module = EL_Expand_Site_Module::instance();
+    $project = $module->get_project( $project_id );
 
-	if ( ! $project_id ) {
-		$projects = $module->get_all_projects(
-			[ 'client_user_id' => get_current_user_id() ],
-			[ 'limit' => 1, 'orderby' => 'created_at', 'order' => 'DESC' ]
-		);
-		$project = $projects[0] ?? null;
-	} else {
-		$project = $module->get_project( $project_id );
-		if ( $project && (int) $project->client_user_id !== get_current_user_id() && ! el_core_can( 'manage_expand_site' ) ) {
-			$project = null;
-		}
-	}
+    if ( ! $project ) {
+        return '<div class="el-component el-es-stage-bar"><p class="el-notice el-notice-error">' 
+            . esc_html__( 'Project not found.', 'el-core' ) . '</p></div>';
+    }
 
-	if ( ! $project ) {
-		return '<div class="el-component el-es-stage-bar">'
-			. '<div class="el-empty-state"><p>' . esc_html__( 'No project found.', 'el-core' ) . '</p></div>'
-			. '</div>';
-	}
+    $current_stage = (int) $project->current_stage;
+    $stages = EL_Expand_Site_Module::STAGES;
 
-	$project_id    = (int) $project->id;
-	$current_stage = (int) $project->current_stage;
+    $html = '<div class="el-component el-es-stage-bar">';
+    $html .= '<div class="el-es-stage-track">';
 
-	$html = '<div class="el-component el-es-stage-bar" data-project-id="' . esc_attr( $project_id ) . '">';
+    foreach ( $stages as $num => $stage ) {
+        $status = '';
+        if ( $num < $current_stage ) {
+            $status = 'completed';
+        } elseif ( $num === $current_stage ) {
+            $status = 'current';
+        } else {
+            $status = 'upcoming';
+        }
 
-	foreach ( EL_Expand_Site_Module::STAGES as $num => $stage ) {
-		$state = 'upcoming';
-		if ( $num < $current_stage ) $state = 'completed';
-		if ( $num === $current_stage ) $state = 'current';
-		$html .= '<div class="el-es-stage-step el-es-stage-' . esc_attr( $state ) . '">';
-		$html .= '<span class="el-es-stage-number">' . (int) $num . '</span>';
-		$html .= '<span class="el-es-stage-label">' . esc_html( $stage['name'] ) . '</span>';
-		$html .= '</div>';
-	}
+        $html .= '<div class="el-es-stage-step el-es-stage-' . esc_attr( $status ) . '" data-stage="' . esc_attr( $num ) . '">';
+        $html .= '<div class="el-es-stage-marker">';
+        
+        if ( $status === 'completed' ) {
+            $html .= '<svg class="el-es-stage-check" width="20" height="20" viewBox="0 0 20 20" fill="none">';
+            $html .= '<path d="M16.7 5.3L8 14 3.3 9.3l1.4-1.4L8 11.2l7.3-7.3 1.4 1.4z" fill="currentColor"/>';
+            $html .= '</svg>';
+        } else {
+            $html .= '<span class="el-es-stage-number">' . esc_html( $num ) . '</span>';
+        }
+        
+        $html .= '</div>';
+        $html .= '<div class="el-es-stage-label">' . esc_html( $stage['name'] ) . '</div>';
+        $html .= '</div>';
 
-	$html .= '</div>';
-	return $html;
+        // Add connector line (except after last stage)
+        if ( $num < 8 ) {
+            $connector_status = $num < $current_stage ? 'completed' : 'upcoming';
+            $html .= '<div class="el-es-stage-connector el-es-stage-' . esc_attr( $connector_status ) . '"></div>';
+        }
+    }
+
+    $html .= '</div>'; // .el-es-stage-track
+    $html .= '</div>'; // .el-component
+
+    return $html;
 }

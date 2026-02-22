@@ -14,29 +14,40 @@
     "capabilities": [
         "manage_expand_site",
         "view_expand_site",
-        "submit_feedback"
+        "submit_feedback",
+        "es_decision_maker",
+        "es_contributor"
     ],
 
     "default_role_mapping": {
-        "administrator": ["manage_expand_site", "view_expand_site", "submit_feedback"],
-        "editor": ["view_expand_site", "submit_feedback"],
-        "subscriber": ["view_expand_site", "submit_feedback"]
+        "administrator": ["manage_expand_site", "view_expand_site", "submit_feedback", "es_decision_maker", "es_contributor"],
+        "editor": ["view_expand_site", "submit_feedback", "es_contributor"],
+        "subscriber": ["view_expand_site", "submit_feedback", "es_contributor"]
     },
 
     "database": {
-        "version": 1,
+        "version": 2,
         "tables": {
             "el_es_projects": {
                 "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
                 "name": "VARCHAR(255) NOT NULL",
                 "client_name": "VARCHAR(255) NOT NULL",
                 "client_user_id": "BIGINT UNSIGNED DEFAULT 0",
+                "decision_maker_id": "BIGINT UNSIGNED DEFAULT 0",
                 "current_stage": "TINYINT UNSIGNED DEFAULT 1",
                 "status": "VARCHAR(20) DEFAULT 'active'",
                 "budget_range_low": "DECIMAL(10,2) DEFAULT 0",
                 "budget_range_high": "DECIMAL(10,2) DEFAULT 0",
                 "final_price": "DECIMAL(10,2) DEFAULT 0",
                 "scope_locked_at": "DATETIME NULL",
+                "deadline": "DATETIME NULL",
+                "deadline_stage": "TINYINT UNSIGNED DEFAULT 0",
+                "flagged_at": "DATETIME NULL",
+                "flag_reason": "VARCHAR(255) DEFAULT ''",
+                "project_type": "VARCHAR(50) DEFAULT ''",
+                "project_goal": "TEXT",
+                "discovery_transcript": "LONGTEXT",
+                "discovery_extracted_at": "DATETIME NULL",
                 "notes": "LONGTEXT",
                 "created_by": "BIGINT UNSIGNED DEFAULT 0",
                 "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
@@ -82,17 +93,98 @@
                 "page_url": "VARCHAR(500) DEFAULT ''",
                 "status": "VARCHAR(20) DEFAULT 'planned'",
                 "sort_order": "INT UNSIGNED DEFAULT 0",
+                "ai_draft_content": "LONGTEXT",
+                "client_review_status": "VARCHAR(20) DEFAULT 'pending'",
+                "content_blocks": "LONGTEXT",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_stakeholders": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "user_id": "BIGINT UNSIGNED NOT NULL",
+                "role": "VARCHAR(20) DEFAULT 'contributor'",
+                "added_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_project_definition": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "site_description": "TEXT",
+                "primary_goal": "TEXT",
+                "secondary_goals": "TEXT",
+                "target_customers": "TEXT",
+                "user_types": "LONGTEXT",
+                "site_type": "VARCHAR(50) DEFAULT ''",
+                "locked_at": "DATETIME NULL",
+                "locked_by": "BIGINT UNSIGNED DEFAULT 0",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_brand_options": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "has_existing_brand": "TINYINT(1) DEFAULT 0",
+                "mood_board_url": "VARCHAR(500) DEFAULT ''",
+                "ai_options": "LONGTEXT",
+                "selected_option": "TINYINT UNSIGNED DEFAULT 0",
+                "custom_primary": "VARCHAR(7) DEFAULT ''",
+                "custom_secondary": "VARCHAR(7) DEFAULT ''",
+                "custom_accent": "VARCHAR(7) DEFAULT ''",
+                "font_heading": "VARCHAR(100) DEFAULT ''",
+                "font_body": "VARCHAR(100) DEFAULT ''",
+                "brand_locked_at": "DATETIME NULL",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_user_workflows": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "user_type": "VARCHAR(100) NOT NULL",
+                "submitted_by": "BIGINT UNSIGNED NOT NULL",
+                "description": "LONGTEXT NOT NULL",
+                "is_initial": "TINYINT(1) DEFAULT 1",
+                "locked_at": "DATETIME NULL",
+                "locked_by": "BIGINT UNSIGNED DEFAULT 0",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_deadlines": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "stage": "TINYINT UNSIGNED NOT NULL",
+                "deadline": "DATETIME NOT NULL",
+                "set_by": "BIGINT UNSIGNED NOT NULL",
+                "extended_at": "DATETIME NULL",
+                "met": "TINYINT(1) DEFAULT 0",
                 "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
             }
         },
-        "migrations": {}
+        "migrations": {
+            "2": [
+                "ALTER TABLE el_es_projects ADD COLUMN decision_maker_id BIGINT UNSIGNED DEFAULT 0 AFTER client_user_id",
+                "ALTER TABLE el_es_projects ADD COLUMN deadline DATETIME NULL AFTER scope_locked_at",
+                "ALTER TABLE el_es_projects ADD COLUMN deadline_stage TINYINT UNSIGNED DEFAULT 0 AFTER deadline",
+                "ALTER TABLE el_es_projects ADD COLUMN flagged_at DATETIME NULL AFTER deadline_stage",
+                "ALTER TABLE el_es_projects ADD COLUMN flag_reason VARCHAR(255) DEFAULT '' AFTER flagged_at",
+                "ALTER TABLE el_es_projects ADD COLUMN project_type VARCHAR(50) DEFAULT '' AFTER flag_reason",
+                "ALTER TABLE el_es_projects ADD COLUMN project_goal TEXT AFTER project_type",
+                "ALTER TABLE el_es_projects ADD COLUMN discovery_transcript LONGTEXT AFTER project_goal",
+                "ALTER TABLE el_es_projects ADD COLUMN discovery_extracted_at DATETIME NULL AFTER discovery_transcript",
+                "ALTER TABLE el_es_pages ADD COLUMN ai_draft_content LONGTEXT AFTER sort_order",
+                "ALTER TABLE el_es_pages ADD COLUMN client_review_status VARCHAR(20) DEFAULT 'pending' AFTER ai_draft_content",
+                "ALTER TABLE el_es_pages ADD COLUMN content_blocks LONGTEXT AFTER client_review_status",
+                "CREATE TABLE el_es_stakeholders (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, user_id BIGINT UNSIGNED NOT NULL, role VARCHAR(20) DEFAULT 'contributor', added_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+                "CREATE TABLE el_es_project_definition (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, site_description TEXT, primary_goal TEXT, secondary_goals TEXT, target_customers TEXT, user_types LONGTEXT, site_type VARCHAR(50) DEFAULT '', locked_at DATETIME NULL, locked_by BIGINT UNSIGNED DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+                "CREATE TABLE el_es_brand_options (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, has_existing_brand TINYINT(1) DEFAULT 0, mood_board_url VARCHAR(500) DEFAULT '', ai_options LONGTEXT, selected_option TINYINT UNSIGNED DEFAULT 0, custom_primary VARCHAR(7) DEFAULT '', custom_secondary VARCHAR(7) DEFAULT '', custom_accent VARCHAR(7) DEFAULT '', font_heading VARCHAR(100) DEFAULT '', font_body VARCHAR(100) DEFAULT '', brand_locked_at DATETIME NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+                "CREATE TABLE el_es_user_workflows (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, user_type VARCHAR(100) NOT NULL, submitted_by BIGINT UNSIGNED NOT NULL, description LONGTEXT NOT NULL, is_initial TINYINT(1) DEFAULT 1, locked_at DATETIME NULL, locked_by BIGINT UNSIGNED DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
+                "CREATE TABLE el_es_deadlines (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, stage TINYINT UNSIGNED NOT NULL, deadline DATETIME NOT NULL, set_by BIGINT UNSIGNED NOT NULL, extended_at DATETIME NULL, met TINYINT(1) DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+            ]
+        }
     },
 
     "shortcodes": [
         {
-            "tag": "el_project_portal",
-            "file": "shortcodes/project-portal.php",
-            "description": "Client-facing project dashboard showing current stage, deliverables, and feedback options",
+            "tag": "el_expand_site_portal",
+            "file": "shortcodes/expand-site-portal.php",
+            "description": "Expand Site client portal showing project stage, deliverables, and feedback options",
             "params": {
                 "project_id": { "type": "integer", "default": 0 }
             }
@@ -142,6 +234,12 @@
             "label": "Enable Client Portal Shortcodes",
             "type": "boolean",
             "default": true
+        },
+        {
+            "key": "deadline_warning_days",
+            "label": "Deadline Warning (days before)",
+            "type": "number",
+            "default": 2
         }
     ]
 }

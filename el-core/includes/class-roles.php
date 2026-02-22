@@ -39,6 +39,11 @@ class EL_Roles {
         foreach ( $caps as $cap ) {
             $this->registered_caps[ $cap ] = $slug;
         }
+        
+        // Log for debugging
+        if ( ! empty( $caps ) ) {
+            error_log( "EL Core Roles: Registered " . count( $caps ) . " capabilities for module '{$slug}': " . implode( ', ', $caps ) );
+        }
     }
 
     /**
@@ -109,6 +114,13 @@ class EL_Roles {
      * Get all registered EL capabilities grouped by module
      */
     public function get_capabilities_by_module(): array {
+        // Debug logging
+        if ( empty( $this->registered_caps ) ) {
+            error_log( "EL Core Roles: No registered caps found when get_capabilities_by_module() was called" );
+        } else {
+            error_log( "EL Core Roles: get_capabilities_by_module() found " . count( $this->registered_caps ) . " caps" );
+        }
+        
         $grouped = [];
         foreach ( $this->registered_caps as $cap => $module ) {
             $grouped[ $module ][] = $cap;

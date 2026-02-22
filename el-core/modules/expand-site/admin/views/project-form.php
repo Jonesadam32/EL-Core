@@ -25,7 +25,7 @@ $html = '';
 $html .= EL_Admin_UI::page_header( [
     'title'      => sprintf( __( 'Edit: %s', 'el-core' ), $project->name ),
     'subtitle'   => esc_html( $project->client_name ),
-    'back_url'   => admin_url( 'admin.php?page=el-expand-site&project=' . $project_id ),
+    'back_url'   => admin_url( 'admin.php?page=el-core-projects&project=' . $project_id ),
     'back_label' => __( '← Back to Project', 'el-core' ),
 ] );
 
@@ -121,7 +121,7 @@ $form .= ' ';
 $form .= EL_Admin_UI::btn( [
     'label'   => __( 'Cancel', 'el-core' ),
     'variant' => 'secondary',
-    'url'     => admin_url( 'admin.php?page=el-expand-site&project=' . $project_id ),
+    'url'     => admin_url( 'admin.php?page=el-core-projects&project=' . $project_id ),
 ] );
 $form .= '</div>';
 $form .= '</form>';

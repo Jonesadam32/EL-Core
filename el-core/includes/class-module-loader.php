@@ -116,9 +116,14 @@ class EL_Module_Loader {
                 $this->core->database->process_module_schema( $slug, $manifest['database'] );
             }
 
-            // Register capabilities
+            // Register capabilities and apply default mappings
+            // (apply_default_mappings only adds caps that don't already exist,
+            // so it's safe to call on every load — not just first activation)
             if ( isset( $manifest['capabilities'] ) ) {
                 $this->core->roles->register_module_capabilities( $slug, $manifest );
+            }
+            if ( isset( $manifest['default_role_mapping'] ) ) {
+                $this->core->roles->apply_default_mappings( $manifest['default_role_mapping'] );
             }
 
             // Register shortcodes
@@ -128,18 +133,25 @@ class EL_Module_Loader {
 
             // Load the main module class
             $class_file = EL_CORE_MODULES_DIR . "{$slug}/class-{$slug}-module.php";
-            if ( file_exists( $class_file ) ) {
-                require_once $class_file;
-
-                // Convert slug to class name: events → EL_Events_Module
-                $class_name = 'EL_' . str_replace( '-', '_', ucwords( $slug, '-' ) ) . '_Module';
-
-                if ( class_exists( $class_name ) ) {
-                    $this->instances[ $slug ] = $class_name::instance();
-                }
+            if ( ! file_exists( $class_file ) ) {
+                error_log( "EL Core: Module class file missing: {$class_file}" );
+                throw new \Exception( "Module class file not found: class-{$slug}-module.php" );
             }
+
+            require_once $class_file;
+
+            // Convert slug to class name: events → EL_Events_Module
+            $class_name = 'EL_' . str_replace( '-', '_', ucwords( $slug, '-' ) ) . '_Module';
+
+            if ( ! class_exists( $class_name ) ) {
+                error_log( "EL Core: Module class '{$class_name}' not found after loading {$class_file}" );
+                throw new \Exception( "Module class '{$class_name}' not found" );
+            }
+
+            $this->instances[ $slug ] = $class_name::instance( $this->core );
         } catch ( \Throwable $e ) {
             error_log( "EL Core: Module '{$slug}' failed to load: " . $e->getMessage() );
+            error_log( "EL Core: Stack trace: " . $e->getTraceAsString() );
             // Deactivate the broken module so it doesn't crash the site again
             $this->active = array_values( array_diff( $this->active, [ $slug ] ) );
             $this->core->settings->set_active_modules( $this->active );
@@ -149,6 +161,7 @@ class EL_Module_Loader {
                     echo '<div class="notice notice-error"><p>';
                     echo '<strong>EL Core:</strong> Module "' . esc_html( $slug ) . '" was automatically deactivated due to an error: ';
                     echo esc_html( $e->getMessage() );
+                    echo '<br><small>File: ' . esc_html( $e->getFile() ) . ' (line ' . $e->getLine() . ')</small>';
                     echo '</p></div>';
                 });
             }
@@ -235,6 +248,10 @@ class EL_Module_Loader {
         $this->load_module( $slug );
 
         // Apply default role mappings on first activation
+        if ( isset( $manifest['capabilities'] ) ) {
+            $this->core->roles->register_module_capabilities( $slug, $manifest );
+        }
+        
         if ( isset( $manifest['default_role_mapping'] ) ) {
             $this->core->roles->apply_default_mappings( $manifest['default_role_mapping'] );
         }

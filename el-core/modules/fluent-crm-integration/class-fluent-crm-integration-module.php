@@ -16,18 +16,18 @@ if (!defined('ABSPATH')) {
 class EL_FluentCRM_Integration_Module {
     
     private static ?EL_FluentCRM_Integration_Module $instance = null;
-    private EL_Core $core;
+    private ?EL_Core $core = null;
     private bool $is_available = false;
     
-    public static function instance(): self {
+    public static function instance( ?EL_Core $core = null ): self {
         if (null === self::$instance) {
-            self::$instance = new self();
+            self::$instance = new self( $core );
         }
         return self::$instance;
     }
     
-    private function __construct() {
-        $this->core = EL_Core::instance();
+    private function __construct( ?EL_Core $core = null ) {
+        $this->core = $core;
         $this->check_availability();
         $this->init_hooks();
     }

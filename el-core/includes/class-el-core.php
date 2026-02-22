@@ -57,6 +57,7 @@ class EL_Core {
         require_once $includes . 'class-asset-loader.php';
         require_once $includes . 'class-ajax-handler.php';
         require_once $includes . 'class-ai-client.php';
+        require_once $includes . 'class-canvas-page.php';
     }
 
     /**
@@ -70,6 +71,7 @@ class EL_Core {
      * 5. Assets      — CSS/JS with brand variables
      * 6. AJAX        — request handling
      * 7. AI Client   — shared AI integration
+     * 8. Canvas Page — custom page template system
      */
     private function boot(): void {
         // 1. Settings first — everything depends on configuration
@@ -92,6 +94,9 @@ class EL_Core {
 
         // 7. AI Client — shared API wrapper
         $this->ai = new EL_AI_Client( $this->settings );
+
+        // 8. Canvas Page — AI-generated page system
+        EL_Canvas_Page::instance();
 
         // Hook into WordPress admin
         if ( is_admin() ) {
@@ -122,7 +127,10 @@ class EL_Core {
             3                                   // Position
         );
 
-        // Subpages
+        // Explicitly register Dashboard as the first submenu item with the same
+        // slug as the parent. This suppresses WordPress's auto-generated duplicate
+        // and ensures it stays labeled "Dashboard" when other submenus are added.
+        add_submenu_page( 'el-core', 'EL Core Dashboard', 'Dashboard', 'manage_options', 'el-core', [ $this, 'render_admin_page' ] );
         add_submenu_page( 'el-core', 'Brand Settings', 'Brand', 'manage_options', 'el-core-brand', [ $this, 'render_brand_page' ] );
         add_submenu_page( 'el-core', 'Module Manager', 'Modules', 'manage_options', 'el-core-modules', [ $this, 'render_modules_page' ] );
         add_submenu_page( 'el-core', 'Role Manager', 'Roles', 'manage_options', 'el-core-roles', [ $this, 'render_roles_page' ] );

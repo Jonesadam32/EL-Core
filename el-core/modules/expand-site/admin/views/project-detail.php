@@ -24,6 +24,7 @@ $deliverables   = $module->get_deliverables( $project_id );
 $feedback       = $module->get_feedback( $project_id );
 $pages          = $module->get_pages( $project_id );
 $change_orders  = $module->get_change_orders( $project_id );
+$stakeholders   = $module->get_stakeholders( $project_id );
 $current_stage  = (int) $project->current_stage;
 
 $pending_feedback = count( array_filter( $feedback, fn( $f ) => $f->status === 'pending' ) );
@@ -34,14 +35,14 @@ $html = '';
 $html .= EL_Admin_UI::page_header( [
     'title'      => esc_html( $project->name ),
     'subtitle'   => esc_html( $project->client_name ),
-    'back_url'   => admin_url( 'admin.php?page=el-expand-site' ),
+    'back_url'   => admin_url( 'admin.php?page=el-core-projects' ),
     'back_label' => __( '← All Projects', 'el-core' ),
     'actions'    => [
         [
             'label'   => __( 'Edit Project', 'el-core' ),
             'variant' => 'secondary',
             'icon'    => 'edit',
-            'url'     => admin_url( 'admin.php?page=el-expand-site&project=' . $project_id . '&action=edit' ),
+            'url'     => admin_url( 'admin.php?page=el-core-projects&project=' . $project_id . '&action=edit' ),
         ],
         [
             'label'   => __( 'Advance Stage', 'el-core' ),
@@ -57,7 +58,7 @@ $html .= EL_Admin_UI::stats_grid( [
     [
         'icon'    => 'flag',
         'number'  => $current_stage . '/8',
-        'label'   => EL_Expand_Site_Module::get_stage_name( $current_stage ),
+        'label'   => $module->get_stage_name( $current_stage ),
         'variant' => EL_Expand_Site_Module::get_stage_badge_variant( $current_stage ),
     ],
     [
@@ -104,11 +105,12 @@ $html .= EL_Admin_UI::card( [
 $html .= EL_Admin_UI::tab_nav( [
     'group' => 'project-tabs',
     'tabs'  => [
-        [ 'id' => 'overview',     'label' => __( 'Overview', 'el-core' ),      'icon' => 'dashboard',      'active' => true ],
-        [ 'id' => 'stages',       'label' => __( 'Stage History', 'el-core' ), 'icon' => 'backup' ],
-        [ 'id' => 'deliverables', 'label' => __( 'Deliverables', 'el-core' ),  'icon' => 'media-document',  'badge' => count( $deliverables ) ],
-        [ 'id' => 'pages',        'label' => __( 'Pages', 'el-core' ),         'icon' => 'admin-page',      'badge' => count( $pages ) ],
-        [ 'id' => 'feedback',     'label' => __( 'Feedback', 'el-core' ),      'icon' => 'format-chat',     'badge' => $pending_feedback ?: null ],
+        [ 'id' => 'overview',      'label' => __( 'Overview', 'el-core' ),      'icon' => 'dashboard',      'active' => true ],
+        [ 'id' => 'stakeholders',  'label' => __( 'Stakeholders', 'el-core' ),  'icon' => 'groups',         'badge' => count( $stakeholders ) ],
+        [ 'id' => 'stages',        'label' => __( 'Stage History', 'el-core' ), 'icon' => 'backup' ],
+        [ 'id' => 'deliverables',  'label' => __( 'Deliverables', 'el-core' ),  'icon' => 'media-document', 'badge' => count( $deliverables ) ],
+        [ 'id' => 'pages',         'label' => __( 'Pages', 'el-core' ),         'icon' => 'admin-page',     'badge' => count( $pages ) ],
+        [ 'id' => 'feedback',      'label' => __( 'Feedback', 'el-core' ),      'icon' => 'format-chat',    'badge' => $pending_feedback ?: null ],
     ],
 ] );
 
@@ -116,7 +118,7 @@ $html .= EL_Admin_UI::tab_nav( [
 $overview = '';
 
 $overview .= EL_Admin_UI::detail_row( [ 'label' => __( 'Client', 'el-core' ),        'value' => esc_html( $project->client_name ), 'icon' => 'businessperson' ] );
-$overview .= EL_Admin_UI::detail_row( [ 'label' => __( 'Current Stage', 'el-core' ),  'value' => $current_stage . '. ' . EL_Expand_Site_Module::get_stage_name( $current_stage ), 'icon' => 'flag' ] );
+$overview .= EL_Admin_UI::detail_row( [ 'label' => __( 'Current Stage', 'el-core' ),  'value' => $current_stage . '. ' . $module->get_stage_name( $current_stage ), 'icon' => 'flag' ] );
 $overview .= EL_Admin_UI::detail_row( [ 'label' => __( 'Status', 'el-core' ),         'value' => ucfirst( $project->status ), 'icon' => 'marker' ] );
 
 if ( $project->final_price > 0 ) {
@@ -159,6 +161,112 @@ $html .= EL_Admin_UI::tab_panel( [
     'active'  => true,
 ] );
 
+// ── Tab: Stakeholders ──
+$stakeholder_rows = [];
+foreach ( $stakeholders as $sh ) {
+    $user = get_userdata( $sh->user_id );
+    if ( ! $user ) continue;
+
+    $role_badge = EL_Admin_UI::badge( [
+        'label'   => $sh->role === 'decision_maker' ? __( 'Decision Maker', 'el-core' ) : __( 'Contributor', 'el-core' ),
+        'variant' => $sh->role === 'decision_maker' ? 'success' : 'info',
+    ] );
+
+    $actions = '';
+    $dm_count = count( array_filter( $stakeholders, fn( $s ) => $s->role === 'decision_maker' ) );
+    $stakeholder_count = count( $stakeholders );
+    
+    // Change Role button
+    $new_role = $sh->role === 'decision_maker' ? 'contributor' : 'decision_maker';
+    $btn_label = $sh->role === 'decision_maker' ? __( 'Make Contributor', 'el-core' ) : __( 'Make Decision Maker', 'el-core' );
+    
+    // Disable if they're the only DM (need to promote someone else first)
+    $is_only_dm = ( $sh->role === 'decision_maker' && $dm_count === 1 );
+    
+    $actions .= EL_Admin_UI::btn( [
+        'label'   => $btn_label,
+        'variant' => 'ghost',
+        'icon'    => 'update',
+        'class'   => 'el-es-change-role-btn' . ( $is_only_dm ? ' disabled' : '' ),
+        'data'    => [ 
+            'stakeholder-id' => $sh->id, 
+            'new-role' => $new_role,
+            'disabled-msg' => $is_only_dm ? __( 'Promote another stakeholder to Decision Maker first', 'el-core' ) : '',
+        ],
+    ] );
+    
+    // Remove button - always show but disable if they're the last stakeholder or only DM
+    $cannot_remove = ( $stakeholder_count === 1 ) || ( $sh->role === 'decision_maker' && $dm_count === 1 );
+    $remove_msg = '';
+    if ( $stakeholder_count === 1 ) {
+        $remove_msg = __( 'Cannot remove the only stakeholder', 'el-core' );
+    } elseif ( $sh->role === 'decision_maker' && $dm_count === 1 ) {
+        $remove_msg = __( 'Promote another stakeholder to Decision Maker first', 'el-core' );
+    }
+    
+    $actions .= EL_Admin_UI::btn( [
+        'label'   => __( 'Remove', 'el-core' ),
+        'variant' => 'ghost',
+        'icon'    => 'no',
+        'class'   => 'el-es-remove-stakeholder-btn' . ( $cannot_remove ? ' disabled' : '' ),
+        'data'    => [ 
+            'stakeholder-id' => $sh->id,
+            'disabled-msg' => $remove_msg,
+        ],
+    ] );
+    
+    // Login As button (admin only)
+    if ( current_user_can( 'manage_options' ) ) {
+        $switch_url = add_query_arg( [
+            'action' => 'switch_to_user',
+            'user_id' => $user->ID,
+            '_wpnonce' => wp_create_nonce( 'switch_to_user_' . $user->ID ),
+        ], admin_url( 'admin.php' ) );
+        
+        $actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Login As', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'admin-users',
+            'url'     => $switch_url,
+        ] );
+    }
+
+    $stakeholder_rows[] = [
+        'user'   => '<strong>' . esc_html( $user->display_name ) . '</strong><br><small>' . esc_html( $user->user_email ) . '</small>',
+        'role'   => $role_badge,
+        'added'  => date_i18n( 'M j, Y', strtotime( $sh->added_at ) ),
+        '__actions' => $actions,
+    ];
+}
+
+$stakeholders_content = EL_Admin_UI::data_table( [
+    'columns' => [
+        [ 'key' => 'user',  'label' => __( 'User', 'el-core' ) ],
+        [ 'key' => 'role',  'label' => __( 'Role', 'el-core' ) ],
+        [ 'key' => 'added', 'label' => __( 'Added', 'el-core' ) ],
+    ],
+    'rows'  => $stakeholder_rows,
+    'empty' => [
+        'icon'    => 'groups',
+        'title'   => __( 'No stakeholders yet', 'el-core' ),
+        'message' => __( 'Add stakeholders to give clients access to this project.', 'el-core' ),
+        'action'  => [ 'label' => __( 'Add Stakeholder', 'el-core' ), 'variant' => 'primary', 'data' => [ 'modal-open' => 'add-stakeholder-modal' ] ],
+    ],
+] );
+
+$html .= EL_Admin_UI::tab_panel( [
+    'id'      => 'stakeholders',
+    'group'   => 'project-tabs',
+    'content' => EL_Admin_UI::card( [
+        'title'   => __( 'Project Stakeholders', 'el-core' ),
+        'icon'    => 'groups',
+        'content' => $stakeholders_content,
+        'actions' => [
+            [ 'label' => __( 'Add Stakeholder', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'data' => [ 'modal-open' => 'add-stakeholder-modal' ] ],
+        ],
+    ] ),
+] );
+
 // ── Tab: Stage History ──
 $history_rows = [];
 foreach ( $stage_history as $entry ) {
@@ -175,7 +283,7 @@ foreach ( $stage_history as $entry ) {
 
     $history_rows[] = [
         'stage'   => EL_Admin_UI::badge( [
-            'label'   => $entry->stage . '. ' . EL_Expand_Site_Module::get_stage_name( (int) $entry->stage ),
+            'label'   => $entry->stage . '. ' . $module->get_stage_name( (int) $entry->stage ),
             'variant' => EL_Expand_Site_Module::get_stage_badge_variant( (int) $entry->stage ),
         ] ),
         'action'  => $action_badge,
@@ -355,7 +463,7 @@ foreach ( $feedback as $fb ) {
         'content' => '<div>' . wp_kses_post( wp_trim_words( $fb->content, 25 ) ) . '</div>' . $co_flag,
         'type'    => $fb_type,
         'stage'   => EL_Admin_UI::badge( [
-            'label'   => (int) $fb->stage . '. ' . EL_Expand_Site_Module::get_stage_name( (int) $fb->stage ),
+            'label'   => (int) $fb->stage . '. ' . $module->get_stage_name( (int) $fb->stage ),
             'variant' => EL_Expand_Site_Module::get_stage_badge_variant( (int) $fb->stage ),
         ] ),
         'by'      => $fb_user ? esc_html( $fb_user->display_name ) : '—',
@@ -391,17 +499,28 @@ $html .= EL_Admin_UI::tab_panel( [
 // ═══════════════════════════════════════════
 
 // Advance Stage modal
+$next_stage = min( $current_stage + 1, 8 );
+$default_deadline_days = $module->get_stage_deadline_days( $next_stage );
+$default_deadline = date( 'Y-m-d', strtotime( "+{$default_deadline_days} days" ) );
+
 $advance_form  = '<form id="advance-stage-form">';
 $advance_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
 $advance_form .= EL_Admin_UI::notice( [
     'message' => sprintf(
         __( 'This will approve <strong>Stage %d (%s)</strong> and advance to <strong>Stage %d (%s)</strong>.', 'el-core' ),
         $current_stage,
-        EL_Expand_Site_Module::get_stage_name( $current_stage ),
-        min( $current_stage + 1, 8 ),
-        EL_Expand_Site_Module::get_stage_name( min( $current_stage + 1, 8 ) )
+        $module->get_stage_name( $current_stage ),
+        $next_stage,
+        $module->get_stage_name( $next_stage )
     ),
     'type' => 'info',
+] );
+$advance_form .= EL_Admin_UI::form_row( [
+    'name'        => 'deadline',
+    'label'       => __( 'Set Deadline for Next Stage', 'el-core' ),
+    'type'        => 'date',
+    'value'       => $default_deadline,
+    'help'        => sprintf( __( 'Default: %d days from today', 'el-core' ), $default_deadline_days ),
 ] );
 $advance_form .= EL_Admin_UI::form_row( [
     'name'        => 'notes',
@@ -465,6 +584,59 @@ $html .= EL_Admin_UI::modal( [
     'id'      => 'add-page-modal',
     'title'   => __( 'Add Page', 'el-core' ),
     'content' => $page_form,
+] );
+
+// Add Stakeholder modal
+$stakeholder_form  = '<form id="add-stakeholder-form">';
+$stakeholder_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+$stakeholder_form .= EL_Admin_UI::notice( [
+    'message' => __( 'Search for an existing WordPress user or enter an email to create a new user account.', 'el-core' ),
+    'type'    => 'info',
+] );
+$stakeholder_form .= '<div class="el-form-row">';
+$stakeholder_form .= '<label for="stakeholder-user-search" class="el-form-label">' . __( 'Search User', 'el-core' ) . '</label>';
+$stakeholder_form .= '<div class="el-form-field">';
+$stakeholder_form .= '<input type="text" id="stakeholder-user-search" name="user_search" class="el-input" placeholder="' . esc_attr__( 'Start typing name or email...', 'el-core' ) . '">';
+$stakeholder_form .= '</div>';
+$stakeholder_form .= '</div>';
+$stakeholder_form .= '<div id="user-search-results" style="display:none; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;"></div>';
+$stakeholder_form .= '<input type="hidden" name="user_id" id="selected-user-id">';
+$stakeholder_form .= EL_Admin_UI::form_row( [
+    'name'     => 'new_user_email',
+    'label'    => __( 'Or Create New User (Email)', 'el-core' ),
+    'type'     => 'email',
+    'placeholder' => __( 'email@example.com', 'el-core' ),
+] );
+$stakeholder_form .= EL_Admin_UI::form_row( [
+    'name'     => 'new_user_first_name',
+    'label'    => __( 'First Name', 'el-core' ),
+    'type'     => 'text',
+    'placeholder' => __( 'John', 'el-core' ),
+] );
+$stakeholder_form .= EL_Admin_UI::form_row( [
+    'name'     => 'new_user_last_name',
+    'label'    => __( 'Last Name', 'el-core' ),
+    'type'     => 'text',
+    'placeholder' => __( 'Doe', 'el-core' ),
+] );
+$stakeholder_form .= EL_Admin_UI::form_row( [
+    'name'    => 'role',
+    'label'   => __( 'Role', 'el-core' ),
+    'type'    => 'select',
+    'options' => [
+        'contributor'     => __( 'Contributor (can provide input)', 'el-core' ),
+        'decision_maker'  => __( 'Decision Maker (can approve/lock)', 'el-core' ),
+    ],
+] );
+$stakeholder_form .= '<div class="el-form-row">';
+$stakeholder_form .= EL_Admin_UI::btn( [ 'label' => __( 'Add Stakeholder', 'el-core' ), 'variant' => 'primary', 'icon' => 'plus-alt', 'type' => 'submit' ] );
+$stakeholder_form .= '</div>';
+$stakeholder_form .= '</form>';
+
+$html .= EL_Admin_UI::modal( [
+    'id'      => 'add-stakeholder-modal',
+    'title'   => __( 'Add Stakeholder', 'el-core' ),
+    'content' => $stakeholder_form,
 ] );
 
 echo EL_Admin_UI::wrap( $html );

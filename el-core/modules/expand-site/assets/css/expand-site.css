@@ -278,3 +278,54 @@
 .el-es-feedback-status {
     margin-top: 1rem;
 }
+
+/* ═══════════════════════════════════════════
+   ADMIN - DISABLED BUTTONS
+   ═══════════════════════════════════════════ */
+
+.el-es-remove-stakeholder-btn.disabled,
+.el-es-change-role-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.el-es-remove-stakeholder-btn.disabled:hover,
+.el-es-change-role-btn.disabled:hover {
+    background-color: transparent;
+}
+
+/* Portal role badges */
+.el-es-portal-role {
+    margin: 0.5rem 0 0 0;
+}
+
+.el-es-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.el-es-badge-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.el-es-badge-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* Portal notice */
+.el-es-portal-notice {
+    background-color: #e7f3ff;
+    border-left: 4px solid #0073aa;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.el-es-portal-notice p {
+    margin: 0;
+    color: #333;
+}

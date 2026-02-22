@@ -26,14 +26,35 @@ function el_shortcode_page_review( $atts ): string {
 	$module = EL_Expand_Site_Module::instance();
 
 	if ( ! $project_id ) {
+		// Auto-detect: find first project where user is a stakeholder
+		$user_id = get_current_user_id();
+		
+		// First try: user is client_user_id (legacy single-client model)
 		$projects = $module->get_all_projects(
-			[ 'client_user_id' => get_current_user_id() ],
+			[ 'client_user_id' => $user_id ],
 			[ 'limit' => 1, 'orderby' => 'created_at', 'order' => 'DESC' ]
 		);
-		$project = $projects[0] ?? null;
+		
+		// If no match, check stakeholders table (new multi-stakeholder model)
+		if ( empty( $projects ) ) {
+			global $wpdb;
+			$table = $wpdb->prefix . 'el_es_stakeholders';
+			$project_id = $wpdb->get_var( $wpdb->prepare(
+				"SELECT project_id FROM {$table} WHERE user_id = %d ORDER BY added_at DESC LIMIT 1",
+				$user_id
+			) );
+			if ( $project_id ) {
+				$project = $module->get_project( (int) $project_id );
+			} else {
+				$project = null;
+			}
+		} else {
+			$project = $projects[0];
+		}
 	} else {
 		$project = $module->get_project( $project_id );
-		if ( $project && (int) $project->client_user_id !== get_current_user_id() && ! el_core_can( 'manage_expand_site' ) ) {
+		// Verify user is authorized to view this project
+		if ( $project && ! $module->is_stakeholder( $project_id ) && ! el_core_can( 'manage_expand_site' ) ) {
 			$project = null;
 		}
 	}
