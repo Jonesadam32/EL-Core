@@ -25,6 +25,7 @@ $feedback       = $module->get_feedback( $project_id );
 $pages          = $module->get_pages( $project_id );
 $change_orders  = $module->get_change_orders( $project_id );
 $stakeholders   = $module->get_stakeholders( $project_id );
+$definition     = $module->get_project_definition( $project_id );
 $current_stage  = (int) $project->current_stage;
 
 $pending_feedback = count( array_filter( $feedback, fn( $f ) => $f->status === 'pending' ) );
@@ -107,6 +108,7 @@ $html .= EL_Admin_UI::tab_nav( [
     'tabs'  => [
         [ 'id' => 'overview',      'label' => __( 'Overview', 'el-core' ),      'icon' => 'dashboard',      'active' => true ],
         [ 'id' => 'stakeholders',  'label' => __( 'Stakeholders', 'el-core' ),  'icon' => 'groups',         'badge' => count( $stakeholders ) ],
+        [ 'id' => 'transcript',    'label' => __( 'Discovery', 'el-core' ),     'icon' => 'media-text' ],
         [ 'id' => 'stages',        'label' => __( 'Stage History', 'el-core' ), 'icon' => 'backup' ],
         [ 'id' => 'deliverables',  'label' => __( 'Deliverables', 'el-core' ),  'icon' => 'media-document', 'badge' => count( $deliverables ) ],
         [ 'id' => 'pages',         'label' => __( 'Pages', 'el-core' ),         'icon' => 'admin-page',     'badge' => count( $pages ) ],
@@ -159,6 +161,149 @@ $html .= EL_Admin_UI::tab_panel( [
     'group'   => 'project-tabs',
     'content' => EL_Admin_UI::card( [ 'title' => __( 'Project Details', 'el-core' ), 'icon' => 'info-outline', 'content' => $overview ] ),
     'active'  => true,
+] );
+
+// ── Tab: Discovery Transcript ──
+$transcript_content = '';
+
+// Check if definition is locked
+$is_locked = $definition && $definition->locked_at;
+
+if ( $is_locked ) {
+    $locked_by = get_userdata( $definition->locked_by );
+    $transcript_content .= EL_Admin_UI::notice( [
+        'message' => sprintf(
+            __( '<strong>Definition Locked</strong> — Locked by %s on %s. Changes cannot be made.', 'el-core' ),
+            $locked_by ? esc_html( $locked_by->display_name ) : 'Unknown',
+            date_i18n( 'M j, Y g:i A', strtotime( $definition->locked_at ) )
+        ),
+        'type' => 'success',
+    ] );
+}
+
+// Transcript input section
+if ( ! $definition || ! $definition->locked_at ) {
+    $transcript_value = esc_textarea( $project->discovery_transcript ?? '' );
+    $has_transcript = ! empty( $project->discovery_transcript );
+    
+    $transcript_content .= '<div class="el-card" style="margin-bottom: 20px;">';
+    $transcript_content .= '<div class="el-card__header">';
+    $transcript_content .= '<h3 class="el-card__title">' . __( 'Meeting Transcript', 'el-core' ) . '</h3>';
+    $transcript_content .= '</div>';
+    $transcript_content .= '<div class="el-card__body">';
+    $transcript_content .= EL_Admin_UI::notice( [
+        'message' => __( 'Paste your Fathom meeting summary or any discovery call transcript. The AI will extract project requirements and pre-fill the definition below.', 'el-core' ),
+        'type' => 'info',
+    ] );
+    $transcript_content .= '<textarea id="discovery-transcript" rows="12" style="width: 100%; font-family: monospace; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">' . $transcript_value . '</textarea>';
+    $transcript_content .= '<div style="margin-top: 15px;">';
+    $transcript_content .= EL_Admin_UI::btn( [
+        'label'   => __( 'Process with AI', 'el-core' ),
+        'variant' => 'primary',
+        'icon'    => 'admin-generic',
+        'id'      => 'process-transcript-btn',
+        'data'    => [ 'project-id' => $project_id ],
+    ] );
+    if ( $has_transcript ) {
+        $transcript_content .= ' <span style="color: #666; font-size: 13px;">' . sprintf(
+            __( 'Last processed: %s', 'el-core' ),
+            $project->discovery_extracted_at ? date_i18n( 'M j, Y g:i A', strtotime( $project->discovery_extracted_at ) ) : 'Never'
+        ) . '</span>';
+    }
+    $transcript_content .= '</div>';
+    $transcript_content .= '</div>';
+    $transcript_content .= '</div>';
+}
+
+// Definition form section
+$def_form = '<form id="project-definition-form">';
+$def_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+
+$def_form .= EL_Admin_UI::form_row( [
+    'name'     => 'site_description',
+    'label'    => __( 'Site Description', 'el-core' ),
+    'type'     => 'textarea',
+    'value'    => $definition->site_description ?? '',
+    'readonly' => $is_locked,
+    'help'     => __( 'A brief overview of what this website will be.', 'el-core' ),
+] );
+
+$def_form .= EL_Admin_UI::form_row( [
+    'name'     => 'primary_goal',
+    'label'    => __( 'Primary Goal', 'el-core' ),
+    'type'     => 'textarea',
+    'value'    => $definition->primary_goal ?? '',
+    'readonly' => $is_locked,
+    'help'     => __( 'The main objective this website should achieve.', 'el-core' ),
+] );
+
+$def_form .= EL_Admin_UI::form_row( [
+    'name'     => 'secondary_goals',
+    'label'    => __( 'Secondary Goals', 'el-core' ),
+    'type'     => 'textarea',
+    'value'    => $definition->secondary_goals ?? '',
+    'readonly' => $is_locked,
+    'help'     => __( 'Additional objectives (one per line or comma-separated).', 'el-core' ),
+] );
+
+$def_form .= EL_Admin_UI::form_row( [
+    'name'     => 'target_customers',
+    'label'    => __( 'Target Customers', 'el-core' ),
+    'type'     => 'textarea',
+    'value'    => $definition->target_customers ?? '',
+    'readonly' => $is_locked,
+    'help'     => __( 'Who is this site designed to reach?', 'el-core' ),
+] );
+
+$def_form .= EL_Admin_UI::form_row( [
+    'name'     => 'user_types',
+    'label'    => __( 'User Types', 'el-core' ),
+    'type'     => 'textarea',
+    'value'    => $definition->user_types ?? '',
+    'readonly' => $is_locked,
+    'help'     => __( 'Different types of users and their roles (e.g., "Students", "Teachers", "Administrators").', 'el-core' ),
+] );
+
+$def_form .= EL_Admin_UI::form_row( [
+    'name'     => 'site_type',
+    'label'    => __( 'Site Type', 'el-core' ),
+    'type'     => 'text',
+    'value'    => $definition->site_type ?? '',
+    'readonly' => $is_locked,
+    'help'     => __( 'e.g., "E-commerce", "Educational Portal", "Corporate Website"', 'el-core' ),
+] );
+
+if ( ! $is_locked ) {
+    $def_form .= '<div class="el-form-row">';
+    $def_form .= EL_Admin_UI::btn( [
+        'label'   => __( 'Save Definition', 'el-core' ),
+        'variant' => 'secondary',
+        'icon'    => 'saved',
+        'type'    => 'submit',
+    ] );
+    $def_form .= ' ';
+    $def_form .= EL_Admin_UI::btn( [
+        'label'   => __( 'Confirm & Lock Definition', 'el-core' ),
+        'variant' => 'primary',
+        'icon'    => 'lock',
+        'id'      => 'lock-definition-btn',
+        'data'    => [ 'project-id' => $project_id ],
+    ] );
+    $def_form .= '</div>';
+}
+
+$def_form .= '</form>';
+
+$transcript_content .= EL_Admin_UI::card( [
+    'title'   => __( 'Project Definition', 'el-core' ),
+    'icon'    => 'edit-page',
+    'content' => $def_form,
+] );
+
+$html .= EL_Admin_UI::tab_panel( [
+    'id'      => 'transcript',
+    'group'   => 'project-tabs',
+    'content' => $transcript_content,
 ] );
 
 // ── Tab: Stakeholders ──

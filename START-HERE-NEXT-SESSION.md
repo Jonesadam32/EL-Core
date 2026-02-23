@@ -5,7 +5,7 @@
 >
 > **Last Updated:** February 22, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.11.2 (tested and working - Phase 2E complete)
+> **Current Plugin Version:** 1.13.1 (Phase 2F complete + Client Portal Retrofit)
 
 ---
 
@@ -38,15 +38,53 @@
 - **EL Core v1.10.7** on staging site (qd19d0iehj-staging.wpdns.site)
 
 ### Built and Ready to Deploy
-- **EL Core v1.11.2** - Phase 2E COMPLETE + Advance Stage bug fix (tested and working)
-  - Located: `C:\Github\EL Core\releases\el-core-v1.11.2.zip`
-  - Backup: `C:\Github\EL Core\old-versions\v1.11.2\el-core-v1.11.2.zip`
+- **EL Core v1.13.1** - Phase 2F COMPLETE + Client Portal Retrofit
+  - Located: `C:\Github\EL Core\releases\el-core-v1.13.1.zip`
+  - Backup: `C:\Github\EL Core\old-versions\v1.13.1\el-core-v1.13.1.zip`
 
 ### What Was Done This Session (February 22, 2026)
 
-**Phase 2E - Timer and Escalation System - COMPLETE ✅** (tested and working)
+**Phase 2F - Discovery Transcript System + Client Portal Retrofit - COMPLETE ✅**
 
-**Critical Bug Fix (v1.11.2):**
+**Version Progression:**
+- v1.12.0: Phase 2F admin features (transcript processing)
+- v1.12.1-v1.12.3: Bugfixes (AI wrapper, model selection, JSON extraction)
+- v1.13.0: Client portal retrofit (stats, definition, stakeholders, timeline)
+- v1.13.1: Fixed missing sections, increased portal width to 1200px
+
+**Admin Features (Phase 2F):**
+- Discovery tab on project detail page with AI-powered transcript processing
+- Paste Fathom meeting summaries or discovery call notes
+- "Process with AI" button extracts project requirements automatically
+- AI extracts: site description, primary/secondary goals, target customers, user types, site type
+- Editable definition form displays extracted data for manual refinement
+- "Save Definition" and "Confirm & Lock Definition" buttons
+- Locked state UI shows who locked and when
+
+**Client Portal Retrofit:**
+- **Stats grid** - 4-card overview (stage, status, deliverables, feedback)
+- **Project description** - Shows project notes if present
+- **Project definition** - Shows AI-extracted definition when locked
+- **Stakeholders list** - Team members with avatars and role badges
+- **Enhanced timeline** - 8-stage progress bar in dedicated section
+- **Professional UX/UI** - Card-based layout, hover effects, responsive design, 1200px width
+- Icons for visual recognition (📍📄💬👥📋🚀)
+- Mobile responsive with proper stacking
+
+**Technical Implementation:**
+- AJAX handlers: `es_process_transcript`, `es_save_definition`, `es_lock_definition`
+- `get_project_definition()` query method
+- `extract_json_from_ai_response()` helper for robust JSON parsing
+- 300+ lines of professional CSS with animations and responsive breakpoints
+- Uses Claude API for transcript processing
+
+**Bugfixes Along the Way:**
+- Fixed AI wrapper function usage (returns array, not string)
+- Added AI configuration check before processing
+- Removed hardcoded GPT-4 model (respects user's Claude/OpenAI choice)
+- Robust JSON extraction from markdown code blocks and text wrappers
+
+**Previous Session - Phase 2E (Timer and Escalation System) ✅**
 - Added missing JavaScript handler for "Advance Stage" form
 - Form was submitting as HTML instead of AJAX (causing blank page)
 - Now properly advances stages via AJAX and reloads page
@@ -116,7 +154,25 @@ Per ARCHITECTURE-DECISIONS-FEB-22-2026.md: Expand Site is a proprietary internal
 
 ### What Needs to Happen Next
 
-**Continue to Phase 2F - Discovery Transcript System**
+**Decision Point: Build Approach Going Forward**
+
+Fred requested we build client-facing pages alongside admin features (not all admin first, then all client pages). This gives immediate end-to-end testing and lets frontend UX guide backend decisions.
+
+**Next Steps:**
+1. **Test v1.13.1 thoroughly** - Upload to staging and verify:
+   - Transcript processing with Claude API works
+   - Definition lock/unlock flow
+   - Client portal shows all sections when data present
+   - Mobile responsive design
+   - Stats grid accuracy
+
+2. **Phase 2G - Branding Workflow (Admin + Client Together)**:
+   - Admin: Branding tab, mood board upload, AI color generation
+   - Client: `[el_brand_selector]` shortcode for brand approval
+   - Test full flow: Admin generates → Client sees/selects → Admin sees choice
+
+**Architecture Decision Made:**
+Client pages built alongside admin features for each phase, not at the end. This allows complete feature testing and UX refinement in real-time.
 - Add Transcript tab to project detail page
 - Textarea to paste Fathom meeting summary
 - "Process with AI" button to extract project requirements

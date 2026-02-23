@@ -48,6 +48,11 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_extend_deadline',     [ $this, 'handle_extend_deadline' ] );
         add_action( 'el_core_ajax_es_clear_flag',          [ $this, 'handle_clear_flag' ] );
         
+        // Discovery transcript and definition
+        add_action( 'el_core_ajax_es_process_transcript',  [ $this, 'handle_process_transcript' ] );
+        add_action( 'el_core_ajax_es_save_definition',     [ $this, 'handle_save_definition' ] );
+        add_action( 'el_core_ajax_es_lock_definition',     [ $this, 'handle_lock_definition' ] );
+        
         // User switching
         add_action( 'admin_init', [ $this, 'handle_switch_to_user' ] );
 
@@ -378,6 +383,15 @@ class EL_Expand_Site_Module {
             'orderby' => 'created_at',
             'order'   => 'DESC',
         ] );
+    }
+
+    public function get_project_definition( int $project_id ): ?object {
+        $results = $this->core->database->query( 'el_es_project_definition', [
+            'project_id' => $project_id,
+        ], [
+            'limit' => 1,
+        ] );
+        return ! empty( $results ) ? $results[0] : null;
     }
 
     public function count_projects( array $where = [] ): int {
@@ -1272,6 +1286,243 @@ class EL_Expand_Site_Module {
         } else {
             EL_AJAX_Handler::error( __( 'Failed to clear flag.', 'el-core' ) );
         }
+    }
+    
+    // ═══════════════════════════════════════════
+    // DISCOVERY TRANSCRIPT & PROJECT DEFINITION
+    // ═══════════════════════════════════════════
+    
+    public function handle_process_transcript( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $transcript = wp_kses_post( $data['transcript'] ?? '' );
+
+        if ( ! $project_id || ! $transcript ) {
+            EL_AJAX_Handler::error( __( 'Project ID and transcript are required.', 'el-core' ) );
+            return;
+        }
+
+        $project = $this->get_project( $project_id );
+        if ( ! $project ) {
+            EL_AJAX_Handler::error( __( 'Project not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        // Check if AI is configured
+        if ( ! $this->core->ai->is_configured() ) {
+            EL_AJAX_Handler::error( __( 'AI is not configured. Go to EL Core → Brand → AI Settings to add your API key.', 'el-core' ) );
+            return;
+        }
+
+        // Save transcript to project
+        $this->core->database->update( 'el_es_projects', [
+            'discovery_transcript'    => $transcript,
+            'discovery_extracted_at'  => current_time( 'mysql' ),
+            'updated_at'              => current_time( 'mysql' ),
+        ], [ 'id' => $project_id ] );
+
+        // Build AI prompt to extract project requirements
+        $prompt = "You are a project manager analyzing a discovery call transcript. Extract the following information from the transcript and return it as a JSON object. If information is not found, use empty string or null.\n\n";
+        $prompt .= "Required fields:\n";
+        $prompt .= "- site_description: A brief overview of what this website will be (1-2 sentences)\n";
+        $prompt .= "- primary_goal: The main objective this website should achieve (1 sentence)\n";
+        $prompt .= "- secondary_goals: Additional objectives as a comma-separated list or bullet points\n";
+        $prompt .= "- target_customers: Who is this site designed to reach? (description of the audience)\n";
+        $prompt .= "- user_types: Different types of users and their roles (comma-separated or JSON array)\n";
+        $prompt .= "- site_type: Category of website (e.g., 'E-commerce', 'Educational Portal', 'Corporate Website', 'Blog', etc.)\n\n";
+        $prompt .= "Transcript:\n{$transcript}\n\n";
+        $prompt .= "Return ONLY valid JSON with these exact keys: site_description, primary_goal, secondary_goals, target_customers, user_types, site_type";
+
+        // Call AI API (uses configured provider and model from settings)
+        $ai_response = el_core_ai_complete( $prompt, '', [
+            'max_tokens'  => 1000,
+        ] );
+
+        // Check if AI call succeeded
+        if ( ! $ai_response['success'] ) {
+            $error_msg = $ai_response['error'] ?? 'Unknown AI error';
+            EL_AJAX_Handler::error( __( 'AI processing failed: ', 'el-core' ) . $error_msg );
+            return;
+        }
+
+        $ai_content = $ai_response['content'] ?? '';
+        if ( empty( $ai_content ) ) {
+            EL_AJAX_Handler::error( __( 'AI returned empty response. Please try again or enter data manually.', 'el-core' ) );
+            return;
+        }
+
+        // Extract JSON from AI response (handles markdown code blocks and extra text)
+        $json_string = $this->extract_json_from_ai_response( $ai_content );
+        if ( ! $json_string ) {
+            error_log( 'EL Expand Site: Could not extract JSON from AI response: ' . $ai_content );
+            EL_AJAX_Handler::error( __( 'AI response format was unexpected. Please try again or enter data manually.', 'el-core' ) );
+            return;
+        }
+
+        // Parse JSON response
+        $extracted = json_decode( $json_string, true );
+        if ( json_last_error() !== JSON_ERROR_NONE ) {
+            error_log( 'EL Expand Site: Failed to parse extracted JSON: ' . $json_string );
+            error_log( 'EL Expand Site: Full AI response was: ' . $ai_content );
+            EL_AJAX_Handler::error( __( 'Failed to parse AI response. Please try again or enter data manually.', 'el-core' ) );
+            return;
+        }
+
+        // Ensure user_types is a string (convert array if needed)
+        if ( isset( $extracted['user_types'] ) && is_array( $extracted['user_types'] ) ) {
+            $extracted['user_types'] = implode( ', ', $extracted['user_types'] );
+        }
+
+        // Save or update project definition
+        $definition = $this->get_project_definition( $project_id );
+        
+        $definition_data = [
+            'site_description'  => sanitize_textarea_field( $extracted['site_description'] ?? '' ),
+            'primary_goal'      => sanitize_textarea_field( $extracted['primary_goal'] ?? '' ),
+            'secondary_goals'   => sanitize_textarea_field( $extracted['secondary_goals'] ?? '' ),
+            'target_customers'  => sanitize_textarea_field( $extracted['target_customers'] ?? '' ),
+            'user_types'        => sanitize_textarea_field( $extracted['user_types'] ?? '' ),
+            'site_type'         => sanitize_text_field( $extracted['site_type'] ?? '' ),
+            'updated_at'        => current_time( 'mysql' ),
+        ];
+
+        if ( $definition ) {
+            // Update existing definition
+            $this->core->database->update( 'el_es_project_definition', $definition_data, [
+                'project_id' => $project_id,
+            ] );
+        } else {
+            // Create new definition
+            $definition_data['project_id'] = $project_id;
+            $definition_data['created_at'] = current_time( 'mysql' );
+            $this->core->database->insert( 'el_es_project_definition', $definition_data );
+        }
+
+        EL_AJAX_Handler::success( [
+            'definition' => $definition_data,
+        ], __( 'Transcript processed successfully!', 'el-core' ) );
+    }
+
+    public function handle_save_definition( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Project ID is required.', 'el-core' ) );
+            return;
+        }
+
+        $project = $this->get_project( $project_id );
+        if ( ! $project ) {
+            EL_AJAX_Handler::error( __( 'Project not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        // Check if definition is locked
+        $definition = $this->get_project_definition( $project_id );
+        if ( $definition && $definition->locked_at ) {
+            EL_AJAX_Handler::error( __( 'Definition is locked and cannot be edited.', 'el-core' ), 403 );
+            return;
+        }
+
+        $definition_data = [
+            'site_description'  => sanitize_textarea_field( $data['site_description'] ?? '' ),
+            'primary_goal'      => sanitize_textarea_field( $data['primary_goal'] ?? '' ),
+            'secondary_goals'   => sanitize_textarea_field( $data['secondary_goals'] ?? '' ),
+            'target_customers'  => sanitize_textarea_field( $data['target_customers'] ?? '' ),
+            'user_types'        => sanitize_textarea_field( $data['user_types'] ?? '' ),
+            'site_type'         => sanitize_text_field( $data['site_type'] ?? '' ),
+            'updated_at'        => current_time( 'mysql' ),
+        ];
+
+        if ( $definition ) {
+            // Update existing definition
+            $result = $this->core->database->update( 'el_es_project_definition', $definition_data, [
+                'project_id' => $project_id,
+            ] );
+        } else {
+            // Create new definition
+            $definition_data['project_id'] = $project_id;
+            $definition_data['created_at'] = current_time( 'mysql' );
+            $result = $this->core->database->insert( 'el_es_project_definition', $definition_data );
+        }
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( null, __( 'Definition saved!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to save definition.', 'el-core' ) );
+        }
+    }
+
+    public function handle_lock_definition( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Project ID is required.', 'el-core' ) );
+            return;
+        }
+
+        $definition = $this->get_project_definition( $project_id );
+        if ( ! $definition ) {
+            EL_AJAX_Handler::error( __( 'No definition found to lock.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( $definition->locked_at ) {
+            EL_AJAX_Handler::error( __( 'Definition is already locked.', 'el-core' ) );
+            return;
+        }
+
+        $result = $this->core->database->update( 'el_es_project_definition', [
+            'locked_at' => current_time( 'mysql' ),
+            'locked_by' => get_current_user_id(),
+        ], [ 'project_id' => $project_id ] );
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( null, __( 'Definition locked successfully!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to lock definition.', 'el-core' ) );
+        }
+    }
+    
+    /**
+     * Extract JSON from AI response (handles markdown code blocks and extra text)
+     * 
+     * @param string $response Raw AI response
+     * @return string|false JSON string if found, false otherwise
+     */
+    private function extract_json_from_ai_response( string $response ) {
+        // Try to extract from markdown code blocks first
+        // Pattern 1: ```json ... ```
+        if ( preg_match( '/```json\s*(\{[\s\S]*?\})\s*```/', $response, $matches ) ) {
+            return trim( $matches[1] );
+        }
+        
+        // Pattern 2: ``` ... ``` (without json tag)
+        if ( preg_match( '/```\s*(\{[\s\S]*?\})\s*```/', $response, $matches ) ) {
+            return trim( $matches[1] );
+        }
+        
+        // Pattern 3: Find first { to last } (handles text before/after JSON)
+        if ( preg_match( '/(\{[\s\S]*\})/', $response, $matches ) ) {
+            return trim( $matches[1] );
+        }
+        
+        // No JSON found
+        return false;
     }
     
     // ═══════════════════════════════════════════

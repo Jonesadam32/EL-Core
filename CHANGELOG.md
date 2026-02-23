@@ -6,6 +6,141 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.13.1] — 2026-02-22
+### Fixed
+- **Client Portal Missing Sections**: Actually added the sections that failed to save in v1.13.0
+  - Project description/notes now display if present
+  - Project definition (AI-extracted) now displays when locked
+  - Stakeholders list with avatars and role badges now displays
+  - Timeline wrapped in section with proper heading
+- **Portal width increased**: Changed max-width from 800px to 1200px to match site width
+
+### Added
+- Description content styling (line-height, readable text)
+
+---
+
+## [1.13.0] — 2026-02-22
+### Added
+- **Phase 2F - Client Portal Retrofit - COMPLETE ✅**:
+  - **Stats grid** - 4-card overview showing stage progress, status, deliverable count, pending feedback
+  - **Project definition display** - Shows locked definition (description, goals, customers, user types, site type)
+  - **Stakeholder list** - Visual cards showing all team members with avatars and role badges
+  - **Enhanced pipeline progress** - Moved from redundant admin page to client portal where it's valuable
+  - **Professional UX/UI design** - Card-based layout, hover effects, responsive grid, proper spacing
+  - Icons for visual recognition (📍stage, 📄deliverables, 💬feedback, 👥team, 📋definition, 🚀timeline)
+  - Clean typography hierarchy with large headings and readable body text
+  - Color-coded status indicators (green=completed, blue=current, gray=upcoming)
+  - Mobile responsive (stacks vertically on phones, 2-column grid on tablets)
+
+### Changed
+- **Removed pipeline progress from admin project detail page** - Was redundant with stats grid
+- **Restructured portal layout**: Header → Stats → Definition → Team → Timeline → Deliverables → Feedback
+- Updated deliverables display from simple list to card-based grid with icons
+- Updated feedback display with colored cards (yellow background, orange border)
+- Enhanced section headings with emojis and better typography
+- Improved empty states with helpful messages
+
+### Technical
+- Added 300+ lines of professional CSS with proper animations, shadows, and transitions
+- Card hover effects (subtle lift and shadow)
+- Gradient backgrounds on info notices
+- Responsive breakpoints: 768px (tablet), 480px (mobile)
+- Button hover states with transform effects
+- Grid layouts with `auto-fit` for flexibility
+- Mobile-first approach with column stacking
+
+---
+
+## [1.12.3] — 2026-02-22
+### Fixed
+- **JSON Parsing from AI Response**: Added robust JSON extraction
+  - AI models (especially Claude) sometimes wrap JSON in markdown code blocks
+  - AI models may add explanatory text before/after the JSON
+  - New `extract_json_from_ai_response()` method handles multiple formats:
+    - Markdown code blocks: ` ```json {...} ``` `
+    - Generic code blocks: ` ``` {...} ``` `
+    - Inline JSON with surrounding text: `Here's the data: {...} Hope this helps!`
+  - Extracts clean JSON before parsing
+  - Better error logging shows both raw response and extracted JSON
+
+### Technical
+- Added regex patterns to find and extract JSON from various AI response formats
+- Logs full AI response when JSON extraction or parsing fails (for debugging)
+- More helpful error messages distinguish between "no JSON found" vs "invalid JSON"
+
+---
+
+## [1.12.2] — 2026-02-22
+### Fixed
+- **Model Selection Bug**: Removed hardcoded `'model' => 'gpt-4'` parameter
+  - Code was forcing OpenAI's GPT-4 model even when Claude/Anthropic was selected
+  - Now respects user's provider and model choice from Brand settings
+  - Allows transcript processing to work with Claude API keys
+
+---
+
+## [1.12.1] — 2026-02-22
+### Fixed
+- **CRITICAL: AI Transcript Processing Error**:
+  - Fixed incorrect usage of `el_core_ai_complete()` wrapper function
+  - Function returns array with `['success' => bool, 'content' => string, 'error' => string]`
+  - Previous code treated it as returning just the content string
+  - Now properly checks `$response['success']` and extracts `$response['content']`
+  - Added check for AI configuration before processing (helpful error message)
+  - Added logging of AI response for debugging JSON parse failures
+  - Fixed function call signature (3rd parameter is `$options` array, not `$system` string)
+  - Error message now directs users to: EL Core → Brand → AI Settings
+  - **Removed hardcoded 'gpt-4' model** - now uses configured provider/model from settings
+
+### Technical
+- Added `$this->core->ai->is_configured()` check before AI processing
+- Logs AI response to error_log when JSON parsing fails (for debugging)
+- Returns friendly error: "AI is not configured. Go to EL Core → Brand → AI Settings to add your API key."
+- Removed `'model' => 'gpt-4'` override - respects user's provider choice (Anthropic/OpenAI)
+
+---
+
+## [1.12.0] — 2026-02-22
+### Added
+- **Phase 2F - Discovery Transcript System - COMPLETE ✅**:
+  - **Discovery tab** on project detail page for AI-powered transcript processing
+  - **Transcript textarea** for pasting Fathom meeting summaries or discovery call notes
+  - **"Process with AI" button** extracts project requirements automatically
+  - **AI extraction** pulls from transcript:
+    - Site description (1-2 sentence overview)
+    - Primary goal (main objective)
+    - Secondary goals (additional objectives)
+    - Target customers (audience description)
+    - User types (different user roles, comma-separated)
+    - Site type (category: e-commerce, educational, corporate, etc.)
+  - **Editable definition form** displays extracted data for manual refinement
+  - **"Save Definition" button** saves changes to project definition
+  - **"Confirm & Lock Definition" button** locks definition (prevents further edits)
+  - **Locked state UI** shows who locked and when, hides edit controls
+  - AJAX handler: `es_process_transcript` - calls AI API and parses JSON response
+  - AJAX handler: `es_save_definition` - saves edited definition fields
+  - AJAX handler: `es_lock_definition` - locks definition and records who/when
+  - `get_project_definition()` query method
+  - Admin JavaScript handlers for all transcript/definition interactions
+  - Transcript saved to `el_es_projects.discovery_transcript`
+  - Extracted data saved to `el_es_project_definition` table
+  - `discovery_extracted_at` timestamp tracks when AI last processed transcript
+
+### Changed
+- Discovery tab renamed from "Transcript" to "Discovery" in tab nav
+- Definition form conditionally shows/hides based on locked state
+- Transcript input hidden after definition is locked (immutable once confirmed)
+
+### Technical
+- Uses `el_core_ai_complete()` wrapper for AI API calls (GPT-4, temp 0.3)
+- AI prompt engineering for structured JSON extraction
+- Handles array-to-string conversion for user_types field
+- Permission checks: only admins can process/save/lock definitions
+- Database migration already exists (v2) - no schema changes needed
+
+---
+
 ## [1.11.2] — 2026-02-22
 ### Fixed
 - **CRITICAL: Advance Stage Form Not Working**:

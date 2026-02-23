@@ -5,7 +5,7 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** February 22, 2026
-> **Plugin Version:** v1.11.2 (tested and working - Phase 2E complete)
+> **Plugin Version:** v1.13.1 (Phase 2F complete + Client Portal Retrofit)
 > **Deployed Version:** v1.10.7 on qd19d0iehj-staging.wpdns.site
 > **Local Repo:** `C:\Github\EL Core\`
 > **Plugin Source:** `C:\Github\EL Core\el-core\`
@@ -190,22 +190,40 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] Removed `default_stage_deadline_days` setting (per architecture decision)
 - [x] **Built v1.11.1 - Phase 2E COMPLETE ✅**
 
-### 2F — Discovery Transcript System
+### 2F — Discovery Transcript System ✅ COMPLETE
 
-- [ ] Add Transcript tab to `admin/views/project-detail.php`
+- [x] Add Transcript tab to `admin/views/project-detail.php`
   - Textarea: paste Fathom summary or any meeting transcript
   - "Process with AI" button
   - Display extracted fields in editable form after processing
   - "Confirm & Lock Definition" button (agency admin confirms before client sees it)
-- [ ] AJAX handler: `es_process_transcript`
+- [x] AJAX handler: `es_process_transcript`
   - Save raw transcript to `discovery_transcript`
   - AI prompt: extract site description, primary goal, target customers, user types, site type, team member names — return JSON
   - Call `el_core_ai_complete()` with prompt
   - Parse response, pre-populate `el_es_project_definition`
   - Set `discovery_extracted_at` timestamp
   - Return structured data to JS
-- [ ] AJAX handler: `es_save_definition` — save manually edited definition fields
-- [ ] AJAX handler: `es_lock_definition` — lock definition (DM only on client side, admin on backend)
+- [x] AJAX handler: `es_save_definition` — save manually edited definition fields
+- [x] AJAX handler: `es_lock_definition` — lock definition (DM only on client side, admin on backend)
+- [x] Admin JavaScript handlers for transcript processing and form submission
+- [x] Bugfixes (v1.12.1-1.12.3): AI wrapper usage, model selection, robust JSON extraction
+- [x] **Built v1.12.3 - Phase 2F admin features COMPLETE ✅**
+
+### 2F-Retrofit — Client Portal Enhancement ✅ COMPLETE
+
+- [x] Update `[el_expand_site_portal]` shortcode with professional UX/UI
+- [x] Stats grid (4 cards: stage progress, status, deliverables, feedback counts)
+- [x] Project description display (from notes field)
+- [x] Project definition display (AI-extracted data when locked)
+- [x] Stakeholders list with avatars and role badges
+- [x] Enhanced timeline in dedicated section with proper styling
+- [x] Deliverables as card grid with icons and descriptions
+- [x] Feedback as colored cards with dates
+- [x] Professional CSS: 300+ lines with animations, hover effects, responsive breakpoints
+- [x] Increased portal width from 800px to 1200px
+- [x] Mobile responsive (stacks vertically on phone, 2-column grid on tablet)
+- [x] **Built v1.13.1 - Client portal retrofit COMPLETE ✅**
 
 ### 2G — Branding Workflow
 

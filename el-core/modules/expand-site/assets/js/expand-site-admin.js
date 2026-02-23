@@ -34,6 +34,11 @@
                 debouncedSearch(e);
             }
         });
+        
+        // Discovery transcript processing
+        document.addEventListener('click', handleProcessTranscript);
+        document.addEventListener('submit', handleSaveDefinition);
+        document.addEventListener('click', handleLockDefinition);
     }
 
     function handleProjectCreate(e) {
@@ -484,6 +489,195 @@
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    }
+
+    // ═══════════════════════════════════════════
+    // DISCOVERY TRANSCRIPT & DEFINITION
+    // ═══════════════════════════════════════════
+
+    function handleProcessTranscript(e) {
+        const btn = e.target.closest('#process-transcript-btn');
+        if (!btn) return;
+
+        e.preventDefault();
+
+        const projectId = btn.dataset.projectId;
+        const textarea = document.getElementById('discovery-transcript');
+        const transcript = textarea ? textarea.value.trim() : '';
+
+        if (!transcript) {
+            alert('Please paste a transcript before processing.');
+            return;
+        }
+
+        if (!confirm('This will process the transcript with AI and update the definition fields below. Continue?')) {
+            return;
+        }
+
+        // Disable button
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = 'Processing with AI...';
+
+        // Build FormData for WordPress AJAX
+        const ajaxData = new FormData();
+        ajaxData.append('action', 'el_core_action');
+        ajaxData.append('el_action', 'es_process_transcript');
+        ajaxData.append('nonce', elExpandSiteAdmin.nonce);
+        ajaxData.append('project_id', projectId);
+        ajaxData.append('transcript', transcript);
+
+        // Submit via AJAX
+        fetch(elExpandSiteAdmin.ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: ajaxData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (!result.success) {
+                throw new Error(result.data?.message || 'Request failed');
+            }
+
+            // Extract definition data from response
+            const definition = result.data?.data?.definition || result.data?.definition;
+            
+            // Update form fields with extracted data
+            if (definition) {
+                const fields = ['site_description', 'primary_goal', 'secondary_goals', 'target_customers', 'user_types', 'site_type'];
+                fields.forEach(field => {
+                    const input = document.querySelector(`[name="${field}"]`);
+                    if (input && definition[field]) {
+                        input.value = definition[field];
+                    }
+                });
+            }
+
+            alert('Transcript processed successfully! Review the extracted data below and make any needed edits.');
+            
+            // Re-enable button
+            btn.disabled = false;
+            btn.textContent = originalText;
+        })
+        .catch(err => {
+            console.error('AJAX Error:', err);
+            alert(err.message || 'Failed to process transcript. Please try again or enter data manually.');
+            btn.disabled = false;
+            btn.textContent = originalText;
+        });
+    }
+
+    function handleSaveDefinition(e) {
+        const form = e.target.closest('#project-definition-form');
+        if (!form) return;
+
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn?.textContent || 'Save Definition';
+
+        // Gather form data
+        const formData = new FormData(form);
+        const data = {
+            project_id: formData.get('project_id'),
+            site_description: formData.get('site_description') || '',
+            primary_goal: formData.get('primary_goal') || '',
+            secondary_goals: formData.get('secondary_goals') || '',
+            target_customers: formData.get('target_customers') || '',
+            user_types: formData.get('user_types') || '',
+            site_type: formData.get('site_type') || ''
+        };
+
+        // Disable submit button
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+        }
+
+        // Build FormData for WordPress AJAX
+        const ajaxData = new FormData();
+        ajaxData.append('action', 'el_core_action');
+        ajaxData.append('el_action', 'es_save_definition');
+        ajaxData.append('nonce', elExpandSiteAdmin.nonce);
+        Object.keys(data).forEach(key => {
+            ajaxData.append(key, data[key]);
+        });
+
+        // Submit via AJAX
+        fetch(elExpandSiteAdmin.ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: ajaxData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (!result.success) {
+                throw new Error(result.data?.message || 'Request failed');
+            }
+
+            alert('Definition saved successfully!');
+            
+            // Re-enable button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        })
+        .catch(err => {
+            console.error('AJAX Error:', err);
+            alert(err.message || 'Failed to save definition.');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        });
+    }
+
+    function handleLockDefinition(e) {
+        const btn = e.target.closest('#lock-definition-btn');
+        if (!btn) return;
+
+        e.preventDefault();
+
+        const projectId = btn.dataset.projectId;
+
+        if (!confirm('Are you sure you want to lock this definition?\n\nOnce locked, it cannot be edited. This confirms the project scope is finalized.')) {
+            return;
+        }
+
+        // Disable button
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = 'Locking...';
+
+        // Build FormData for WordPress AJAX
+        const ajaxData = new FormData();
+        ajaxData.append('action', 'el_core_action');
+        ajaxData.append('el_action', 'es_lock_definition');
+        ajaxData.append('nonce', elExpandSiteAdmin.nonce);
+        ajaxData.append('project_id', projectId);
+
+        // Submit via AJAX
+        fetch(elExpandSiteAdmin.ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: ajaxData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (!result.success) {
+                throw new Error(result.data?.message || 'Request failed');
+            }
+
+            // Success - reload page to show locked state
+            window.location.reload();
+        })
+        .catch(err => {
+            console.error('AJAX Error:', err);
+            alert(err.message || 'Failed to lock definition.');
+            btn.disabled = false;
+            btn.textContent = originalText;
+        });
     }
 
 })();
