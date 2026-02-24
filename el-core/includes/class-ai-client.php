@@ -202,6 +202,119 @@ class EL_AI_Client {
     }
 
     /**
+     * Send a completion request with an image (vision).
+     *
+     * @param array $args {
+     *     @type string $system        System prompt
+     *     @type string $prompt        User text message
+     *     @type string $image_base64  Base64-encoded image data
+     *     @type string $image_mime    MIME type (e.g. 'image/jpeg')
+     *     @type string $model         Model override (optional)
+     *     @type int    $max_tokens    Token limit (optional)
+     * }
+     * @return array ['success' => bool, 'content' => string, 'error' => string]
+     */
+    public function complete_with_image( array $args ): array {
+        $provider = $this->settings->get( 'ai', 'provider', 'anthropic' );
+        $api_key  = $this->settings->get( 'ai', 'api_key', '' );
+
+        if ( empty( $api_key ) ) {
+            return [
+                'success' => false,
+                'content' => '',
+                'error'   => 'No API key configured. Go to EL Core → Settings to add your API key.',
+            ];
+        }
+
+        if ( $provider === 'anthropic' ) {
+            return $this->call_anthropic_vision( $args, $api_key );
+        }
+
+        return [
+            'success' => false,
+            'content' => '',
+            'error'   => "Vision analysis is only supported with Anthropic (Claude). Current provider: {$provider}",
+        ];
+    }
+
+    /**
+     * Call Anthropic Claude vision API with a base64 image.
+     */
+    private function call_anthropic_vision( array $args, string $api_key ): array {
+        $model      = $args['model']      ?? 'claude-opus-4-5';
+        $max_tokens = $args['max_tokens'] ?? max( 1024, (int) $this->settings->get( 'ai', 'max_tokens', 1024 ) );
+        $mime       = $args['image_mime'] ?? 'image/jpeg';
+
+        $user_content = [
+            [
+                'type'   => 'image',
+                'source' => [
+                    'type'       => 'base64',
+                    'media_type' => $mime,
+                    'data'       => $args['image_base64'],
+                ],
+            ],
+        ];
+
+        if ( ! empty( $args['prompt'] ) ) {
+            $user_content[] = [ 'type' => 'text', 'text' => $args['prompt'] ];
+        }
+
+        $body = [
+            'model'      => $model,
+            'max_tokens' => (int) $max_tokens,
+            'messages'   => [
+                [ 'role' => 'user', 'content' => $user_content ],
+            ],
+        ];
+
+        if ( ! empty( $args['system'] ) ) {
+            $body['system'] = $args['system'];
+        }
+
+        $response = wp_remote_post( 'https://api.anthropic.com/v1/messages', [
+            'timeout' => 90,
+            'headers' => [
+                'Content-Type'      => 'application/json',
+                'x-api-key'         => $api_key,
+                'anthropic-version' => '2023-06-01',
+            ],
+            'body' => wp_json_encode( $body ),
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            return [
+                'success' => false,
+                'content' => '',
+                'error'   => $response->get_error_message(),
+            ];
+        }
+
+        $status = wp_remote_retrieve_response_code( $response );
+        $data   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( $status !== 200 ) {
+            return [
+                'success' => false,
+                'content' => '',
+                'error'   => $data['error']['message'] ?? "API error (HTTP {$status})",
+            ];
+        }
+
+        $content = $data['content'][0]['text'] ?? '';
+        $usage   = $data['usage'] ?? [];
+
+        $this->log_usage( 'anthropic', $model, $usage );
+
+        return [
+            'success' => true,
+            'content' => $content,
+            'usage'   => $usage,
+            'error'   => '',
+        ];
+    }
+
+    /**
      * Check if AI is configured and ready
      */
     public function is_configured(): bool {

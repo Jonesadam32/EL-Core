@@ -190,10 +190,16 @@ if ( ! empty( $needs_attention ) ) {
             'url'     => admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ),
         ] );
         
+        $attn_client = esc_html( $p->client_name );
+        if ( ! empty( $p->organization_id ) && (int) $p->organization_id > 0 ) {
+            $attn_client = '<a href="' . esc_url( admin_url( 'admin.php?page=el-core-clients&client_id=' . $p->organization_id ) ) . '">'
+                         . esc_html( $p->client_name ) . '</a>';
+        }
+
         $attention_rows[] = [
             'name'      => '<strong><a href="' . esc_url( admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ) ) . '">'
                           . esc_html( $p->name ) . '</a></strong>'
-                          . '<br><small>' . esc_html( $p->client_name ) . '</small>',
+                          . '<br><small>' . $attn_client . '</small>',
             'stage'     => $stage_badge,
             'status'    => $status_badges,
             'deadline'  => $p->deadline ? date_i18n( 'M j, Y', strtotime( $p->deadline ) ) : '—',
@@ -275,10 +281,17 @@ foreach ( $regular_projects as $p ) {
         'data'    => [ 'project-id' => $p->id, 'project-name' => $p->name ],
     ] );
 
+    // Build client name with link to client profile if org is linked
+    $client_display = esc_html( $p->client_name );
+    if ( ! empty( $p->organization_id ) && (int) $p->organization_id > 0 ) {
+        $client_display = '<a href="' . esc_url( admin_url( 'admin.php?page=el-core-clients&client_id=' . $p->organization_id ) ) . '">'
+                        . esc_html( $p->client_name ) . '</a>';
+    }
+
     $rows[] = [
         'name'      => '<strong><a href="' . esc_url( admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ) ) . '">'
                       . esc_html( $p->name ) . '</a></strong>'
-                      . '<br><small>' . esc_html( $p->client_name ) . '</small>',
+                      . '<br><small>' . $client_display . '</small>',
         'stage'     => $stage_badge,
         'users'     => $stakeholder_count > 0 ? $stakeholder_count : '—',
         'deadline'  => $deadline_display,
@@ -320,6 +333,7 @@ $html .= EL_Admin_UI::card( [
 
 // Create project modal
 $modal_form  = '<form id="create-project-form">';
+$modal_form .= '<input type="hidden" name="organization_id" id="selected-org-id" value="0">';
 $modal_form .= EL_Admin_UI::form_section( [ 'title' => __( 'Client Information', 'el-core' ) ] );
 $modal_form .= EL_Admin_UI::form_row( [
     'name'        => 'name',
@@ -327,12 +341,19 @@ $modal_form .= EL_Admin_UI::form_row( [
     'required'    => true,
     'placeholder' => __( 'e.g., Acme Corp Website Redesign', 'el-core' ),
 ] );
-$modal_form .= EL_Admin_UI::form_row( [
-    'name'        => 'client_name',
-    'label'       => __( 'Client / Organization Name', 'el-core' ),
-    'required'    => true,
-    'placeholder' => __( 'e.g., Acme Corporation', 'el-core' ),
-] );
+$modal_form .= '<div class="el-form-row">';
+$modal_form .= '<label for="org-search-input" class="el-form-label">'
+             . __( 'Client / Organization', 'el-core' )
+             . ' <span class="el-required" aria-hidden="true">*</span></label>';
+$modal_form .= '<div class="el-form-field">';
+$modal_form .= '<input type="text" id="org-search-input" name="client_name" class="el-input" '
+             . 'placeholder="' . esc_attr__( 'Type to search or enter new client name...', 'el-core' ) . '" '
+             . 'autocomplete="off" required>';
+$modal_form .= '<div id="org-search-results" style="display:none;background:#f9fafb;border:1px solid #d1d5db;border-radius:6px;padding:8px;margin-top:4px;max-height:200px;overflow-y:auto;"></div>';
+$modal_form .= '<p class="el-form-helper">'
+             . __( 'Select an existing client or type a new name to create one.', 'el-core' )
+             . '</p>';
+$modal_form .= '</div></div>';
 
 $modal_form .= EL_Admin_UI::form_section( [ 'title' => __( 'Budget', 'el-core' ) ] );
 $modal_form .= EL_Admin_UI::form_row( [

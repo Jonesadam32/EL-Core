@@ -17,13 +17,14 @@ class EL_Core {
     private static ?EL_Core $instance = null;
 
     // ── Subsystems (public for easy access) ──
-    public ?EL_Settings      $settings     = null;
-    public ?EL_Database      $database     = null;
-    public ?EL_Roles         $roles        = null;
-    public ?EL_Module_Loader $modules      = null;
-    public ?EL_Asset_Loader  $assets       = null;
-    public ?EL_AJAX_Handler  $ajax         = null;
-    public ?EL_AI_Client     $ai           = null;
+    public ?EL_Settings       $settings      = null;
+    public ?EL_Database       $database      = null;
+    public ?EL_Roles          $roles         = null;
+    public ?EL_Module_Loader  $modules       = null;
+    public ?EL_Asset_Loader   $assets        = null;
+    public ?EL_AJAX_Handler   $ajax          = null;
+    public ?EL_AI_Client      $ai            = null;
+    public ?EL_Organizations  $organizations = null;
 
     /**
      * Get the single instance
@@ -57,6 +58,7 @@ class EL_Core {
         require_once $includes . 'class-asset-loader.php';
         require_once $includes . 'class-ajax-handler.php';
         require_once $includes . 'class-ai-client.php';
+        require_once $includes . 'class-organizations.php';
         require_once $includes . 'class-canvas-page.php';
     }
 
@@ -95,7 +97,11 @@ class EL_Core {
         // 7. AI Client — shared API wrapper
         $this->ai = new EL_AI_Client( $this->settings );
 
-        // 8. Canvas Page — AI-generated page system
+        // 8. Organizations — core client management infrastructure
+        $this->database->ensure_core_tables();
+        $this->organizations = new EL_Organizations( $this->database );
+
+        // 9. Canvas Page — AI-generated page system
         EL_Canvas_Page::instance();
 
         // Hook into WordPress admin
@@ -159,6 +165,16 @@ class EL_Core {
             EL_CORE_VERSION,
             true
         );
+
+        wp_localize_script( 'el-core-admin', 'elAdminData', [
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'el_core_nonce' ),
+        ] );
+
+        // Enqueue media uploader on brand page (needed for logo upload buttons)
+        if ( strpos( $hook, 'el-core-brand' ) !== false ) {
+            wp_enqueue_media();
+        }
     }
 
     /**

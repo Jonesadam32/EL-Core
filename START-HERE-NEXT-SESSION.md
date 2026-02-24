@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** February 22, 2026
+> **Last Updated:** February 24, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.13.1 (Phase 2F complete + Client Portal Retrofit)
+> **Current Plugin Version:** 1.21.4 (deployed on staging) — v1.22.0 IN PROGRESS (Definition Consensus Review System)
 
 ---
 
@@ -35,173 +35,165 @@
 ## CURRENT STATE
 
 ### Deployed
-- **EL Core v1.10.7** on staging site (qd19d0iehj-staging.wpdns.site)
+- **EL Core v1.21.4** on staging (qd19d0iehj-staging.wpdns.site) — uploaded and tested ✅
 
-### Built and Ready to Deploy
-- **EL Core v1.13.1** - Phase 2F COMPLETE + Client Portal Retrofit
-  - Located: `C:\Github\EL Core\releases\el-core-v1.13.1.zip`
-  - Backup: `C:\Github\EL Core\old-versions\v1.13.1\el-core-v1.13.1.zip`
+### What Was Completed This Session (February 24, 2026)
 
-### What Was Done This Session (February 22, 2026)
+**Bugfix sprint (v1.21.1 → v1.21.4):**
 
-**Phase 2F - Discovery Transcript System + Client Portal Retrofit - COMPLETE ✅**
+- **v1.21.1**: Bumped version so WordPress would replace files on upload (same-version uploads are ignored)
+- **v1.21.2**: Fixed double-escaping/slashes bug on discovery transcript — `sanitize_text_field()` in the AJAX handler was stripping newlines and adding slashes before the handler ran `sanitize_textarea_field()`. Fixed by reading textarea fields directly from `$_POST` with `wp_unslash()`. Also added `wp_unslash()` when loading transcript into admin textarea.
+- **v1.21.3**: Fixed `site_type` DB error — AI was returning values longer than VARCHAR(50). Widened to VARCHAR(100) via DB migration (schema version 7). Added `substr()` safety cap in PHP handler.
+- **v1.21.4**: Removed debug DB error code from `handle_save_definition` — save definition is now working correctly.
 
-**Version Progression:**
-- v1.12.0: Phase 2F admin features (transcript processing)
-- v1.12.1-v1.12.3: Bugfixes (AI wrapper, model selection, JSON extraction)
-- v1.13.0: Client portal retrofit (stats, definition, stakeholders, timeline)
-- v1.13.1: Fixed missing sections, increased portal width to 1200px
+**Design decisions made this session:**
 
-**Admin Features (Phase 2F):**
-- Discovery tab on project detail page with AI-powered transcript processing
-- Paste Fathom meeting summaries or discovery call notes
-- "Process with AI" button extracts project requirements automatically
-- AI extracts: site description, primary/secondary goals, target customers, user types, site type
-- Editable definition form displays extracted data for manual refinement
-- "Save Definition" and "Confirm & Lock Definition" buttons
-- Locked state UI shows who locked and when
+- **Generic feedback card removed** — feedback must be contextual to each stage, not a global dump
+- **Definition review is a full consensus workflow** — not just "leave a comment"
+- **Silence = abstention** — if a contributor doesn't respond by deadline, DM decides without them
+- **DM verdict = structured button (Accept/Needs Revision) + optional note** — scannable for admin
+- **Per-field inline comments** — not a modal, anchored to the content being reviewed
+- **Scroll-depth gate on Approve** — button disabled until client has scrolled past all fields
+- **Threaded replies per field** — functions like chat but stays anchored to source (Google Docs pattern)
+- **Reminder at 50% of deadline and 24h before** — contributors notified, never block DM
+- **Build in full now** — no simplified first version
 
-**Client Portal Retrofit:**
-- **Stats grid** - 4-card overview (stage, status, deliverables, feedback)
-- **Project description** - Shows project notes if present
-- **Project definition** - Shows AI-extracted definition when locked
-- **Stakeholders list** - Team members with avatars and role badges
-- **Enhanced timeline** - 8-stage progress bar in dedicated section
-- **Professional UX/UI** - Card-based layout, hover effects, responsive design, 1200px width
-- Icons for visual recognition (📍📄💬👥📋🚀)
-- Mobile responsive with proper stacking
+### What's IN PROGRESS — v1.22.0 (Definition Consensus Review System)
 
-**Technical Implementation:**
-- AJAX handlers: `es_process_transcript`, `es_save_definition`, `es_lock_definition`
-- `get_project_definition()` query method
-- `extract_json_from_ai_response()` helper for robust JSON parsing
-- 300+ lines of professional CSS with animations and responsive breakpoints
-- Uses Claude API for transcript processing
+**Half built — pick up here next session.**
 
-**Bugfixes Along the Way:**
-- Fixed AI wrapper function usage (returns array, not string)
-- Added AI configuration check before processing
-- Removed hardcoded GPT-4 model (respects user's Claude/OpenAI choice)
-- Robust JSON extraction from markdown code blocks and text wrappers
+#### ✅ DONE in this session:
+- **DB schema (version 8)**:
+  - `review_status` column added to `el_es_project_definition` (`draft` / `pending_review` / `approved` / `needs_revision` / `locked`)
+  - New table `el_es_definition_reviews` — one row per send-for-review round (project_id, round, sent_by, deadline, status, dm_decision, dm_note, dm_decided_at)
+  - New table `el_es_definition_comments` — threaded per-field comments (review_id, field_key, parent_id, user_id, comment, verdict)
+  - Both tables added to `module.json` tables section AND migration "8"
+- **PHP AJAX handlers** (all in `class-expand-site-module.php`):
+  - `get_active_definition_review()` — query helper
+  - `get_definition_reviews()` — all rounds for a project
+  - `get_definition_comments()` — returns tree keyed by field_key with nested replies
+  - `get_definition_verdicts()` — tally per field_key
+  - `handle_send_definition_review` — admin sends draft for review, creates new round, closes previous
+  - `handle_get_definition_review` — loads all review data for portal (definition + comments + verdicts + timer + user's own verdicts)
+  - `handle_post_definition_comment` — post a comment or reply on a specific field
+  - `handle_field_verdict` — upsert contributor's verdict per field (approved / needs_revision)
+  - `handle_dm_decision` — DM submits final decision, closes review, updates definition status
+  - All AJAX hooks registered including `nopriv` variants for logged-in stakeholders on frontend
 
-**Previous Session - Phase 2E (Timer and Escalation System) ✅**
-- Added missing JavaScript handler for "Advance Stage" form
-- Form was submitting as HTML instead of AJAX (causing blank page)
-- Now properly advances stages via AJAX and reloads page
-- Fred confirmed working on staging
+#### ❌ NOT YET BUILT — start here next session:
+1. **Admin UI** (`project-detail.php` Discovery tab):
+   - Definition status badge (Draft / Sent for Review / Client Approved / Needs Revision / Locked)
+   - "Send to Client for Review" button with deadline date picker
+   - Per-field stakeholder comments panel (admin sees all comments while editing)
+   - DM verdict summary card ("6 fields accepted, 1 needs revision")
+   - Lock button always visible (override), with confirmation prompt if not yet approved
 
-**Phase 2E Features:**
-- Deadline date picker in "Advance Stage" modal with smart defaults per stage
-- Stage-specific deadline constants (Qualification: 3d, Discovery: 7d, Build: 14d, etc.)
-- Deadline column on project list with warning badges
-- Auto-flagging for expired deadlines
-- "Projects Needing Attention" section (flagged + deadline warnings)
-- "HELD UP" badge for flagged projects (red)
-- "Xd OVERDUE" badge for expired deadlines (red)
-- "Xd left" badge for approaching deadlines (yellow)
-- Three new AJAX handlers: `es_set_deadline`, `es_extend_deadline`, `es_clear_flag`
-- Deadlines tracked in both `el_es_projects` and `el_es_deadlines` tables
-- Removed `default_stage_deadline_days` setting (replaced with per-stage defaults)
+2. **Client Portal** (`expand-site-portal.php` Stage 1):
+   - Replace current locked-only definition display with full consensus UI
+   - Countdown timer showing time remaining in review period
+   - Per-field layout: field value → thread of comments → Reply button → "+ Add comment" toggle → "✓ Looks good" / "Needs revision" verdict buttons
+   - "Updated" badge on fields changed since last round
+   - Scroll-depth gate: Approve All button disabled until scrolled past all fields
+   - Overall comment box at bottom
+   - "Submit My Input" button (contributors)
+   - "Make Final Decision" section (DM only) — Accept / Needs Revision + note field
+   - Post-decision states: approved banner, needs-revision banner with DM note
 
-**Version Progression: v1.10.7 → v1.11.0 → v1.11.1**
-- v1.11.0: Architecture refactor (removed configurability)
-- v1.11.1: Phase 2E complete (timer and escalation system)
+3. **Admin-side JS** (`expand-site-admin.js`):
+   - Send for Review form submit handler (with deadline)
+   - Comments panel refresh after DM decision
 
-**Earlier This Session - Architecture Refactor (v1.11.0) ✅**
-- Removed configurability settings from `module.json`:
-  - Removed `stage_1_name` through `stage_8_name` (stage names now hardcoded)
-  - Removed `enable_ai_content_generation` (AI always enabled)
-  - Removed `enable_branding_ai` (AI branding always enabled)
-  - Removed `enable_multi_stakeholder` (multi-stakeholder always enabled)
-  - Removed `agency_name` (not needed for internal use)
-- Kept operational settings: `default_stage_deadline_days`, `deadline_warning_days`
-- Updated `get_stages()` to return hardcoded STAGES constant
-- Simplified settings page (removed "Stage Names", "Feature Toggles", "Agency Settings" sections)
-- Updated module comments to reflect proprietary nature
-- Version bumped: v1.10.7 → v1.11.0
-- CHANGELOG updated with architecture decision rationale
-- ZIP built successfully
+4. **Portal-side JS** (`expand-site.js`):
+   - Load review data on page load via `es_get_definition_review`
+   - Post comment (inline expand/collapse per field)
+   - Reply to comment (nested)
+   - Field verdict buttons (optimistic UI, single selection per field)
+   - Scroll-depth tracker → enable Approve All
+   - Countdown timer (live update every second)
+   - DM final decision form submit
+   - Handle all post-decision state rendering
 
-**Reason for Change:**
-Per ARCHITECTURE-DECISIONS-FEB-22-2026.md: Expand Site is a proprietary internal tool for ELS competitive advantage, not a sellable product. Removed unnecessary configurability layers to simplify codebase.
-
-**Previous Session (Phase 2D - Multi-Stakeholder System) ✅**
-- Stakeholders tab with full CRUD operations (add, remove, change role)
-- User search with autocomplete (searches name, email, first name, last name)
-- Create new WordPress users directly from stakeholder modal
-- Role badges (Decision Maker = green, Contributor = blue)
-- Disabled button states with helpful messages (can't remove only DM, etc.)
-- Permission-based portal view (shows user's role and appropriate controls)
-- "Login As" feature for admins to test as any stakeholder
-- Users column on project list showing stakeholder count
-- Project deletion feature with cascading delete of all related data
-- Shortcode renamed: `[el_project_portal]` → `[el_expand_site_portal]` (future-proofing)
-
-**Version Progression: v1.9.4 → v1.10.0 → v1.10.7 (8 releases)**
-- v1.10.0: Core multi-stakeholder system
-- v1.10.1: UX fix (disabled button states)
-- v1.10.2: First/last name fields for user creation
-- v1.10.3: User search functionality fixed
-- v1.10.4: Users column added to project list
-- v1.10.5: Shortcode renamed for clarity
-- v1.10.6: User login fix + "Login As" feature
-- v1.10.7: Project deletion feature
-
-**Bug Fixes:**
-- Fixed user creation (email-based usernames for login)
-- Fixed user search (ID mismatch, meta field search)
-- Fixed action button visibility (always show with disabled states)
-
-### What Needs to Happen Next
-
-**Decision Point: Build Approach Going Forward**
-
-Fred requested we build client-facing pages alongside admin features (not all admin first, then all client pages). This gives immediate end-to-end testing and lets frontend UX guide backend decisions.
-
-**Next Steps:**
-1. **Test v1.13.1 thoroughly** - Upload to staging and verify:
-   - Transcript processing with Claude API works
-   - Definition lock/unlock flow
-   - Client portal shows all sections when data present
-   - Mobile responsive design
-   - Stats grid accuracy
-
-2. **Phase 2G - Branding Workflow (Admin + Client Together)**:
-   - Admin: Branding tab, mood board upload, AI color generation
-   - Client: `[el_brand_selector]` shortcode for brand approval
-   - Test full flow: Admin generates → Client sees/selects → Admin sees choice
-
-**Architecture Decision Made:**
-Client pages built alongside admin features for each phase, not at the end. This allows complete feature testing and UX refinement in real-time.
-- Add Transcript tab to project detail page
-- Textarea to paste Fathom meeting summary
-- "Process with AI" button to extract project requirements
-- AI extracts: site description, goals, target customers, user types, site type
-- Display extracted data in editable form
-- "Confirm & Lock Definition" button
-- AJAX handlers: `es_process_transcript`, `es_save_definition`, `es_lock_definition`
-- Add deadline date picker to "Advance Stage" modal
-- Auto-flag projects with expired deadlines
-- Display deadline warnings on project list
-- Add "HELD UP" badge for flagged projects
-- Create "Projects Needing Attention" section
-- AJAX handlers: `es_extend_deadline`, `es_clear_flag`, `es_set_deadline`
+5. **CSS** (`expand-site.css` + `admin.css`):
+   - Review status badge styles
+   - Per-field comment thread layout
+   - Reply nesting indentation
+   - Verdict buttons (approved = green, needs_revision = amber)
+   - Countdown timer widget
+   - Scroll-depth-gated approve button states
+   - DM decision section (visually distinct)
+   - Admin comments panel in project-detail
 
 ---
 
-## THE MASTER CHECKLIST
+## WHAT'S NEXT AFTER v1.22.0
 
-**`CURSOR-TODO.md`** (repo root) is the single source of truth for all build work.
-- Check off items with `[x]` as you complete them
-- Never start a new phase until the current phase is fully checked off and tested
-- If Fred asks "what's the list" or "where are we" — that file is the answer
-- Update it at the end of every session
+**Step 4 — Brand Palette Voting in portal (v1.23.0)**
+- Admin triggers AI logo analysis from project detail Branding tab → generates 3 palettes
+- Palettes appear in portal as 3 cards (swatches, fonts, rationale)
+- Stakeholders vote: Prefer / Neutral / Don't Prefer
+- DM: "Lock Brand Colors" → saves selection to `el_core_brand`, locks palette section
+
+**Step 6 — Wireframe Annotation (Phase 2H — separate session, do not build yet)**
 
 ---
 
-## HOW TO START A SESSION (Two workstreams in Cursor)
+## CRITICAL LESSONS LEARNED
 
-When you open a new chat, paste one of these to set the workstream:
+- Module loader (`class-module-loader.php`) already loads shortcodes from `module.json` — NEVER add `add_shortcode()` in the module class
+- Module class should NOT load shortcode files — module loader does this
+- If module fails to load, it AUTO-DEACTIVATES (lines 152-168 of module loader) — check error log
+- Always bump version number for EVERY deployment, no exceptions
+- **`EL_Admin_UI::form_row()` now supports custom `id` parameter** — always pass `'id'` when JS needs to target the field by ID
+- **Admin brand page is ELS's tool only** — per-client branding happens inside Expand Site portal workflow
+- **`sanitize_text_field()` strips newlines** — never use it on textarea/transcript content; use `sanitize_textarea_field( wp_unslash( $_POST['field'] ) )` reading directly from `$_POST`, not from the pre-sanitized `$data` array passed to handlers
+- **Same-version ZIP uploads are ignored by WordPress** — always bump version before building ZIP
+- **`$wpdb->update()` returns `0` (not false) when data is unchanged** — `0 !== false` so treat as success
+- **VARCHAR(50) is too small for AI-generated site_type values** — now VARCHAR(100)
+
+---
+
+## VERSION HISTORY
+
+| Version | What Changed | Status |
+|---------|-------------|--------|
+| v1.14.7 | Client Portal UX Redesign | Deployed ✅ |
+| v1.15.0 | Phase 2F-B: Proposal / Scope of Service System | Built ✅ |
+| v1.15.1 | Fix AI proposal generation + edit modal population bug | Built ✅ |
+| v1.16.0 | Proposal Narrative Redesign | Built ✅ |
+| v1.17.0 | Phase 2F-D: Payment Terms & T&C Settings | Uploaded & Tested ✅ |
+| v1.18.0 | Phase 2F-E: Organizations & Client Management | Built ✅ |
+| v1.18.1 | Fix: Clients JS form submission + script load order | Uploaded ✅ |
+| v1.18.2 | Fix: Edit Contact missing Portal Access field | Built ✅ |
+| v1.18.3 | Fix: Primary contacts auto-get portal access | Built ✅ |
+| v1.18.4 | Add Stakeholder modal shows org contacts for quick-add | Built ✅ |
+| v1.18.5 | Fix: Portal header badge shows correct role (DM vs Contributor) | Uploaded & Tested ✅ |
+| v1.18.6 | WP toolbar hidden for clients + Switch Back bar + Login As on contacts | Built ✅ |
+| v1.18.7 | Login As / Switch Back fully built into EL Core (no plugin) | Built ✅ |
+| v1.18.8 | Fix: Login As was logging in as self (wrong hook) | Built ✅ |
+| v1.18.9 | Revert Login As to User Switching plugin (working) + switch-back bar | Built ✅ |
+| v1.18.10 | Deferred Login As/Switch Back — staging URL issue must be fixed first | Built ✅ |
+| v1.18.11 | Reverted to v1.18.5 baseline — all switch-back attempts removed | Uploaded & Tested ✅ |
+| v1.19.0 | Phase 2G: Branding Workflow — CSS token expansion, AI vision (admin page overcomplicated) | Built ✅ |
+| v1.19.1 | Fix: Simplified brand settings page — removed AI/Pickr (belongs in portal, Phase 2G-B) | Built ✅ |
+| v1.19.2 | Remove Pipeline Progress card from project detail page | Uploaded & Tested ✅ |
+| v1.20.0 | Phase 2G-B Step 1: Database schema (4 tables, 3 capabilities) | Deployed ✅ |
+| v1.20.1 | Phase 2G-B Step 2: Template Library admin page | Built ✅ |
+| v1.20.2 | Fix: schema_versions cast to array (PHP 8.1 strict typing) | Built ✅ |
+| v1.20.3 | Fix: wp_enqueue_media + JS DOM ready guard | Built ✅ |
+| v1.20.4 | Fix: AJAX action name el_core_ajax → el_core_action | Built ✅ |
+| v1.20.5 | Fix: Template cards uniform height (flex column, fixed image) | Uploaded & Tested ✅ |
+| v1.21.0 | Phase 2G-B Steps 3 & 5: Mood Board portal + Admin Review Management | Built ✅ |
+| v1.21.1 | Force version bump so WordPress replaces files on upload | Built ✅ |
+| v1.21.2 | Fix: Double-escaping/slashes on transcript + definition fields (wp_unslash + direct $_POST reads) | Built ✅ |
+| v1.21.3 | Fix: site_type VARCHAR(50→100) + DB migration schema v7 | Built ✅ |
+| v1.21.4 | Fix: Remove debug DB error output from handle_save_definition | Uploaded & Tested ✅ |
+| v1.22.0 | Definition Consensus Review System (DB schema v8 + PHP handlers done; UI in progress) | IN PROGRESS 🔨 |
+
+---
+
+## HOW TO START A SESSION
+
+When you open a new chat, paste one of these:
 
 **Expand Site workstream** (shortcodes, CSS, JS, module features):
 ```
@@ -213,105 +205,14 @@ Read @START-HERE-NEXT-SESSION.md. I'm working on the Expand Site workstream.
 Read @START-HERE-NEXT-SESSION.md. I'm working on the Core workstream.
 ```
 
-The agent reads the handoff doc and works only in its scope. Update START-HERE when you finish.
-
 ---
 
-## CURRENT STATE
+## DEPLOYMENT RULES
 
-### Deployed
-- **EL Core v1.3.0** is active on **expandedlearningsolutions.com**
-- NOT deployed to Region 6 (p1vcypp64w.wpdns.site)
-- No staging site — test on live site
-
-### What's in the Codebase (v1.3.0)
-
-**Core Infrastructure — 10 classes:**
-- class-el-core.php (orchestrator)
-- class-settings.php (configuration engine)
-- class-database.php (schema manager)
-- class-module-loader.php (module discovery)
-- class-roles.php (capabilities engine)
-- class-asset-loader.php (CSS/JS, brand injection)
-- class-ajax-handler.php (unified AJAX)
-- class-ai-client.php (AI API wrapper)
-- class-admin-ui.php (shared admin UI framework — added in v1.3.0)
-- functions.php (global helpers / API boundary)
-
-**Admin Pages:** Dashboard ✅ | Brand ✅ | Modules ✅ | Roles ✅
-
-**Modules in repo (6 total):**
-| Module | Directory | Built By | Status |
-|--------|-----------|----------|--------|
-| Events | modules/events/ | Claude | Functional, no admin UI |
-| Registration | modules/registration/ | Claude | Code complete, untested |
-| Expand Site | modules/expand-site/ | Cursor | Complete: shortcodes, CSS, JS built |
-| Fluent CRM Integration | modules/fluent-crm-integration/ | Cursor | Functional |
-| AI Integration | modules/ai-integration/ | Cursor | Functional |
-
-> ✅ `modules/project-management/` deleted — replaced by `modules/expand-site/`
-
-### Key Files
-- `CHANGELOG.md` — version history
-- `cursor-prompt-expand-site-v3.md` — current Cursor prompt for Expand Site build
-- `el-core-admin-build-rules.md` — admin UI framework rules
-- `el-core-cursor-handoff.md` — full architecture reference
-- `build-zip.ps1` — ZIP builder (uses .NET ZipFile, NOT Compress-Archive)
-
----
-
-## WHAT WAS DONE THIS SESSION (February 20, 2026)
-
-**Cursor completed Expand Site module build and debugging:**
-- Deleted `modules/project-management/` (replaced by expand-site)
-- Built 4 shortcodes: project-portal, project-status, page-review, feedback-form
-- Built `expand-site.css` and `expand-site.js` (el-es- prefix, ELCore.ajax)
-- Added `es_client_review_page` AJAX handler for page approval
-- **Fixed critical bugs through v1.4.0 → v1.4.4:**
-  - v1.4.1: Added module activation error visibility
-  - v1.4.2: Added capability registration debugging
-  - v1.4.3: Fixed PHP 7.4 compatibility (replaced `match` with if/switch)
-  - v1.4.4: **Fixed infinite loop bug** - all 5 modules were calling `EL_Core::instance()` in constructors, causing recursion
-
-**Current problem:** Expand Site module admin page not rendering. Visiting `/wp-admin/admin.php?page=el-expand-site` shows front-end website instead of WordPress admin. This means `add_submenu_page()` registration failed or routed incorrectly.
-
-**Evidence:**
-- Module activates without fatal errors
-- "Expand Site" menu item appears in sidebar
-- Clicking menu loads front-end site, not admin page
-- Events module also has same issue
-- CSS/JS assets return 404 (non-critical - files exist locally)
-
----
-
-## WHAT NEEDS TO HAPPEN NEXT
-
-### URGENT — Fix admin page rendering (Cursor):
-**Symptom:** Module menu items appear, but clicking them shows front-end site instead of admin page.
-
-**Diagnosis needed:**
-1. Open `modules/expand-site/class-expand-site-module.php` → check `register_admin_pages()` method
-2. Verify `add_submenu_page()` is hooked to `admin_menu` in `init_hooks()`
-3. Check `render_admin_page()` callback - might have routing issue
-4. Compare with Events module (also broken) vs working core pages (Dashboard, Brand, Modules, Roles)
-5. Check if `admin/views/project-list.php` has errors preventing render
-6. Database tables might not exist - check if `el_es_projects` table was created during activation
-
-**Root cause likely one of:**
-- Admin menu hook not firing (timing issue)
-- Callback method not found/accessible
-- View file missing or has fatal error
-- Database tables don't exist, causing query to fail
-- Core instance null when view tries to use it
-
-### After admin page fix:
-1. Test project creation, stage advancement, and shortcodes on frontend
-2. Continue to Phase 2 (Canvas) or Phase 3 (Expand Site polish) per CURSOR-TODO.md
-
-### For Claude — Core Infrastructure:
-1. Canvas Page System — bypasses Gutenberg for AI-generated pages
-2. Admin UI Framework Rollout — rebuild Brand, Modules, Roles pages
-3. Core improvements — uninstall.php cleanup, REST API endpoints
+- Cursor runs `build-zip.ps1` from repo root when a deployment build is needed (uses .NET ZipFile, NOT Compress-Archive)
+- Upload `el-core.zip` via WordPress Admin → Plugins → Add New → Upload Plugin
+- Version bump: update plugin header AND `EL_CORE_VERSION` constant AND `build-zip.ps1` (THREE places)
+- Update `CHANGELOG.md` with every version bump
 
 ---
 
@@ -327,12 +228,10 @@ The agent reads the handoff doc and works only in its scope. Update START-HERE w
 - WordPress MCP is NOT connected — no wp_fs_write or MCP tools
 - Canvas page system is core infrastructure, not a module
 - All monolith development (Bold Youth, ELS) is frozen — EL Core only
-
----
-
-## DEPLOYMENT RULES
-
-- Cursor runs `build-zip.ps1` from repo root when a deployment build is needed (uses .NET ZipFile, NOT Compress-Archive)
-- Upload `el-core.zip` via WordPress Admin → Plugins → Add New → Upload Plugin
-- Version bump: update plugin header AND `EL_CORE_VERSION` constant (two places)
-- Update `CHANGELOG.md` with every version bump
+- **Proposals are built INTO Expand Site** — not a standalone module
+- **Module loader handles shortcodes** — NEVER add add_shortcode() in module class
+- **Always bump version for every deployment** — no exceptions
+- **Admin Brand page = ELS brand only** — per-client branding = Phase 2G-B in the portal
+- **Generic feedback card is REMOVED from portal** — feedback is contextual to each stage
+- **Definition review = full consensus workflow** — silence is abstention, DM has final say, admin can override-lock anytime
+- **Textarea fields MUST use `sanitize_textarea_field( wp_unslash( $_POST['field'] ) )`** — never rely on pre-sanitized `$data` array for multiline content

@@ -28,7 +28,7 @@ class EL_Database {
     public function __construct() {
         global $wpdb;
         $this->wpdb = $wpdb;
-        $this->schema_versions = get_option( 'el_core_schema_versions', [] );
+        $this->schema_versions = (array) get_option( 'el_core_schema_versions', [] );
     }
 
     // ═══════════════════════════════════════════
@@ -174,6 +174,69 @@ class EL_Database {
             fn( $matches ) => $this->get_table_name( $matches[1] ),
             $sql
         );
+    }
+
+    // ═══════════════════════════════════════════
+    // CORE TABLE MANAGEMENT
+    // ═══════════════════════════════════════════
+
+    /**
+     * Ensure core infrastructure tables exist (el_organizations, el_contacts).
+     * Called once during boot — uses a version option to avoid re-running.
+     */
+    public function ensure_core_tables(): void {
+        if ( ! is_admin() ) {
+            return;
+        }
+
+        $core_schema_version = (int) get_option( 'el_core_db_version', 0 );
+        $target_version = 1;
+
+        if ( $core_schema_version >= $target_version ) {
+            return;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $charset = $this->wpdb->get_charset_collate();
+
+        $org_table = $this->get_table_name( 'el_organizations' );
+        $sql = "CREATE TABLE {$org_table} (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            name varchar(255) NOT NULL,
+            type varchar(20) DEFAULT 'nonprofit',
+            status varchar(20) DEFAULT 'prospect',
+            address text,
+            phone varchar(50) DEFAULT '',
+            website varchar(500) DEFAULT '',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY status (status),
+            KEY type (type)
+        ) {$charset};";
+        dbDelta( $sql );
+
+        $contacts_table = $this->get_table_name( 'el_contacts' );
+        $sql = "CREATE TABLE {$contacts_table} (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            organization_id bigint(20) UNSIGNED NOT NULL,
+            first_name varchar(100) NOT NULL,
+            last_name varchar(100) NOT NULL,
+            email varchar(255) NOT NULL,
+            phone varchar(50) DEFAULT '',
+            title varchar(100) DEFAULT '',
+            is_primary tinyint(1) DEFAULT 0,
+            user_id bigint(20) UNSIGNED DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY organization_id (organization_id),
+            KEY email (email),
+            KEY user_id (user_id)
+        ) {$charset};";
+        dbDelta( $sql );
+
+        update_option( 'el_core_db_version', $target_version );
     }
 
     // ═══════════════════════════════════════════

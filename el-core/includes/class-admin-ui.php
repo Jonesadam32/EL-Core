@@ -458,8 +458,9 @@ class EL_Admin_UI {
         $required    = $args['required']    ?? false;
         $options     = $args['options']     ?? [];
         $class       = $args['class']       ?? '';
+        $custom_id   = $args['id']          ?? '';
 
-        $field_id    = 'el-field-' . sanitize_html_class( $name );
+        $field_id    = $custom_id ? sanitize_html_class( $custom_id ) : 'el-field-' . sanitize_html_class( $name );
         $req_attr    = $required ? ' required' : '';
         $req_mark    = $required ? ' <span class="el-required" aria-hidden="true">*</span>' : '';
 

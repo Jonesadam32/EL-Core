@@ -22,7 +22,101 @@ class EL_Expand_Site_Module {
 
     private function __construct( ?EL_Core $core = null ) {
         $this->core = $core;
+        $this->seed_default_settings();
+        $this->migrate_projects_to_organizations();
         $this->init_hooks();
+    }
+
+    private function seed_default_settings(): void {
+        if ( ! $this->core || ! $this->core->settings ) {
+            return;
+        }
+
+        $existing_pt = $this->core->settings->get( 'mod_expand-site', 'default_payment_terms', '' );
+        if ( empty( $existing_pt ) ) {
+            $this->core->settings->set( 'mod_expand-site', 'default_payment_terms', implode( "\n\n", [
+                "Payment Schedule\n\nThis project will be invoiced in two payments:",
+                "First Payment (25%) is due upon client approval of the wireframes. Approval is recorded when the authorized Decision Maker formally accepts the wireframe deliverable through the project portal. An invoice will be issued automatically at that time.",
+                "Final Payment (75%) is due upon delivery and client review of the completed website. An invoice will be issued when the project reaches final delivery.",
+                "Accepted Payment Methods\n\nPayment may be made by check or ACH bank transfer. Invoices are due within 30 days of issuance unless a separate payment schedule has been established with your organization's procurement department.",
+                "Late Payments\n\nInvoices not paid within 30 days of the due date are subject to a 1.5% monthly finance charge. Expanded Learning Solutions reserves the right to pause work on any project with an outstanding balance of 30 days or more.",
+                "Project Inactivity\n\nIf a project is delayed due to lack of client response or action for 90 or more consecutive days, Expanded Learning Solutions reserves the right to formally close the project. In this case, an invoice will be issued for all work completed to date, calculated as a proportional share of the total project investment. The project may be reopened by mutual agreement, which may require a new proposal depending on the scope of time elapsed.",
+            ] ) );
+        }
+
+        $existing_tc = $this->core->settings->get( 'mod_expand-site', 'default_terms_conditions', '' );
+        if ( empty( $existing_tc ) ) {
+            $this->core->settings->set( 'mod_expand-site', 'default_terms_conditions', implode( "\n\n", [
+                "1. Scope of Work\nThis proposal defines the agreed-upon scope of work. Requests that fall outside this scope will be discussed and quoted separately before any additional work begins.",
+                "2. Client Responsibilities\nThe client agrees to provide timely feedback, required content (text, images, logos, documents), and decisions necessary to keep the project on schedule. Delays caused by the client may result in revised project timelines.",
+                "3. Intellectual Property\nUpon receipt of final payment, the client receives full ownership of all custom deliverables created specifically for this project, including website pages, written content, and custom graphics. Expanded Learning Solutions retains ownership of any proprietary tools, frameworks, code libraries, or platform infrastructure used to build the project. Third-party tools, plugins, or licensed assets remain subject to their respective license terms.",
+                "4. Confidentiality\nBoth parties agree to keep confidential any proprietary information, data, or materials shared during the course of this project. This obligation survives the completion or termination of the agreement.",
+                "5. Platform & Hosting\nUnless otherwise specified in the scope, ongoing hosting, maintenance, and platform licensing are not included in this proposal. A separate service agreement will be provided for any ongoing services.",
+                "6. Limitation of Liability\nExpanded Learning Solutions' total liability under this agreement shall not exceed the total amount paid by the client for the project. ELS is not liable for indirect, incidental, or consequential damages of any kind.",
+                "7. Termination\nEither party may terminate this agreement with 14 days written notice. Upon termination, the client is responsible for payment of all work completed to the date of termination, invoiced as a proportional share of the total project investment.",
+                "8. Governing Law\nThis agreement is governed by the laws of the State of Georgia. Any disputes shall be resolved through good-faith negotiation, and if necessary, binding arbitration.",
+                "9. Entire Agreement\nThis proposal, once accepted, constitutes the entire agreement between the parties and supersedes all prior discussions or representations.",
+            ] ) );
+        }
+    }
+
+    /**
+     * One-time migration: create organizations from existing project client_name values.
+     * Runs once after the v5 schema migration adds organization_id to el_es_projects.
+     */
+    private function migrate_projects_to_organizations(): void {
+        if ( ! $this->core || ! $this->core->database || ! $this->core->organizations ) {
+            return;
+        }
+        if ( ! is_admin() ) {
+            return;
+        }
+
+        $migration_done = get_option( 'el_es_org_migration_done', false );
+        if ( $migration_done ) {
+            return;
+        }
+
+        global $wpdb;
+        $projects_table = $this->core->database->get_table_name( 'el_es_projects' );
+
+        // Check if organization_id column exists yet
+        $col = $wpdb->get_results( "SHOW COLUMNS FROM {$projects_table} LIKE 'organization_id'" );
+        if ( empty( $col ) ) {
+            return;
+        }
+
+        $projects = $wpdb->get_results(
+            "SELECT id, client_name FROM {$projects_table} WHERE organization_id = 0 AND client_name != ''"
+        );
+
+        $org_table = $this->core->database->get_table_name( 'el_organizations' );
+
+        foreach ( $projects as $project ) {
+            $name = trim( $project->client_name );
+            if ( empty( $name ) ) continue;
+
+            $existing = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$org_table} WHERE name = %s LIMIT 1",
+                $name
+            ) );
+
+            if ( $existing ) {
+                $org_id = (int) $existing;
+            } else {
+                $org_id = $this->core->organizations->create_organization( [
+                    'name'   => $name,
+                    'type'   => 'nonprofit',
+                    'status' => 'active',
+                ] );
+            }
+
+            if ( $org_id ) {
+                $wpdb->update( $projects_table, [ 'organization_id' => $org_id ], [ 'id' => $project->id ] );
+            }
+        }
+
+        update_option( 'el_es_org_migration_done', true );
     }
 
     private function init_hooks(): void {
@@ -49,10 +143,49 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_clear_flag',          [ $this, 'handle_clear_flag' ] );
         
         // Discovery transcript and definition
-        add_action( 'el_core_ajax_es_process_transcript',  [ $this, 'handle_process_transcript' ] );
-        add_action( 'el_core_ajax_es_save_definition',     [ $this, 'handle_save_definition' ] );
-        add_action( 'el_core_ajax_es_lock_definition',     [ $this, 'handle_lock_definition' ] );
+        add_action( 'el_core_ajax_es_process_transcript',       [ $this, 'handle_process_transcript' ] );
+        add_action( 'el_core_ajax_es_save_definition',          [ $this, 'handle_save_definition' ] );
+        add_action( 'el_core_ajax_es_lock_definition',          [ $this, 'handle_lock_definition' ] );
+
+        // Definition consensus review
+        add_action( 'el_core_ajax_es_send_definition_review',   [ $this, 'handle_send_definition_review' ] );
+        add_action( 'el_core_ajax_es_get_definition_review',    [ $this, 'handle_get_definition_review' ] );
+        add_action( 'el_core_ajax_es_post_definition_comment',  [ $this, 'handle_post_definition_comment' ] );
+        add_action( 'el_core_ajax_es_field_verdict',            [ $this, 'handle_field_verdict' ] );
+        add_action( 'el_core_ajax_es_dm_decision',              [ $this, 'handle_dm_decision' ] );
+        // Guest (portal) access for stakeholders
+        add_action( 'el_core_ajax_nopriv_es_get_definition_review',   [ $this, 'handle_get_definition_review' ] );
+        add_action( 'el_core_ajax_nopriv_es_post_definition_comment', [ $this, 'handle_post_definition_comment' ] );
+        add_action( 'el_core_ajax_nopriv_es_field_verdict',           [ $this, 'handle_field_verdict' ] );
+        add_action( 'el_core_ajax_nopriv_es_dm_decision',             [ $this, 'handle_dm_decision' ] );
         
+        // Proposals
+        add_action( 'el_core_ajax_es_create_proposal',       [ $this, 'handle_create_proposal' ] );
+        add_action( 'el_core_ajax_es_save_proposal',         [ $this, 'handle_save_proposal' ] );
+        add_action( 'el_core_ajax_es_generate_proposal_ai',  [ $this, 'handle_generate_proposal_ai' ] );
+        add_action( 'el_core_ajax_es_send_proposal',         [ $this, 'handle_send_proposal' ] );
+        add_action( 'el_core_ajax_es_delete_proposal',       [ $this, 'handle_delete_proposal' ] );
+        add_action( 'el_core_ajax_es_accept_proposal',       [ $this, 'handle_accept_proposal' ] );
+        add_action( 'el_core_ajax_es_decline_proposal',      [ $this, 'handle_decline_proposal' ] );
+        add_action( 'el_core_ajax_nopriv_es_accept_proposal', [ $this, 'handle_accept_proposal' ] );
+        add_action( 'el_core_ajax_nopriv_es_decline_proposal', [ $this, 'handle_decline_proposal' ] );
+        
+        // Template library (admin only)
+        add_action( 'el_core_ajax_es_save_template',     [ $this, 'handle_save_template' ] );
+        add_action( 'el_core_ajax_es_delete_template',   [ $this, 'handle_delete_template' ] );
+        add_action( 'el_core_ajax_es_reorder_templates', [ $this, 'handle_reorder_templates' ] );
+
+        // Review system — portal (stakeholders)
+        add_action( 'el_core_ajax_es_get_mood_board',       [ $this, 'handle_get_mood_board' ] );
+        add_action( 'el_core_ajax_es_save_template_vote',   [ $this, 'handle_save_template_vote' ] );
+        add_action( 'el_core_ajax_es_get_review_status',    [ $this, 'handle_get_review_status' ] );
+        add_action( 'el_core_ajax_es_get_review_results',   [ $this, 'handle_get_review_results' ] );
+        add_action( 'el_core_ajax_es_close_review',         [ $this, 'handle_close_review' ] );
+
+        // Review system — admin
+        add_action( 'el_core_ajax_es_create_review_item',   [ $this, 'handle_create_review_item' ] );
+        add_action( 'el_core_ajax_es_set_review_deadline',  [ $this, 'handle_set_review_deadline' ] );
+
         // User switching
         add_action( 'admin_init', [ $this, 'handle_switch_to_user' ] );
 
@@ -74,6 +207,15 @@ class EL_Expand_Site_Module {
             'manage_options',
             'el-core-projects',
             [ $this, 'render_admin_page' ]
+        );
+
+        add_submenu_page(
+            'el-core',
+            __( 'Template Library', 'el-core' ),
+            __( 'Template Library', 'el-core' ),
+            'manage_options',
+            'el-core-template-library',
+            [ $this, 'render_template_library_page' ]
         );
         
         add_submenu_page(
@@ -97,6 +239,10 @@ class EL_Expand_Site_Module {
         } else {
             require_once __DIR__ . '/admin/views/project-list.php';
         }
+    }
+
+    public function render_template_library_page(): void {
+        require_once __DIR__ . '/admin/views/template-library.php';
     }
 
     public function render_settings_page(): void {
@@ -138,7 +284,15 @@ class EL_Expand_Site_Module {
     }
 
     public function enqueue_admin_assets( string $hook ): void {
-        if ( strpos( $hook, 'el-core-projects' ) === false ) return;
+        $our_pages = [ 'el-core-projects', 'el-core-template-library' ];
+        $on_our_page = false;
+        foreach ( $our_pages as $page ) {
+            if ( strpos( $hook, $page ) !== false ) {
+                $on_our_page = true;
+                break;
+            }
+        }
+        if ( ! $on_our_page ) return;
 
         wp_enqueue_style(
             'el-expand-site-admin',
@@ -146,10 +300,12 @@ class EL_Expand_Site_Module {
             [ 'el-admin' ],
             EL_CORE_VERSION
         );
+        wp_enqueue_media();
+
         wp_enqueue_script(
             'el-expand-site-admin',
             EL_CORE_URL . 'modules/expand-site/assets/js/expand-site-admin.js',
-            [],
+            [ 'jquery', 'media-upload', 'thickbox' ],
             EL_CORE_VERSION,
             true
         );
@@ -255,18 +411,25 @@ class EL_Expand_Site_Module {
         }
 
         $user_id = get_current_user_id();
-        
+
         // Agency admins can act as decision makers
         if ( el_core_can( 'manage_expand_site' ) ) {
             return true;
         }
 
-        // Check if user is the designated decision maker
-        if ( (int) $project->decision_maker_id === $user_id ) {
-            return el_core_can( 'es_decision_maker' );
+        // Check legacy decision_maker_id column on the project
+        if ( (int) $project->decision_maker_id === $user_id && el_core_can( 'es_decision_maker' ) ) {
+            return true;
         }
 
-        return false;
+        // Check stakeholders table for decision_maker role row
+        $rows = $this->core->database->query( 'el_es_stakeholders', [
+            'project_id' => $project_id,
+            'user_id'    => $user_id,
+            'role'       => 'decision_maker',
+        ] );
+
+        return ! empty( $rows );
     }
 
     /**
@@ -394,6 +557,29 @@ class EL_Expand_Site_Module {
         return ! empty( $results ) ? $results[0] : null;
     }
 
+    public function get_proposals( int $project_id ): array {
+        return $this->core->database->query( 'el_es_proposals', [
+            'project_id' => $project_id,
+        ], [
+            'orderby' => 'created_at',
+            'order'   => 'DESC',
+        ] );
+    }
+
+    public function get_proposal( int $id ): ?object {
+        return $this->core->database->get( 'el_es_proposals', $id );
+    }
+
+    public function get_accepted_proposal( int $project_id ): ?object {
+        $results = $this->core->database->query( 'el_es_proposals', [
+            'project_id' => $project_id,
+            'status'     => 'accepted',
+        ], [
+            'limit' => 1,
+        ] );
+        return ! empty( $results ) ? $results[0] : null;
+    }
+
     public function count_projects( array $where = [] ): int {
         return $this->core->database->count( 'el_es_projects', $where );
     }
@@ -408,20 +594,55 @@ class EL_Expand_Site_Module {
     // ═══════════════════════════════════════════
 
     public function create_project( array $data ): int|false {
-        $db = $this->core->database;
+        $db  = $this->core->database;
+        $org = $this->core->organizations;
+
+        $organization_id = absint( $data['organization_id'] ?? 0 );
+        $client_name     = sanitize_text_field( $data['client_name'] ?? '' );
+
+        // Resolve organization: look up existing or create new
+        if ( $organization_id > 0 ) {
+            $org_record = $org->get_organization( $organization_id );
+            if ( $org_record ) {
+                $client_name = $org_record->name;
+            }
+        } elseif ( ! empty( $client_name ) ) {
+            $search = $org->search_organizations( $client_name );
+            $exact  = null;
+            foreach ( $search as $s ) {
+                if ( strtolower( $s->name ) === strtolower( $client_name ) ) {
+                    $exact = $s;
+                    break;
+                }
+            }
+
+            if ( $exact ) {
+                $organization_id = (int) $exact->id;
+            } else {
+                $organization_id = $org->create_organization( [
+                    'name'   => $client_name,
+                    'type'   => 'nonprofit',
+                    'status' => 'active',
+                ] );
+                if ( ! $organization_id ) {
+                    $organization_id = 0;
+                }
+            }
+        }
 
         $project_id = $db->insert( 'el_es_projects', [
-            'name'             => sanitize_text_field( $data['name'] ?? '' ),
-            'client_name'      => sanitize_text_field( $data['client_name'] ?? '' ),
-            'client_user_id'   => absint( $data['client_user_id'] ?? 0 ),
-            'current_stage'    => 1,
-            'status'           => 'active',
-            'budget_range_low' => floatval( $data['budget_range_low'] ?? 0 ),
-            'budget_range_high'=> floatval( $data['budget_range_high'] ?? 0 ),
-            'notes'            => wp_kses_post( $data['notes'] ?? '' ),
-            'created_by'       => get_current_user_id(),
-            'created_at'       => current_time( 'mysql' ),
-            'updated_at'       => current_time( 'mysql' ),
+            'name'              => sanitize_text_field( $data['name'] ?? '' ),
+            'client_name'       => $client_name,
+            'client_user_id'    => absint( $data['client_user_id'] ?? 0 ),
+            'organization_id'   => $organization_id,
+            'current_stage'     => 1,
+            'status'            => 'active',
+            'budget_range_low'  => floatval( $data['budget_range_low'] ?? 0 ),
+            'budget_range_high' => floatval( $data['budget_range_high'] ?? 0 ),
+            'notes'             => wp_kses_post( $data['notes'] ?? '' ),
+            'created_by'        => get_current_user_id(),
+            'created_at'        => current_time( 'mysql' ),
+            'updated_at'        => current_time( 'mysql' ),
         ] );
 
         if ( $project_id ) {
@@ -433,6 +654,14 @@ class EL_Expand_Site_Module {
                 'acted_by'   => get_current_user_id(),
                 'created_at' => current_time( 'mysql' ),
             ] );
+
+            // Auto-add primary contact as Decision Maker stakeholder
+            if ( $organization_id > 0 ) {
+                $primary = $org->get_primary_contact( $organization_id );
+                if ( $primary && $primary->user_id ) {
+                    $this->add_stakeholder( $project_id, (int) $primary->user_id, 'decision_maker' );
+                }
+            }
         }
 
         return $project_id;
@@ -592,6 +821,7 @@ class EL_Expand_Site_Module {
         $db->delete( 'el_es_deliverables', [ 'project_id' => $project_id ] );
         $db->delete( 'el_es_feedback', [ 'project_id' => $project_id ] );
         $db->delete( 'el_es_pages', [ 'project_id' => $project_id ] );
+        $db->delete( 'el_es_proposals', [ 'project_id' => $project_id ] );
         
         // Delete the project itself
         $result = $db->delete( 'el_es_projects', [ 'id' => $project_id ] );
@@ -1299,7 +1529,8 @@ class EL_Expand_Site_Module {
         }
 
         $project_id = absint( $data['project_id'] ?? 0 );
-        $transcript = wp_kses_post( $data['transcript'] ?? '' );
+        // Read transcript directly from $_POST to avoid sanitize_text_field() stripping newlines/slashes
+        $transcript = sanitize_textarea_field( wp_unslash( $_POST['transcript'] ?? '' ) );
 
         if ( ! $project_id || ! $transcript ) {
             EL_AJAX_Handler::error( __( 'Project ID and transcript are required.', 'el-core' ) );
@@ -1433,13 +1664,14 @@ class EL_Expand_Site_Module {
             return;
         }
 
+        // Read textarea fields directly from $_POST with wp_unslash() to prevent double-escaping
         $definition_data = [
-            'site_description'  => sanitize_textarea_field( $data['site_description'] ?? '' ),
-            'primary_goal'      => sanitize_textarea_field( $data['primary_goal'] ?? '' ),
-            'secondary_goals'   => sanitize_textarea_field( $data['secondary_goals'] ?? '' ),
-            'target_customers'  => sanitize_textarea_field( $data['target_customers'] ?? '' ),
-            'user_types'        => sanitize_textarea_field( $data['user_types'] ?? '' ),
-            'site_type'         => sanitize_text_field( $data['site_type'] ?? '' ),
+            'site_description'  => sanitize_textarea_field( wp_unslash( $_POST['site_description'] ?? '' ) ),
+            'primary_goal'      => sanitize_textarea_field( wp_unslash( $_POST['primary_goal'] ?? '' ) ),
+            'secondary_goals'   => sanitize_textarea_field( wp_unslash( $_POST['secondary_goals'] ?? '' ) ),
+            'target_customers'  => sanitize_textarea_field( wp_unslash( $_POST['target_customers'] ?? '' ) ),
+            'user_types'        => sanitize_textarea_field( wp_unslash( $_POST['user_types'] ?? '' ) ),
+            'site_type'         => substr( sanitize_text_field( wp_unslash( $_POST['site_type'] ?? '' ) ), 0, 50 ),
             'updated_at'        => current_time( 'mysql' ),
         ];
 
@@ -1497,7 +1729,408 @@ class EL_Expand_Site_Module {
             EL_AJAX_Handler::error( __( 'Failed to lock definition.', 'el-core' ) );
         }
     }
-    
+
+    // ═══════════════════════════════════════════
+    // DEFINITION CONSENSUS REVIEW
+    // ═══════════════════════════════════════════
+
+    /**
+     * Get the active (most recent open) review for a project definition.
+     */
+    public function get_active_definition_review( int $project_id ): ?object {
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_definition_reviews';
+        return $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE project_id = %d AND status = 'open' ORDER BY round DESC LIMIT 1",
+            $project_id
+        ) );
+    }
+
+    /**
+     * Get all reviews for a project definition, ordered by round.
+     */
+    public function get_definition_reviews( int $project_id ): array {
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_definition_reviews';
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE project_id = %d ORDER BY round ASC",
+            $project_id
+        ) ) ?: [];
+    }
+
+    /**
+     * Get all top-level comments for a review, with their replies nested.
+     * Returns array keyed by field_key, each value is array of comment objects with ->replies.
+     */
+    public function get_definition_comments( int $review_id ): array {
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_definition_comments';
+        $rows  = $wpdb->get_results( $wpdb->prepare(
+            "SELECT c.*, u.display_name, u.user_email FROM {$table} c
+             LEFT JOIN {$wpdb->users} u ON u.ID = c.user_id
+             WHERE c.review_id = %d ORDER BY c.created_at ASC",
+            $review_id
+        ) ) ?: [];
+
+        // Build tree: top-level keyed by field_key, replies nested under parent
+        $by_id    = [];
+        $by_field = [];
+        foreach ( $rows as $row ) {
+            $row->replies = [];
+            $by_id[ $row->id ] = $row;
+        }
+        foreach ( $by_id as $id => $row ) {
+            if ( $row->parent_id && isset( $by_id[ $row->parent_id ] ) ) {
+                $by_id[ $row->parent_id ]->replies[] = $row;
+            } else {
+                $by_field[ $row->field_key ][] = $row;
+            }
+        }
+        return $by_field;
+    }
+
+    /**
+     * Get per-field verdict tallies for a review.
+     * Returns array keyed by field_key => ['approved'=>n, 'needs_revision'=>n, 'total'=>n]
+     */
+    public function get_definition_verdicts( int $review_id ): array {
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_definition_comments';
+        $rows  = $wpdb->get_results( $wpdb->prepare(
+            "SELECT field_key, verdict, COUNT(*) as cnt FROM {$table}
+             WHERE review_id = %d AND parent_id = 0 AND verdict != ''
+             GROUP BY field_key, verdict",
+            $review_id
+        ) ) ?: [];
+        $out = [];
+        foreach ( $rows as $r ) {
+            if ( ! isset( $out[ $r->field_key ] ) ) {
+                $out[ $r->field_key ] = [ 'approved' => 0, 'needs_revision' => 0, 'total' => 0 ];
+            }
+            $out[ $r->field_key ][ $r->verdict ] = (int) $r->cnt;
+            $out[ $r->field_key ]['total'] += (int) $r->cnt;
+        }
+        return $out;
+    }
+
+    /**
+     * AJAX: Admin sends definition for stakeholder review.
+     * Creates a new review round, sets definition status to pending_review.
+     */
+    public function handle_send_definition_review( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $deadline   = sanitize_text_field( wp_unslash( $_POST['deadline'] ?? '' ) );
+
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Project ID required.', 'el-core' ) );
+            return;
+        }
+
+        $definition = $this->get_project_definition( $project_id );
+        if ( ! $definition ) {
+            EL_AJAX_Handler::error( __( 'Save the definition before sending for review.', 'el-core' ) );
+            return;
+        }
+        if ( $definition->locked_at ) {
+            EL_AJAX_Handler::error( __( 'Definition is locked and cannot be sent for review.', 'el-core' ) );
+            return;
+        }
+
+        // Close any existing open review
+        global $wpdb;
+        $reviews_table = $wpdb->prefix . 'el_es_definition_reviews';
+        $wpdb->update( $reviews_table, [ 'status' => 'superseded' ], [ 'project_id' => $project_id, 'status' => 'open' ] );
+
+        // Determine next round number
+        $last_round = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT MAX(round) FROM {$reviews_table} WHERE project_id = %d",
+            $project_id
+        ) );
+        $round = $last_round + 1;
+
+        // Create new review
+        $deadline_dt = $deadline ? date( 'Y-m-d 23:59:59', strtotime( $deadline ) ) : null;
+        $wpdb->insert( $reviews_table, [
+            'project_id' => $project_id,
+            'round'      => $round,
+            'sent_by'    => get_current_user_id(),
+            'sent_at'    => current_time( 'mysql' ),
+            'deadline'   => $deadline_dt,
+            'status'     => 'open',
+        ] );
+        $review_id = $wpdb->insert_id;
+
+        // Update definition status
+        $this->core->database->update( 'el_es_project_definition', [
+            'review_status' => 'pending_review',
+            'updated_at'    => current_time( 'mysql' ),
+        ], [ 'project_id' => $project_id ] );
+
+        EL_AJAX_Handler::success( [
+            'review_id' => $review_id,
+            'round'     => $round,
+        ], sprintf( __( 'Sent for review — Round %d. Stakeholders can now comment.', 'el-core' ), $round ) );
+    }
+
+    /**
+     * AJAX: Get full review data for the portal (definition fields + comments + verdicts + timer).
+     * Accessible to logged-in stakeholders (nopriv handled separately).
+     */
+    public function handle_get_definition_review( array $data ): void {
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Project ID required.', 'el-core' ) );
+            return;
+        }
+
+        $definition = $this->get_project_definition( $project_id );
+        if ( ! $definition ) {
+            EL_AJAX_Handler::error( __( 'No definition found.', 'el-core' ), 404 );
+            return;
+        }
+
+        $review   = $this->get_active_definition_review( $project_id );
+        $comments = $review ? $this->get_definition_comments( (int) $review->id ) : [];
+        $verdicts = $review ? $this->get_definition_verdicts( (int) $review->id ) : [];
+
+        // Deadline info
+        $deadline_ts      = $review && $review->deadline ? strtotime( $review->deadline ) : null;
+        $deadline_passed  = $deadline_ts && $deadline_ts < time();
+
+        // Current user's existing verdicts per field
+        $user_id       = get_current_user_id();
+        $user_verdicts = [];
+        if ( $review ) {
+            global $wpdb;
+            $ct = $wpdb->prefix . 'el_es_definition_comments';
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT field_key, verdict FROM {$ct} WHERE review_id=%d AND user_id=%d AND parent_id=0 AND verdict!=''",
+                $review->id, $user_id
+            ) ) ?: [];
+            foreach ( $rows as $r ) {
+                $user_verdicts[ $r->field_key ] = $r->verdict;
+            }
+        }
+
+        EL_AJAX_Handler::success( [
+            'definition'      => [
+                'site_description'  => $definition->site_description,
+                'primary_goal'      => $definition->primary_goal,
+                'secondary_goals'   => $definition->secondary_goals,
+                'target_customers'  => $definition->target_customers,
+                'user_types'        => $definition->user_types,
+                'site_type'         => $definition->site_type,
+                'review_status'     => $definition->review_status ?? 'draft',
+                'locked_at'         => $definition->locked_at,
+            ],
+            'review'          => $review,
+            'comments'        => $comments,
+            'verdicts'        => $verdicts,
+            'user_verdicts'   => $user_verdicts,
+            'deadline_ts'     => $deadline_ts,
+            'deadline_passed' => $deadline_passed,
+            'is_dm'           => $this->is_decision_maker( $project_id ),
+        ] );
+    }
+
+    /**
+     * AJAX: Post a comment (or reply) on a definition field.
+     */
+    public function handle_post_definition_comment( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'You must be logged in to comment.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $review_id  = absint( $data['review_id'] ?? 0 );
+        $field_key  = sanitize_key( $data['field_key'] ?? '' );
+        $parent_id  = absint( $data['parent_id'] ?? 0 );
+        $comment    = sanitize_textarea_field( wp_unslash( $_POST['comment'] ?? '' ) );
+
+        $allowed_fields = [ 'site_description', 'primary_goal', 'secondary_goals', 'target_customers', 'user_types', 'site_type', 'overall' ];
+        if ( ! $project_id || ! $review_id || ! in_array( $field_key, $allowed_fields, true ) || ! $comment ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        // Verify review is still open
+        global $wpdb;
+        $reviews_table  = $wpdb->prefix . 'el_es_definition_reviews';
+        $comments_table = $wpdb->prefix . 'el_es_definition_comments';
+        $review = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$reviews_table} WHERE id=%d", $review_id ) );
+        if ( ! $review || $review->status !== 'open' ) {
+            EL_AJAX_Handler::error( __( 'This review is no longer open for comments.', 'el-core' ) );
+            return;
+        }
+
+        $now = current_time( 'mysql' );
+        $wpdb->insert( $comments_table, [
+            'review_id'  => $review_id,
+            'project_id' => $project_id,
+            'field_key'  => $field_key,
+            'parent_id'  => $parent_id,
+            'user_id'    => get_current_user_id(),
+            'comment'    => $comment,
+            'verdict'    => '',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ] );
+        $comment_id = $wpdb->insert_id;
+
+        $user = get_userdata( get_current_user_id() );
+        EL_AJAX_Handler::success( [
+            'id'           => $comment_id,
+            'comment'      => $comment,
+            'display_name' => $user ? $user->display_name : 'Unknown',
+            'created_at'   => $now,
+            'parent_id'    => $parent_id,
+            'field_key'    => $field_key,
+        ], __( 'Comment posted.', 'el-core' ) );
+    }
+
+    /**
+     * AJAX: Contributor sets per-field verdict (approved / needs_revision) + optional comment.
+     * One verdict per user per field per review — upsert.
+     */
+    public function handle_field_verdict( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'You must be logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $review_id  = absint( $data['review_id'] ?? 0 );
+        $field_key  = sanitize_key( $data['field_key'] ?? '' );
+        $verdict    = sanitize_text_field( $data['verdict'] ?? '' );
+        $comment    = sanitize_textarea_field( wp_unslash( $_POST['comment'] ?? '' ) );
+
+        $allowed_verdicts = [ 'approved', 'needs_revision' ];
+        $allowed_fields   = [ 'site_description', 'primary_goal', 'secondary_goals', 'target_customers', 'user_types', 'site_type', 'overall' ];
+
+        if ( ! $project_id || ! $review_id || ! in_array( $field_key, $allowed_fields, true ) || ! in_array( $verdict, $allowed_verdicts, true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid verdict data.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $reviews_table  = $wpdb->prefix . 'el_es_definition_reviews';
+        $comments_table = $wpdb->prefix . 'el_es_definition_comments';
+
+        $review = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$reviews_table} WHERE id=%d", $review_id ) );
+        if ( ! $review || $review->status !== 'open' ) {
+            EL_AJAX_Handler::error( __( 'This review is closed.', 'el-core' ) );
+            return;
+        }
+
+        $user_id = get_current_user_id();
+        $now     = current_time( 'mysql' );
+
+        // Check for existing verdict row from this user for this field
+        $existing = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id FROM {$comments_table} WHERE review_id=%d AND user_id=%d AND field_key=%s AND parent_id=0 AND verdict!=''",
+            $review_id, $user_id, $field_key
+        ) );
+
+        if ( $existing ) {
+            $wpdb->update( $comments_table, [
+                'verdict'    => $verdict,
+                'comment'    => $comment,
+                'updated_at' => $now,
+            ], [ 'id' => $existing->id ] );
+            $comment_id = $existing->id;
+        } else {
+            $wpdb->insert( $comments_table, [
+                'review_id'  => $review_id,
+                'project_id' => $project_id,
+                'field_key'  => $field_key,
+                'parent_id'  => 0,
+                'user_id'    => $user_id,
+                'comment'    => $comment,
+                'verdict'    => $verdict,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ] );
+            $comment_id = $wpdb->insert_id;
+        }
+
+        // Check if deadline has passed — if so, allow DM to decide but block other verdicts
+        if ( $review->deadline && strtotime( $review->deadline ) < time() && ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'The review deadline has passed. Only the Decision Maker can act now.', 'el-core' ) );
+            return;
+        }
+
+        EL_AJAX_Handler::success( [
+            'id'        => $comment_id,
+            'verdict'   => $verdict,
+            'field_key' => $field_key,
+        ], __( 'Your feedback has been recorded.', 'el-core' ) );
+    }
+
+    /**
+     * AJAX: Decision Maker submits final decision on the review.
+     * Verdict: accepted | needs_revision
+     * If accepted → definition status → approved (admin can then lock).
+     * If needs_revision → review closed, admin edits and re-sends.
+     */
+    public function handle_dm_decision( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'You must be logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $review_id  = absint( $data['review_id'] ?? 0 );
+        $decision   = sanitize_text_field( $data['decision'] ?? '' );
+        $note       = sanitize_textarea_field( wp_unslash( $_POST['dm_note'] ?? '' ) );
+
+        if ( ! in_array( $decision, [ 'accepted', 'needs_revision' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid decision.', 'el-core' ) );
+            return;
+        }
+        if ( ! $this->is_decision_maker( $project_id ) && ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Only the Decision Maker can submit the final decision.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+        $reviews_table = $wpdb->prefix . 'el_es_definition_reviews';
+        $review = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$reviews_table} WHERE id=%d AND project_id=%d", $review_id, $project_id ) );
+        if ( ! $review || $review->status !== 'open' ) {
+            EL_AJAX_Handler::error( __( 'Review not found or already closed.', 'el-core' ) );
+            return;
+        }
+
+        $now = current_time( 'mysql' );
+
+        // Close the review with DM decision
+        $wpdb->update( $reviews_table, [
+            'status'        => 'closed',
+            'dm_decision'   => $decision,
+            'dm_note'       => $note,
+            'dm_decided_at' => $now,
+            'dm_decided_by' => get_current_user_id(),
+        ], [ 'id' => $review_id ] );
+
+        // Update definition review_status
+        $new_status = $decision === 'accepted' ? 'approved' : 'needs_revision';
+        $this->core->database->update( 'el_es_project_definition', [
+            'review_status' => $new_status,
+            'updated_at'    => $now,
+        ], [ 'project_id' => $project_id ] );
+
+        $message = $decision === 'accepted'
+            ? __( 'Definition approved! The admin can now lock it and proceed.', 'el-core' )
+            : __( 'Sent back for revision. The admin will update and re-send.', 'el-core' );
+
+        EL_AJAX_Handler::success( [ 'new_status' => $new_status ], $message );
+    }
+
     /**
      * Extract JSON from AI response (handles markdown code blocks and extra text)
      * 
@@ -1525,6 +2158,893 @@ class EL_Expand_Site_Module {
         return false;
     }
     
+    // ═══════════════════════════════════════════
+    // PROPOSALS
+    // ═══════════════════════════════════════════
+
+    public function handle_create_proposal( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
+            return;
+        }
+
+        $project = $this->get_project( $project_id );
+        if ( ! $project ) {
+            EL_AJAX_Handler::error( __( 'Project not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        // Generate proposal number
+        $existing = $this->get_proposals( $project_id );
+        $count = count( $existing ) + 1;
+        $proposal_number = 'PROP-' . $project_id . '-' . $count;
+
+        // Pre-populate from project definition and stakeholders
+        $definition = $this->get_project_definition( $project_id );
+        $stakeholders = $this->get_stakeholders( $project_id );
+        
+        $client_name = $project->client_name;
+        $client_email = '';
+        foreach ( $stakeholders as $sh ) {
+            if ( $sh->role === 'decision_maker' ) {
+                $user = get_userdata( $sh->user_id );
+                if ( $user ) {
+                    $client_name = $user->display_name;
+                    $client_email = $user->user_email;
+                }
+                break;
+            }
+        }
+
+        $payment_terms    = $this->core->settings->get( 'mod_expand-site', 'default_payment_terms', '' );
+        $terms_conditions = $this->core->settings->get( 'mod_expand-site', 'default_terms_conditions', '' );
+
+        $proposal_data = [
+            'project_id'             => $project_id,
+            'proposal_number'        => $proposal_number,
+            'status'                 => 'draft',
+            'client_name'            => $client_name,
+            'client_organization'    => $project->client_name,
+            'client_email'           => $client_email,
+            'proposal_title'         => $project->name,
+            'scope_description'      => $definition->site_description ?? '',
+            'goals_objectives'       => $definition->primary_goal ?? '',
+            'budget_low'             => (float) $project->budget_range_low,
+            'budget_high'            => (float) $project->budget_range_high,
+            'payment_terms'          => $payment_terms,
+            'terms_conditions'       => $terms_conditions,
+            'created_by'             => get_current_user_id(),
+            'created_at'             => current_time( 'mysql' ),
+            'updated_at'             => current_time( 'mysql' ),
+        ];
+
+        $proposal_id = $this->core->database->insert( 'el_es_proposals', $proposal_data );
+
+        if ( $proposal_id ) {
+            EL_AJAX_Handler::success( [ 'proposal_id' => $proposal_id ], __( 'Proposal created!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to create proposal.', 'el-core' ) );
+        }
+    }
+
+    public function handle_save_proposal( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $proposal_id = absint( $data['proposal_id'] ?? 0 );
+        if ( ! $proposal_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid proposal ID.', 'el-core' ) );
+            return;
+        }
+
+        $proposal = $this->get_proposal( $proposal_id );
+        if ( ! $proposal ) {
+            EL_AJAX_Handler::error( __( 'Proposal not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( $proposal->status === 'accepted' ) {
+            EL_AJAX_Handler::error( __( 'Cannot edit an accepted proposal.', 'el-core' ) );
+            return;
+        }
+
+        $update = [
+            'client_name'            => sanitize_text_field( $data['client_name'] ?? $proposal->client_name ),
+            'client_organization'    => sanitize_text_field( $data['client_organization'] ?? $proposal->client_organization ),
+            'client_email'           => sanitize_email( $data['client_email'] ?? $proposal->client_email ),
+            'proposal_title'         => sanitize_text_field( $data['proposal_title'] ?? $proposal->proposal_title ),
+            'project_dates'          => sanitize_text_field( $data['project_dates'] ?? $proposal->project_dates ),
+            'project_location'       => sanitize_text_field( $data['project_location'] ?? $proposal->project_location ),
+            'scope_description'      => sanitize_textarea_field( $data['scope_description'] ?? $proposal->scope_description ),
+            'goals_objectives'       => sanitize_textarea_field( $data['goals_objectives'] ?? $proposal->goals_objectives ),
+            'activities_description' => sanitize_textarea_field( $data['activities_description'] ?? $proposal->activities_description ),
+            'deliverables_text'      => sanitize_textarea_field( $data['deliverables_text'] ?? $proposal->deliverables_text ),
+            'section_situation'      => wp_kses_post( $data['section_situation'] ?? $proposal->section_situation ?? '' ),
+            'section_what_we_build'  => wp_kses_post( $data['section_what_we_build'] ?? $proposal->section_what_we_build ?? '' ),
+            'section_why_els'        => wp_kses_post( $data['section_why_els'] ?? $proposal->section_why_els ?? '' ),
+            'section_investment'     => wp_kses_post( $data['section_investment'] ?? $proposal->section_investment ?? '' ),
+            'section_next_steps'     => wp_kses_post( $data['section_next_steps'] ?? $proposal->section_next_steps ?? '' ),
+            'budget_low'             => floatval( $data['budget_low'] ?? $proposal->budget_low ),
+            'budget_high'            => floatval( $data['budget_high'] ?? $proposal->budget_high ),
+            'final_price'            => floatval( $data['final_price'] ?? $proposal->final_price ),
+            'payment_terms'          => sanitize_textarea_field( $data['payment_terms'] ?? $proposal->payment_terms ),
+            'terms_conditions'       => sanitize_textarea_field( $data['terms_conditions'] ?? $proposal->terms_conditions ),
+            'updated_at'             => current_time( 'mysql' ),
+        ];
+
+        $result = $this->core->database->update( 'el_es_proposals', $update, [ 'id' => $proposal_id ] );
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( null, __( 'Proposal saved!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to save proposal.', 'el-core' ) );
+        }
+    }
+
+    public function handle_generate_proposal_ai( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
+            return;
+        }
+
+        $project = $this->get_project( $project_id );
+        if ( ! $project ) {
+            EL_AJAX_Handler::error( __( 'Project not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( ! $this->core->ai->is_configured() ) {
+            EL_AJAX_Handler::error( __( 'AI is not configured. Go to EL Core settings to add your API key.', 'el-core' ) );
+            return;
+        }
+
+        $definition = $this->get_project_definition( $project_id );
+        if ( ! $definition ) {
+            EL_AJAX_Handler::error( __( 'No project definition found. Process a discovery transcript first.', 'el-core' ) );
+            return;
+        }
+
+        if ( ! $definition->locked_at ) {
+            EL_AJAX_Handler::error( __( 'Lock the project definition before generating a proposal.', 'el-core' ) );
+            return;
+        }
+
+        $transcript = $project->discovery_transcript ?? '';
+        $transcript_excerpt = $transcript ? mb_substr( $transcript, 0, 1500 ) : '';
+        $client_org = $project->client_name;
+        $budget_low = number_format( (float) $project->budget_range_low, 0 );
+        $budget_high = number_format( (float) $project->budget_range_high, 0 );
+
+        $prompt  = "You are writing a proposal for a web platform development project for Expanded Learning Solutions LLC.\n";
+        $prompt .= "This proposal will be sent directly to a client decision-maker (typically a district administrator or nonprofit executive director) ";
+        $prompt .= "who will share it with a board or leadership team. It must read like a custom document written specifically for this client, not a filled-out template.\n\n";
+        $prompt .= "Write the proposal as flowing, professional prose. No bullet points. No labeled lists. No headers inside sections. Just paragraphs that a human would write.\n\n";
+        $prompt .= "Use the following source data:\n";
+        $prompt .= "- Project Name: " . ( $project->name ?? 'N/A' ) . "\n";
+        $prompt .= "- Client Organization: " . $client_org . "\n";
+        $prompt .= "- Site Description: " . ( $definition->site_description ?? 'N/A' ) . "\n";
+        $prompt .= "- Primary Goal: " . ( $definition->primary_goal ?? 'N/A' ) . "\n";
+        $prompt .= "- Secondary Goals: " . ( $definition->secondary_goals ?? 'N/A' ) . "\n";
+        $prompt .= "- Target Customers: " . ( $definition->target_customers ?? 'N/A' ) . "\n";
+        $prompt .= "- User Types: " . ( $definition->user_types ?? 'N/A' ) . "\n";
+        $prompt .= "- Site Type: " . ( $definition->site_type ?? 'N/A' ) . "\n";
+        $prompt .= "- Budget Range: \${$budget_low} – \${$budget_high}\n";
+        if ( $transcript_excerpt ) {
+            $prompt .= "- Discovery Transcript: " . $transcript_excerpt . "\n";
+        }
+        $prompt .= "\nWrite exactly these 5 sections and return them as JSON with these exact keys:\n\n";
+        $prompt .= "{\n";
+        $prompt .= '  "situation": "2-3 sentences that mirror the client\'s specific problem back to them. Start with their organization name. Reference specific details from the transcript. Do not use generic language. Make them feel understood.",' . "\n\n";
+        $prompt .= '  "what_we_are_building": "3-4 sentences describing what the platform will do, organized by who benefits. For each user type identified, write one sentence describing what they will be able to do and what outcome that enables. Focus on capabilities and outcomes, not features or technical details.",' . "\n\n";
+        $prompt .= '  "why_els": "2-3 sentences explaining why Expanded Learning Solutions is the right partner. Reference that ELS has built platforms for organizations similar to theirs. Mention that this is a custom platform built on ELS\'s proprietary EL Core system, not off-the-shelf software stitched together.",' . "\n\n";
+        $prompt .= '  "investment": "Write this as a single paragraph. State the platform development investment (use the budget range or final price). Then state the annual platform fee (hosting, maintenance, security updates, support) and express it as a monthly equivalent. Then write one sentence comparing this to the cost of a full-time program coordinator salary or an off-the-shelf enterprise platform subscription. Make the ROI feel obvious without being salesy.",' . "\n\n";
+        $prompt .= '  "next_steps": "3-4 sentences describing exactly what happens after they accept. Be specific: You will receive a welcome email with a link to your client portal. We will schedule a kickoff call within 5 business days. You will be introduced to your project team and we will review your timeline together. Concrete, not vague."' . "\n";
+        $prompt .= "}\n\n";
+        $prompt .= "Return only valid JSON. No markdown. No explanation. No preamble.";
+
+        $ai_response = el_core_ai_complete( $prompt, '', [
+            'max_tokens' => 2000,
+        ] );
+
+        if ( ! $ai_response['success'] ) {
+            EL_AJAX_Handler::error( __( 'AI processing failed: ', 'el-core' ) . ( $ai_response['error'] ?? 'Unknown error' ) );
+            return;
+        }
+
+        $ai_content = $ai_response['content'] ?? '';
+        if ( empty( $ai_content ) ) {
+            EL_AJAX_Handler::error( __( 'AI returned empty response.', 'el-core' ) );
+            return;
+        }
+
+        $json_string = $this->extract_json_from_ai_response( $ai_content );
+        if ( ! $json_string ) {
+            EL_AJAX_Handler::error( __( 'Could not parse AI response. Try again.', 'el-core' ) );
+            return;
+        }
+
+        $extracted = json_decode( $json_string, true );
+        if ( json_last_error() !== JSON_ERROR_NONE ) {
+            EL_AJAX_Handler::error( __( 'Failed to parse AI JSON. Try again.', 'el-core' ) );
+            return;
+        }
+
+        EL_AJAX_Handler::success( [
+            'situation'            => $extracted['situation'] ?? '',
+            'what_we_are_building' => $extracted['what_we_are_building'] ?? '',
+            'why_els'              => $extracted['why_els'] ?? '',
+            'investment'           => $extracted['investment'] ?? '',
+            'next_steps'           => $extracted['next_steps'] ?? '',
+        ], __( 'Proposal content generated!', 'el-core' ) );
+    }
+
+    public function handle_send_proposal( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $proposal_id = absint( $data['proposal_id'] ?? 0 );
+        if ( ! $proposal_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid proposal ID.', 'el-core' ) );
+            return;
+        }
+
+        $proposal = $this->get_proposal( $proposal_id );
+        if ( ! $proposal ) {
+            EL_AJAX_Handler::error( __( 'Proposal not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        $result = $this->core->database->update( 'el_es_proposals', [
+            'status'     => 'sent',
+            'sent_at'    => current_time( 'mysql' ),
+            'updated_at' => current_time( 'mysql' ),
+        ], [ 'id' => $proposal_id ] );
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( null, __( 'Proposal marked as sent!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to update proposal status.', 'el-core' ) );
+        }
+    }
+
+    public function handle_delete_proposal( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $proposal_id = absint( $data['proposal_id'] ?? 0 );
+        if ( ! $proposal_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid proposal ID.', 'el-core' ) );
+            return;
+        }
+
+        $proposal = $this->get_proposal( $proposal_id );
+        if ( ! $proposal ) {
+            EL_AJAX_Handler::error( __( 'Proposal not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( $proposal->status === 'accepted' ) {
+            EL_AJAX_Handler::error( __( 'Cannot delete an accepted proposal.', 'el-core' ) );
+            return;
+        }
+
+        $result = $this->core->database->delete( 'el_es_proposals', [ 'id' => $proposal_id ] );
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( null, __( 'Proposal deleted!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to delete proposal.', 'el-core' ) );
+        }
+    }
+
+    public function handle_accept_proposal( array $data ): void {
+        $proposal_id = absint( $data['proposal_id'] ?? 0 );
+        if ( ! $proposal_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid proposal ID.', 'el-core' ) );
+            return;
+        }
+
+        $proposal = $this->get_proposal( $proposal_id );
+        if ( ! $proposal ) {
+            EL_AJAX_Handler::error( __( 'Proposal not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( $proposal->status !== 'sent' ) {
+            EL_AJAX_Handler::error( __( 'Only sent proposals can be accepted.', 'el-core' ) );
+            return;
+        }
+
+        $project_id = (int) $proposal->project_id;
+        $user_id = get_current_user_id();
+
+        // Verify user is a decision maker or admin
+        if ( ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Only the decision maker can accept proposals.', 'el-core' ), 403 );
+            return;
+        }
+
+        // Accept the proposal
+        $this->core->database->update( 'el_es_proposals', [
+            'status'      => 'accepted',
+            'accepted_at' => current_time( 'mysql' ),
+            'accepted_by' => $user_id,
+            'updated_at'  => current_time( 'mysql' ),
+        ], [ 'id' => $proposal_id ] );
+
+        // Lock scope and advance to Stage 4 if currently at Stage 3
+        $project = $this->get_project( $project_id );
+        if ( $project && (int) $project->current_stage === 3 ) {
+            $this->advance_stage( $project_id, 'Proposal accepted by client' );
+        }
+
+        // TODO: Invoice trigger — Phase 2F-E
+        // When wireframe stage is approved by DM, flag Invoice 1 (25%) as due.
+        // When project reaches final delivery, flag Invoice 2 (75%) as due.
+        // Hooks into stage advancement which is already tracked.
+
+        // Set final price from proposal if provided
+        if ( $proposal->final_price > 0 ) {
+            $this->core->database->update( 'el_es_projects', [
+                'final_price' => $proposal->final_price,
+                'updated_at'  => current_time( 'mysql' ),
+            ], [ 'id' => $project_id ] );
+        }
+
+        EL_AJAX_Handler::success( null, __( 'Proposal accepted! Project advancing to next stage.', 'el-core' ) );
+    }
+
+    public function handle_decline_proposal( array $data ): void {
+        $proposal_id = absint( $data['proposal_id'] ?? 0 );
+        if ( ! $proposal_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid proposal ID.', 'el-core' ) );
+            return;
+        }
+
+        $proposal = $this->get_proposal( $proposal_id );
+        if ( ! $proposal ) {
+            EL_AJAX_Handler::error( __( 'Proposal not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( $proposal->status !== 'sent' ) {
+            EL_AJAX_Handler::error( __( 'Only sent proposals can be declined.', 'el-core' ) );
+            return;
+        }
+
+        $project_id = (int) $proposal->project_id;
+
+        if ( ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Only the decision maker can decline proposals.', 'el-core' ), 403 );
+            return;
+        }
+
+        $this->core->database->update( 'el_es_proposals', [
+            'status'      => 'declined',
+            'declined_at' => current_time( 'mysql' ),
+            'updated_at'  => current_time( 'mysql' ),
+        ], [ 'id' => $proposal_id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Proposal declined.', 'el-core' ) );
+    }
+
+    // ═══════════════════════════════════════════
+    // TEMPLATE LIBRARY
+    // ═══════════════════════════════════════════
+
+    public function get_templates( array $where = [] ): array {
+        return $this->core->database->query( 'el_es_templates', $where, [
+            'orderby' => 'sort_order',
+            'order'   => 'ASC',
+        ] );
+    }
+
+    public function handle_save_template( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $title    = sanitize_text_field( $data['title'] ?? '' );
+        $category = sanitize_text_field( $data['style_category'] ?? '' );
+
+        if ( empty( $title ) ) {
+            EL_AJAX_Handler::error( __( 'Title is required.', 'el-core' ) );
+            return;
+        }
+        if ( empty( $category ) ) {
+            EL_AJAX_Handler::error( __( 'Style category is required.', 'el-core' ) );
+            return;
+        }
+
+        $template_id = absint( $data['template_id'] ?? 0 );
+
+        $fields = [
+            'title'          => $title,
+            'style_category' => $category,
+            'description'    => sanitize_textarea_field( $data['description'] ?? '' ),
+            'image_url'      => esc_url_raw( $data['image_url'] ?? '' ),
+            'is_active'      => absint( $data['is_active'] ?? 0 ),
+        ];
+
+        if ( $template_id ) {
+            $result = $this->core->database->update( 'el_es_templates', $fields, [ 'id' => $template_id ] );
+            if ( $result !== false ) {
+                EL_AJAX_Handler::success( [ 'template_id' => $template_id ], __( 'Template updated!', 'el-core' ) );
+            } else {
+                EL_AJAX_Handler::error( __( 'Failed to update template.', 'el-core' ) );
+            }
+        } else {
+            // Get next sort_order within this category
+            global $wpdb;
+            $table = $wpdb->prefix . 'el_es_templates';
+            $max_sort = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT MAX(sort_order) FROM {$table} WHERE style_category = %s",
+                $category
+            ) );
+            $fields['sort_order'] = $max_sort + 1;
+            $fields['created_at'] = current_time( 'mysql' );
+
+            $new_id = $this->core->database->insert( 'el_es_templates', $fields );
+            if ( $new_id ) {
+                EL_AJAX_Handler::success( [ 'template_id' => $new_id ], __( 'Template added!', 'el-core' ) );
+            } else {
+                EL_AJAX_Handler::error( __( 'Failed to add template.', 'el-core' ) );
+            }
+        }
+    }
+
+    public function handle_delete_template( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $template_id = absint( $data['template_id'] ?? 0 );
+        if ( ! $template_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid template ID.', 'el-core' ) );
+            return;
+        }
+
+        $result = $this->core->database->delete( 'el_es_templates', [ 'id' => $template_id ] );
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( null, __( 'Template deleted!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to delete template.', 'el-core' ) );
+        }
+    }
+
+    public function handle_reorder_templates( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        // order is a JSON array of { id, sort_order } objects
+        $order = json_decode( sanitize_text_field( $data['order'] ?? '[]' ), true );
+        if ( ! is_array( $order ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid order data.', 'el-core' ) );
+            return;
+        }
+
+        foreach ( $order as $item ) {
+            $id         = absint( $item['id'] ?? 0 );
+            $sort_order = absint( $item['sort_order'] ?? 0 );
+            if ( $id ) {
+                $this->core->database->update( 'el_es_templates', [ 'sort_order' => $sort_order ], [ 'id' => $id ] );
+            }
+        }
+
+        EL_AJAX_Handler::success( null, __( 'Order saved!', 'el-core' ) );
+    }
+
+    // ═══════════════════════════════════════════
+    // REVIEW SYSTEM — QUERIES
+    // ═══════════════════════════════════════════
+
+    public function get_review_items( int $project_id, string $review_type = '' ): array {
+        $where = [ 'project_id' => $project_id ];
+        if ( $review_type ) {
+            $where['review_type'] = $review_type;
+        }
+        return $this->core->database->query( 'el_es_review_items', $where, [
+            'orderby' => 'created_at',
+            'order'   => 'DESC',
+        ] );
+    }
+
+    public function get_review_item( int $id ): ?object {
+        return $this->core->database->get( 'el_es_review_items', $id );
+    }
+
+    public function get_review_votes( int $review_item_id ): array {
+        return $this->core->database->query( 'el_es_review_votes', [
+            'review_item_id' => $review_item_id,
+        ] );
+    }
+
+    public function get_user_vote( int $review_item_id, int $user_id ): ?object {
+        $rows = $this->core->database->query( 'el_es_review_votes', [
+            'review_item_id' => $review_item_id,
+            'user_id'        => $user_id,
+        ], [ 'limit' => 1 ] );
+        return ! empty( $rows ) ? $rows[0] : null;
+    }
+
+    // ═══════════════════════════════════════════
+    // REVIEW SYSTEM — AJAX HANDLERS
+    // ═══════════════════════════════════════════
+
+    /**
+     * Load the mood board: active review session + templates + current user's votes.
+     */
+    public function handle_get_mood_board( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'Not logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id || ! $this->is_stakeholder( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $review_items = $this->get_review_items( $project_id, 'mood_board' );
+        $open_item    = null;
+        foreach ( $review_items as $item ) {
+            if ( $item->status === 'open' ) {
+                $open_item = $item;
+                break;
+            }
+        }
+
+        if ( ! $open_item ) {
+            EL_AJAX_Handler::success( [ 'status' => 'no_session' ] );
+            return;
+        }
+
+        // Get selected template IDs from dm_decision
+        $dm_decision        = $open_item->dm_decision ? json_decode( $open_item->dm_decision, true ) : [];
+        $selected_ids       = $dm_decision['selected_template_ids'] ?? [];
+
+        if ( empty( $selected_ids ) ) {
+            EL_AJAX_Handler::success( [ 'status' => 'no_templates', 'review_item_id' => $open_item->id ] );
+            return;
+        }
+
+        // Load templates
+        global $wpdb;
+        $table       = $wpdb->prefix . 'el_es_templates';
+        $placeholders = implode( ',', array_fill( 0, count( $selected_ids ), '%d' ) );
+        $templates   = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE id IN ({$placeholders}) ORDER BY style_category, sort_order",
+            ...$selected_ids
+        ) );
+
+        // Get current user's vote
+        $user_id    = get_current_user_id();
+        $user_vote  = $this->get_user_vote( (int) $open_item->id, $user_id );
+        $vote_data  = $user_vote ? json_decode( $user_vote->vote_data, true ) : [ 'preferences' => [] ];
+
+        // Get all stakeholder votes for progress tracker
+        $all_votes  = $this->get_review_votes( (int) $open_item->id );
+        $voted_ids  = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
+        $stakeholders = $this->get_stakeholders( $project_id );
+        $total       = count( $stakeholders );
+        $responded   = count( array_filter( $stakeholders, fn( $s ) => in_array( (int) $s->user_id, $voted_ids, true ) ) );
+
+        EL_AJAX_Handler::success( [
+            'status'          => 'open',
+            'review_item_id'  => (int) $open_item->id,
+            'deadline'        => $open_item->deadline,
+            'templates'       => $templates,
+            'vote_data'       => $vote_data,
+            'responded'       => $responded,
+            'total'           => $total,
+        ] );
+    }
+
+    /**
+     * Save / update a stakeholder's template preference vote.
+     */
+    public function handle_save_template_vote( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'Not logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $review_item_id = absint( $data['review_item_id'] ?? 0 );
+        $template_id    = absint( $data['template_id'] ?? 0 );
+        $preference     = sanitize_text_field( $data['preference'] ?? 'neutral' );
+
+        if ( ! in_array( $preference, [ 'liked', 'neutral', 'disliked' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid preference value.', 'el-core' ) );
+            return;
+        }
+
+        $review_item = $this->get_review_item( $review_item_id );
+        if ( ! $review_item || $review_item->status !== 'open' ) {
+            EL_AJAX_Handler::error( __( 'Review session is not open.', 'el-core' ) );
+            return;
+        }
+
+        $project_id = (int) $review_item->project_id;
+        if ( ! $this->is_stakeholder( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $user_id    = get_current_user_id();
+        $existing   = $this->get_user_vote( $review_item_id, $user_id );
+
+        if ( $existing ) {
+            $vote_data = json_decode( $existing->vote_data, true );
+            $vote_data['preferences'][ $template_id ] = $preference;
+            $this->core->database->update( 'el_es_review_votes', [
+                'vote_data'  => wp_json_encode( $vote_data ),
+                'updated_at' => current_time( 'mysql' ),
+            ], [ 'id' => (int) $existing->id ] );
+        } else {
+            $vote_data = [ 'preferences' => [ $template_id => $preference ] ];
+            $this->core->database->insert( 'el_es_review_votes', [
+                'review_item_id' => $review_item_id,
+                'user_id'        => $user_id,
+                'vote_data'      => wp_json_encode( $vote_data ),
+                'submitted_at'   => current_time( 'mysql' ),
+                'updated_at'     => current_time( 'mysql' ),
+            ] );
+        }
+
+        do_action( 'el_review_vote_submitted', $review_item_id, $user_id, $vote_data );
+
+        // Recalculate progress
+        $all_votes    = $this->get_review_votes( $review_item_id );
+        $voted_ids    = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
+        $stakeholders = $this->get_stakeholders( $project_id );
+        $total        = count( $stakeholders );
+        $responded    = count( array_filter( $stakeholders, fn( $s ) => in_array( (int) $s->user_id, $voted_ids, true ) ) );
+
+        EL_AJAX_Handler::success( [
+            'responded' => $responded,
+            'total'     => $total,
+        ], __( 'Vote saved!', 'el-core' ) );
+    }
+
+    /**
+     * Get review status: who has/hasn't voted. DM only.
+     */
+    public function handle_get_review_status( array $data ): void {
+        $review_item_id = absint( $data['review_item_id'] ?? 0 );
+        if ( ! $review_item_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid review item ID.', 'el-core' ) );
+            return;
+        }
+
+        $review_item = $this->get_review_item( $review_item_id );
+        if ( ! $review_item ) {
+            EL_AJAX_Handler::error( __( 'Review not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        $project_id = (int) $review_item->project_id;
+        if ( ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $all_votes    = $this->get_review_votes( $review_item_id );
+        $voted_ids    = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
+        $stakeholders = $this->get_stakeholders( $project_id );
+
+        $status = [];
+        foreach ( $stakeholders as $sh ) {
+            $user = get_userdata( (int) $sh->user_id );
+            $status[] = [
+                'user_id'   => (int) $sh->user_id,
+                'name'      => $user ? $user->display_name : 'Unknown',
+                'responded' => in_array( (int) $sh->user_id, $voted_ids, true ),
+            ];
+        }
+
+        EL_AJAX_Handler::success( [ 'stakeholders' => $status ] );
+    }
+
+    /**
+     * Get full vote breakdown. DM only, shown after all voted or deadline passed.
+     */
+    public function handle_get_review_results( array $data ): void {
+        $review_item_id = absint( $data['review_item_id'] ?? 0 );
+        if ( ! $review_item_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid review item ID.', 'el-core' ) );
+            return;
+        }
+
+        $review_item = $this->get_review_item( $review_item_id );
+        if ( ! $review_item ) {
+            EL_AJAX_Handler::error( __( 'Review not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        $project_id = (int) $review_item->project_id;
+        if ( ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $all_votes = $this->get_review_votes( $review_item_id );
+
+        // Build results: per-template tallies + per-stakeholder breakdown
+        $dm_decision      = $review_item->dm_decision ? json_decode( $review_item->dm_decision, true ) : [];
+        $selected_ids     = $dm_decision['selected_template_ids'] ?? [];
+        $results_by_template = [];
+
+        foreach ( $selected_ids as $tid ) {
+            $results_by_template[ $tid ] = [ 'liked' => 0, 'neutral' => 0, 'disliked' => 0, 'voters' => [] ];
+        }
+
+        foreach ( $all_votes as $vote ) {
+            $vote_data = json_decode( $vote->vote_data, true );
+            $prefs     = $vote_data['preferences'] ?? [];
+            $user      = get_userdata( (int) $vote->user_id );
+            $name      = $user ? $user->display_name : 'Unknown';
+            foreach ( $prefs as $tid => $pref ) {
+                if ( isset( $results_by_template[ $tid ] ) ) {
+                    $results_by_template[ $tid ][ $pref ]++;
+                    $results_by_template[ $tid ]['voters'][] = [ 'name' => $name, 'pref' => $pref ];
+                }
+            }
+        }
+
+        EL_AJAX_Handler::success( [
+            'review_item'   => $review_item,
+            'results'       => $results_by_template,
+            'total_voters'  => count( $all_votes ),
+        ] );
+    }
+
+    /**
+     * DM closes a review and records their final style direction choice.
+     */
+    public function handle_close_review( array $data ): void {
+        $review_item_id = absint( $data['review_item_id'] ?? 0 );
+        if ( ! $review_item_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid review item ID.', 'el-core' ) );
+            return;
+        }
+
+        $review_item = $this->get_review_item( $review_item_id );
+        if ( ! $review_item ) {
+            EL_AJAX_Handler::error( __( 'Review not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        $project_id = (int) $review_item->project_id;
+        if ( ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        if ( $review_item->status === 'closed' ) {
+            EL_AJAX_Handler::error( __( 'Review is already closed.', 'el-core' ) );
+            return;
+        }
+
+        // confirmed_template_ids = array of selected template IDs from DM
+        $confirmed_ids = array_map( 'absint', (array) ( $data['confirmed_template_ids'] ?? [] ) );
+        $existing_dm   = $review_item->dm_decision ? json_decode( $review_item->dm_decision, true ) : [];
+        $existing_dm['confirmed_template_ids'] = $confirmed_ids;
+
+        $user_id = get_current_user_id();
+
+        $this->core->database->update( 'el_es_review_items', [
+            'status'      => 'closed',
+            'closed_by'   => $user_id,
+            'closed_at'   => current_time( 'mysql' ),
+            'dm_decision' => wp_json_encode( $existing_dm ),
+        ], [ 'id' => $review_item_id ] );
+
+        do_action( 'el_review_closed', $review_item_id, $project_id, $existing_dm );
+
+        EL_AJAX_Handler::success( null, __( 'Style direction confirmed!', 'el-core' ) );
+    }
+
+    /**
+     * Admin creates a new review session for a project with selected templates.
+     */
+    public function handle_create_review_item( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id   = absint( $data['project_id'] ?? 0 );
+        $review_type  = sanitize_text_field( $data['review_type'] ?? 'mood_board' );
+        $title        = sanitize_text_field( $data['title'] ?? '' );
+        $template_ids = array_map( 'absint', (array) ( $data['template_ids'] ?? [] ) );
+        $deadline     = sanitize_text_field( $data['deadline'] ?? '' );
+
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
+            return;
+        }
+
+        if ( empty( $template_ids ) ) {
+            EL_AJAX_Handler::error( __( 'Select at least one template.', 'el-core' ) );
+            return;
+        }
+
+        $dm_decision = wp_json_encode( [ 'selected_template_ids' => $template_ids ] );
+
+        $insert = [
+            'project_id'  => $project_id,
+            'review_type' => $review_type,
+            'title'       => $title ?: __( 'Style Direction', 'el-core' ),
+            'status'      => 'open',
+            'dm_decision' => $dm_decision,
+            'created_at'  => current_time( 'mysql' ),
+        ];
+
+        if ( $deadline ) {
+            $insert['deadline'] = date( 'Y-m-d 23:59:59', strtotime( $deadline ) );
+        }
+
+        $review_item_id = $this->core->database->insert( 'el_es_review_items', $insert );
+
+        if ( $review_item_id ) {
+            do_action( 'el_review_item_created', $review_item_id, $project_id, $insert['deadline'] ?? null );
+            EL_AJAX_Handler::success( [ 'review_item_id' => $review_item_id ], __( 'Review session created!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to create review session.', 'el-core' ) );
+        }
+    }
+
+    /**
+     * Admin sets or updates the deadline on a review item.
+     */
+    public function handle_set_review_deadline( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $review_item_id = absint( $data['review_item_id'] ?? 0 );
+        $deadline       = sanitize_text_field( $data['deadline'] ?? '' );
+
+        if ( ! $review_item_id || ! $deadline ) {
+            EL_AJAX_Handler::error( __( 'Invalid parameters.', 'el-core' ) );
+            return;
+        }
+
+        $result = $this->core->database->update( 'el_es_review_items', [
+            'deadline' => date( 'Y-m-d 23:59:59', strtotime( $deadline ) ),
+        ], [ 'id' => $review_item_id ] );
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( null, __( 'Deadline updated!', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to update deadline.', 'el-core' ) );
+        }
+    }
+
     // ═══════════════════════════════════════════
     // USER SWITCHING
     // ═══════════════════════════════════════════

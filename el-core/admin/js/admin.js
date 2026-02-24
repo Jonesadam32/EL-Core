@@ -210,11 +210,121 @@ const elAdmin = ( function() {
     }
 
     // -------------------------------------------------------------------------
+    // AJAX HELPER
+    // -------------------------------------------------------------------------
+
+    /**
+     * Send an AJAX request to the EL Core handler.
+     *
+     * @param {string}   action   - The el_action value.
+     * @param {Object}   data     - Additional POST data.
+     * @param {Function} callback - Called with the parsed JSON response object.
+     */
+    function ajax( action, data, callback ) {
+        const payload = Object.assign( {}, data, {
+            action:    'el_core_action',
+            el_action: action,
+            nonce:     ( window.elAdminData || {} ).nonce || '',
+        } );
+
+        const body = new URLSearchParams( payload );
+
+        fetch( ( window.elAdminData || {} ).ajaxUrl || '', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body:    body.toString(),
+        } )
+        .then( r => r.json() )
+        .then( callback )
+        .catch( err => {
+            console.error( '[elAdmin] AJAX error:', err );
+            callback( { success: false, message: 'Network error.' } );
+        } );
+    }
+
+    // -------------------------------------------------------------------------
+    // BRAND SETTINGS PAGE
+    // -------------------------------------------------------------------------
+
+    // ── Media uploaders ─────────────────────────────────────────────────────
+
+    function initMediaUploaders() {
+        document.querySelectorAll( '.el-media-upload-btn' ).forEach( btn => {
+            btn.addEventListener( 'click', function() {
+                const targetId  = this.dataset.target;
+                const previewId = this.dataset.preview;
+
+                const frame = wp.media( {
+                    title:    'Select Image',
+                    button:   { text: 'Use this image' },
+                    multiple: false,
+                } );
+
+                frame.on( 'select', () => {
+                    const attachment = frame.state().get( 'selection' ).first().toJSON();
+
+                    const input = document.querySelector( `input[name="el_core_brand[${ targetId }]"]` );
+                    if ( input ) input.value = attachment.url;
+
+                    const previewWrap = document.getElementById( previewId );
+                    if ( previewWrap ) {
+                        previewWrap.style.display = 'block';
+                        let img = previewWrap.querySelector( 'img' );
+                        if ( ! img ) {
+                            img = document.createElement( 'img' );
+                            img.className = 'el-logo-preview';
+                            previewWrap.appendChild( img );
+                        }
+                        img.src = attachment.url;
+                    }
+                } );
+
+                frame.open();
+            } );
+        } );
+    }
+
+    // ── Live color swatch preview ────────────────────────────────────────────
+    // Updates the read-only color swatches in the Brand Colors section
+    // as the user types hex values into the text inputs.
+
+    function initColorSwatchPreview() {
+        const pairs = [
+            { inputId: 'el-color-primary',   swatchId: 'el-swatch-primary'   },
+            { inputId: 'el-color-secondary', swatchId: 'el-swatch-secondary' },
+            { inputId: 'el-color-accent',    swatchId: 'el-swatch-accent'    },
+        ];
+
+        pairs.forEach( ( { inputId, swatchId } ) => {
+            const input  = document.getElementById( inputId );
+            const swatch = document.getElementById( swatchId );
+            if ( ! input || ! swatch ) return;
+
+            input.addEventListener( 'input', () => {
+                const val = input.value.trim();
+                if ( /^#[0-9a-fA-F]{6}$/.test( val ) ) {
+                    swatch.style.backgroundColor = val;
+                }
+            } );
+        } );
+    }
+
+    // ── Brand page initialization ────────────────────────────────────────────
+
+    function initBrandPage() {
+        if ( ! document.getElementById( 'el-brand-settings-form' ) ) return;
+
+        initMediaUploaders();
+        initColorSwatchPreview();
+    }
+
+    // -------------------------------------------------------------------------
     // INIT
     // -------------------------------------------------------------------------
 
     document.addEventListener( 'DOMContentLoaded', function() {
         initFilters();
+        initBrandPage();
     } );
 
     // -------------------------------------------------------------------------
@@ -229,6 +339,8 @@ const elAdmin = ( function() {
         dismissNotice,
         flashNotice,
         initFilters,
+        ajax,
+        initBrandPage,
     };
 
 } )();

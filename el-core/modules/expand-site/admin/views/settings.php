@@ -43,6 +43,13 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['el_es_settings_nonc
         $settings->set( 'mod_expand-site', $key, sanitize_text_field( $value ) );
     }
 
+    // Save textarea settings (allow line breaks — use wp_kses_post instead of sanitize_text_field)
+    $textarea_keys = [ 'default_payment_terms', 'default_terms_conditions' ];
+    foreach ( $textarea_keys as $key ) {
+        $value = $_POST[ $key ] ?? '';
+        $settings->set( 'mod_expand-site', $key, wp_kses_post( $value ) );
+    }
+
     echo '<div class="notice notice-success is-dismissible"><p>' . __( 'Settings saved!', 'el-core' ) . '</p></div>';
 }
 
@@ -53,6 +60,8 @@ $setting_keys = [
     'default_budget_low' => 3000,
     'default_budget_high' => 10000,
     'enable_client_portal' => true,
+    'default_payment_terms' => '',
+    'default_terms_conditions' => '',
 ];
 
 foreach ( $setting_keys as $key => $default ) {
@@ -121,6 +130,34 @@ foreach ( $setting_keys as $key => $default ) {
                                    <?php checked( $values['enable_client_portal'], 1 ); ?>>
                             <?php _e( 'Enable client-facing portal shortcodes', 'el-core' ); ?>
                         </label>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="el-admin-section">
+            <h2><?php _e( 'Proposal Defaults', 'el-core' ); ?></h2>
+            <p class="description"><?php _e( 'These defaults are automatically applied to every new proposal. Edit per-proposal if needed.', 'el-core' ); ?></p>
+            
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="default_payment_terms"><?php _e( 'Default Payment Terms', 'el-core' ); ?></label>
+                    </th>
+                    <td>
+                        <textarea id="default_payment_terms" name="default_payment_terms" 
+                                  rows="12" class="large-text code"><?php echo esc_textarea( $values['default_payment_terms'] ); ?></textarea>
+                        <p class="description"><?php _e( 'Payment schedule, accepted methods, late payment policy, and inactivity clause. Applied to every new proposal automatically.', 'el-core' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="default_terms_conditions"><?php _e( 'Default Terms & Conditions', 'el-core' ); ?></label>
+                    </th>
+                    <td>
+                        <textarea id="default_terms_conditions" name="default_terms_conditions" 
+                                  rows="20" class="large-text code"><?php echo esc_textarea( $values['default_terms_conditions'] ); ?></textarea>
+                        <p class="description"><?php _e( 'Scope, client responsibilities, IP, confidentiality, termination, and governing law. Applied to every new proposal automatically.', 'el-core' ); ?></p>
                     </td>
                 </tr>
             </table>

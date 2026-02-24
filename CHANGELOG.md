@@ -6,6 +6,428 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.22.0] — 2026-02-24 — IN PROGRESS
+### Added
+- **Definition Consensus Review System** — full stakeholder review workflow for project definitions
+- DB schema version 8: `review_status` column on `el_es_project_definition`; new tables `el_es_definition_reviews` (per-round review sessions with deadline, DM decision) and `el_es_definition_comments` (threaded per-field comments with verdicts)
+- PHP query helpers: `get_active_definition_review()`, `get_definition_reviews()`, `get_definition_comments()` (tree-structured by field), `get_definition_verdicts()` (tally per field)
+- AJAX handlers: `es_send_definition_review`, `es_get_definition_review`, `es_post_definition_comment`, `es_field_verdict`, `es_dm_decision` — all with nopriv variants for portal
+- Review flow: Admin saves draft → sends for review with deadline → stakeholders comment per-field + set verdict (approved/needs_revision) → DM makes final decision → admin locks or re-sends
+- Silence = abstention: deadline passing doesn't block DM from deciding
+- Admin override: Lock Definition available at any time regardless of review status
+
+---
+
+## [1.21.4] — 2026-02-24
+### Fixed
+- Removed debug DB error output from `handle_save_definition` — clean production error message restored
+
+---
+
+## [1.21.3] — 2026-02-24
+### Fixed
+- `site_type` field in `el_es_project_definition` widened from VARCHAR(50) to VARCHAR(100) — AI was returning values exceeding 50 chars causing DB error on save
+- DB migration schema version 7 runs `ALTER TABLE` automatically on first admin page load
+- PHP handler now `substr()`-caps `site_type` at 100 chars as additional safety net
+
+---
+
+## [1.21.2] — 2026-02-24
+### Fixed
+- Discovery transcript and definition fields no longer accumulate backslashes on repeated save/reload cycles
+- Root cause: `sanitize_input()` in AJAX handler was running `sanitize_text_field()` (which strips newlines and adds slashes) on all POST data before handlers ran their own sanitization
+- Fix: all textarea fields (`site_description`, `primary_goal`, `secondary_goals`, `target_customers`, `user_types`) and `transcript` now read directly from `$_POST` with `wp_unslash()` then `sanitize_textarea_field()`
+- Also added `wp_unslash()` when loading transcript into admin textarea for display
+
+---
+
+## [1.21.1] — 2026-02-24
+### Fixed
+- Forced version bump from 1.21.0 so WordPress would replace plugin files on upload (WordPress ignores uploads at same version number)
+
+---
+
+## [1.21.0] — 2026-02-23
+### Added
+- **Phase 2G-B Step 3 — Mood Board in Client Portal**: Branding section in `[el_expand_site_portal]` shows curated template cards grouped by style category; stakeholders vote liked/neutral/disliked per card with immediate AJAX save; progress tracker shows X of Y team members responded; deadline countdown banner when deadline is set; DM sees View Results button after all voted or deadline passes; DM can confirm style direction and close review session.
+- **Phase 2G-B Step 5 — Admin Review Management**: Branding tab added to project detail page; shows all mood board review sessions with status, response count, deadline; "Create Mood Board Session" button opens modal with template picker (checkbox grid of all active templates grouped by category); admin can set/extend review deadline.
+- **New AJAX handlers**: `es_get_mood_board`, `es_save_template_vote`, `es_get_review_status`, `es_get_review_results`, `es_close_review`, `es_create_review_item`, `es_set_review_deadline`
+- **Lightbox**: Click any template image in portal to view full-size
+- **Review system CSS**: Complete styling for mood board cards, vote strip, progress bar, deadline banner, lightbox, results modal, admin template picker
+- **Notification hooks**: `el_review_item_created`, `el_review_vote_submitted`, `el_review_closed` action hooks added for future notifications module
+
+---
+
+## [1.20.5] — 2026-02-23
+### Fixed
+- Template library cards now uniform height (fixed 150px image, flex column body, actions pinned to bottom)
+
+---
+
+## [1.20.4] — 2026-02-23
+### Fixed
+- Template library AJAX calls used wrong action name (`el_core_ajax` → `el_core_action`) causing 400 errors on save, delete, and reorder
+
+---
+
+## [1.20.3] — 2026-02-23
+### Fixed
+- Template library "Choose from Media Library" button now works — `wp_enqueue_media()` called unconditionally on all Expand Site admin pages; script dependencies updated to include `media-upload`; JS guard moved inside `DOMContentLoaded` callback to prevent premature exit
+
+---
+
+## [1.20.2] — 2026-02-23
+### Fixed
+- `EL_Database::$schema_versions` now casts `get_option()` result to array — prevents fatal error during plugin installation when the option doesn't exist yet (PHP 8.1+ strict typed property)
+
+---
+
+## [1.20.1] — 2026-02-23
+### Added
+- **Phase 2G-B: Stakeholder Review & Decision System — Step 2 (Template Library)**
+- New admin submenu: EL Core → Template Library
+- Template card grid UI grouped by style category (Modern, Classic, Bold, Minimal, Playful, Professional)
+- Full CRUD: add/edit/delete templates via modal
+- Media Library uploader for template images + live preview
+- Drag-to-reorder within category (saves sort_order via AJAX)
+- Filter bar: filter by category and active/inactive status
+- Stats grid: total, active, category count
+- 3 new AJAX handlers: `es_save_template`, `es_delete_template`, `es_reorder_templates`
+
+---
+
+## [1.20.0] — 2026-02-23
+### Added
+- **Phase 2G-B: Stakeholder Review & Decision System — Step 1 (Database Schema)**
+- 4 new database tables via module.json migration 6: `el_es_review_items`, `el_es_review_votes`, `el_es_annotations`, `el_es_templates`
+- 3 new capabilities: `es_review_content` (stakeholder voting), `es_close_review` (DM final decision), `es_manage_templates` (admin template library)
+- Database version bumped from 5 to 6
+
+---
+
+## [1.19.2] — 2026-02-23
+### Changed
+- Removed the "Pipeline Progress" card from the admin project detail page — it was rendering as a plain list taking up space without adding value; stage info is already in the stats grid and Stage History tab
+
+---
+
+## [1.19.1] — 2026-02-23
+### Changed
+- **Brand settings page simplified**: Removed AI logo analysis, Pickr color wheel pickers, palette card UI, and path toggle — these features belong in the client portal workflow (Phase 2G-B), not the admin tool
+- Brand colors now use simple hex text inputs with a live color swatch preview strip
+- Removed `el_analyze_logo` and `el_save_brand_selection` AJAX handlers (moved to portal phase)
+- Removed Pickr CDN enqueue from admin assets (no longer needed on this page)
+- Cleaned palette/Pickr CSS and JS from admin.css and admin.js
+
+### Kept from 1.19.0 (correct work preserved)
+- `generate_full_token_set()` in `class-asset-loader.php` — full ~25-token CSS output still active
+- All new settings fields (`logo_variant_dark`, `logo_variant_light`, `favicon_url`, `dark_mode_preference`, `brand_tone`, `brand_audience`, `brand_values`, `ai_palette_suggestions`, `palette_selected`)
+- `complete_with_image()` / `call_anthropic_vision()` in `class-ai-client.php` — kept for portal use later
+
+---
+
+## [1.19.0] — 2026-02-23
+### Added
+- Brand settings: logo variant fields (dark background, light background, favicon)
+- Brand settings: dark mode preference toggle (records intent only — no dark CSS generated yet)
+- Brand settings: AI palette suggestions storage (`ai_palette_suggestions`)
+- Brand settings: palette selection index (`palette_selected`)
+- Brand settings: brand voice fields (tone, audience, values)
+- Asset loader: `generate_full_token_set()` — expands CSS output from 5 to ~25 tokens
+- CSS tokens: `--el-primary-dark`, `--el-primary-text` (and secondary/accent variants)
+- CSS tokens: full neutral scale (`--el-white`, `--el-bg`, `--el-border`, `--el-muted`, `--el-text`, `--el-dark`)
+- CSS tokens: semantic colors (`--el-success`, `--el-warning`, `--el-error`, `--el-info`)
+- Brand settings page: rebuilt using `EL_Admin_UI` framework (all 5 sections)
+- Brand settings page: Pickr JS color wheel pickers for primary/secondary/accent
+- Brand settings page: live semantic color preview strip
+- Brand settings page: AI logo analysis with 3-palette output
+- Brand settings page: path toggle (AI analysis vs manual picker)
+- Brand settings page: media uploader buttons for all logo/favicon fields
+- AJAX handler: `el_analyze_logo` — sends logo to Claude vision API, returns 3 palette options
+- AJAX handler: `el_save_brand_selection` — saves AI palette selection index
+- AI client: `complete_with_image()` method for vision-capable models (Anthropic only)
+- Admin: `elAdmin.ajax()` helper — standardized AJAX wrapper for brand page JS
+
+### Changed
+- Brand settings page HTML rebuilt from raw `<table>` markup to `EL_Admin_UI` components
+- CSS variable output now generates full design token set (was 5 variables, now ~25)
+- `enqueue_admin_assets()` now injects `elAdminData` (ajaxUrl + nonce) and enqueues Pickr on brand page
+
+---
+
+## [1.18.11] — 2026-02-23
+### Changed
+- **Reverted to v1.18.5 baseline**: Removed all Login As / Switch Back / toolbar-hiding changes added in v1.18.6–1.18.10. The stakeholders tab Login As (User Switching plugin) remains exactly as it was. Switch Back feature deferred to a future session once staging environment URLs are resolved.
+
+---
+
+## [1.18.10] — 2026-02-23
+### Changed
+- **Login As / Switch Back deferred**: Removed the portal switch-back bar and all custom session switching code. The Login As buttons remain (using User Switching plugin) but the switch-back feature requires the staging environment to have correct URLs configured in wp-config.php (`WP_HOME` / `WP_SITEURL`) before it can work reliably. This will be revisited once staging is properly configured.
+
+---
+
+## [1.18.9] — 2026-02-23
+### Fixed
+- **Reverted Login As to use User Switching plugin**: The custom session-switching code was unreliable. Reverted all Login As buttons (stakeholders tab + client profile contacts) to use the same User Switching plugin pattern (`action=switch_to_user`) that was already working. Switch-back bar in portal also reverts to use `user_switching_get_old_user()`.
+
+---
+
+## [1.18.8] — 2026-02-23
+### Fixed
+- **Login As was logging in as self**: The handler was running on `init` from the front-end URL, where WordPress session state can be unreliable. Moved to `admin_post_el_login_as` hook via `admin-post.php` — fires while Fred is fully authenticated as admin, guarantees clean session switch before redirecting to portal.
+
+---
+
+## [1.18.7] — 2026-02-23
+### Changed
+- **Login As / Switch Back is now fully built into EL Core** — no third-party plugin required. Uses WordPress transients to store the admin session (8-hour expiry) and `wp_set_auth_cookie()` to switch users. Both the stakeholders tab and client profile contacts table now use the built-in `?el_login_as=` URL. The portal switch-back bar reads the stored transient and uses `?el_switch_back=` to restore the admin session.
+
+---
+
+## [1.18.6] — 2026-02-23
+### Added
+- **WP toolbar hidden for clients**: Portal-only users (with `view_expand_site`, `es_contributor`, or `es_decision_maker` caps) no longer see the WordPress admin toolbar — clean portal experience only
+- **"Switch back to admin" bar**: When an admin switches into a client account via the User Switching plugin, a fixed dark bar appears at the top of the portal showing who you're viewing as, with a one-click "Switch back to admin" button
+- **"Login As" on Client Profile contacts**: Each contact with a WP account now has a "Login As" button in the contacts table on the Client Profile page, alongside the existing button on the Project Stakeholders tab
+
+---
+
+## [1.18.5] — 2026-02-23
+### Fixed
+- **Portal header badge shows wrong role**: `is_decision_maker()` was only checking the legacy `decision_maker_id` column on the project record, not the `el_es_stakeholders` table role. Now checks both — so contacts added as Decision Maker via the stakeholders table correctly see the "Decision Maker" badge in the portal header instead of "Contributor".
+
+---
+
+## [1.18.4] — 2026-02-23
+### Improved
+- **Add Stakeholder modal shows org contacts**: When a project is linked to an organization, the Add Stakeholder modal now shows a "Contacts from this organization" section at the top. Each contact with a WordPress account (portal access) appears as a one-click **Add** button — primary contacts default to Decision Maker role, others default to Contributor. Only contacts not already on the project are shown.
+
+---
+
+## [1.18.3] — 2026-02-23
+### Fixed
+- **Primary contacts automatically get portal access**: Marking a contact as Primary now always creates their WordPress account — no second trip to edit required. This applies to both Add Contact and Edit Contact flows.
+- **Helper text added**: Primary Contact checkbox now explains that portal access is automatic for primary contacts. Portal Access checkbox clarified as being for non-primary contacts only.
+
+---
+
+## [1.18.2] — 2026-02-23
+### Fixed
+- **Edit Contact modal missing Portal Access field**: Edit Contact now shows a "Portal Access" section — if the contact already has a WP account it shows a green "already has portal access" notice; if not, shows a checkbox to grant access
+- **`update_contact()` now supports granting portal access**: Passing `grant_portal_access=1` creates the WP user and links it to the contact record, same as Add Contact
+
+---
+
+## [1.18.1] — 2026-02-23
+### Fixed
+- **Clients JS form submission**: Switched from delegated `document` submit listeners to direct form element bindings, fixing a browser issue where submit events from forms inside dynamically-shown modals were not being intercepted correctly
+- **Script load order**: Added `el-core-admin` as an explicit dependency for `clients.js` to guarantee correct load sequence
+- **Debugging**: Added console log diagnostics to clients.js to aid future troubleshooting
+
+---
+
+## [1.18.0] — 2026-02-23
+### Added — Phase 2F-E: Organizations & Client Management
+- **New core tables**: `el_organizations` and `el_contacts` — shared infrastructure used by Expand Site and future modules
+- **Clients admin page**: Card grid of all client organizations with contact counts, project counts, type/status badges
+- **Client profile page**: Org details, contacts table with edit/delete, linked projects list
+- **Add/Edit/Delete organization**: Modal forms with full CRUD via AJAX
+- **Add/Edit/Delete contacts**: Per-organization contact management with title, primary badge, portal access
+- **WP user auto-creation**: Contacts flagged for portal access get a WordPress account automatically
+- **Organization search/select**: Project creation modal now has autocomplete org search instead of plain text client name input
+- **Auto-org creation**: Typing a new client name during project creation auto-creates an organization record
+- **Primary contact auto-stakeholder**: When creating a project linked to an org, the primary contact (if they have a WP account) is automatically added as Decision Maker stakeholder
+- **Data migration**: Existing projects get organizations created from their `client_name` values on first upgrade
+- **Project list org links**: Client names in project list now link to client profile page
+
+### Technical Changes
+- `class-database.php`: Added `ensure_core_tables()` method for core infrastructure tables with version tracking (`el_core_db_version` option)
+- `class-organizations.php`: New core class with full CRUD, search, portal user creation, and 9 AJAX handlers
+- `class-el-core.php`: Added organizations as 8th subsystem in boot sequence
+- `module.json` database version bumped from 4 to 5 — adds `organization_id BIGINT UNSIGNED DEFAULT 0` column to `el_es_projects`
+- `class-expand-site-module.php`: `create_project()` now resolves/creates organizations; `migrate_projects_to_organizations()` runs once on upgrade
+- `admin/views/client-list.php` and `admin/views/client-profile.php`: New admin view files using `EL_Admin_UI` components
+- `admin/js/clients.js`: New JavaScript for org/contact CRUD on Clients page
+- `expand-site-admin.js`: Added org search autocomplete in project creation modal
+- `project-list.php`: Client names now hyperlinked to client profile when organization_id is set
+
+---
+
+## [1.17.0] — 2026-02-23
+### Added — Phase 2F-D: Payment Terms & T&C Settings
+- **Default Payment Terms setting**: Full payment schedule (25%/75% split, 30-day net terms, 1.5% late fee, 90-day inactivity clause) auto-seeded as editable setting in Expand Site module settings.
+- **Default Terms & Conditions setting**: 9-section boilerplate (scope, client responsibilities, IP, confidentiality, platform/hosting, liability, termination, Georgia governing law, entire agreement) auto-seeded as editable setting.
+- **Settings admin page**: Two new textarea fields under "Proposal Defaults" section on the Expand Site Settings page. Fred can edit the boilerplate anytime without touching code.
+- **Auto-populate on proposal creation**: Every new proposal automatically inherits both defaults from settings. Existing proposals are not affected.
+- **Invoice trigger placeholder**: TODO comment added in `handle_accept_proposal()` for future Phase 2F-E automatic invoice flagging tied to stage advancement.
+
+### Technical Changes
+- `module.json` settings array extended with `default_payment_terms` and `default_terms_conditions`
+- `seed_default_settings()` method added to module constructor — writes defaults only if setting is currently empty (never overwrites customizations)
+- Settings save handler uses `wp_kses_post()` for textarea fields to preserve line breaks
+- `handle_create_proposal()` pulls defaults from settings into `payment_terms` and `terms_conditions` columns on insert
+
+---
+
+## [1.16.0] — 2026-02-23
+### Changed — Proposal Narrative Redesign
+- **AI prompt rewrite**: Proposals now generate as flowing narrative prose across 5 sections (Situation, What We're Building, Why ELS, Investment, Next Steps) instead of labeled form fields. Designed for $35K+ district administrator and nonprofit executive director clients who share proposals with boards.
+- **New database columns**: Added 5 LONGTEXT columns to `el_es_proposals` (`section_situation`, `section_what_we_build`, `section_why_els`, `section_investment`, `section_next_steps`) via database version 4 migration. Old columns retained for backward compatibility.
+- **Admin edit modal**: Content fields replaced with 5 narrative section textareas with help text describing the purpose of each section. Fred can edit any section after AI generation before sending.
+- **Client portal**: Proposal display redesigned as a document-style layout with Georgia serif body font, letterhead header, uppercase section labels in indigo, pricing summary box, social proof placeholder, and collapsible Terms & Conditions. Max-width 800px, responsive at 768px.
+- **Definition lock required**: AI generation now requires the project definition to be locked before generating a proposal. Returns clear error message if not locked.
+
+### Technical Changes
+- `module.json` database version bumped from 3 to 4
+- AI handler returns flat keys (`situation`, `what_we_are_building`, `why_els`, `investment`, `next_steps`) instead of nested `proposal_content` object
+- Save handler includes 5 new columns with `wp_kses_post()` sanitization
+- JS updated: AI generation handler, Edit button population, and save form all use new field IDs
+- Portal shortcode falls back to old columns for pre-migration proposals
+
+---
+
+## [1.15.1] — 2026-02-23
+### Fixed
+- **AI proposal generation bug**: "Generate with AI" filled modal fields but content didn't persist after save. Root cause: `EL_Admin_UI::form_row()` ignored the custom `id` parameter and always generated IDs as `el-field-{name}`, while the JS targeted custom IDs like `prop-scope`, `prop-goals`, etc. The `form_row()` method now respects the `id` key in args when provided.
+- **Proposal edit modal population**: Clicking "Edit" on a proposal now correctly populates all form fields, since the custom element IDs are properly rendered.
+
+---
+
+## [1.15.0] — 2026-02-23
+### Added — Phase 2F-B: Proposal / Scope of Service System
+- **New database table**: `el_es_proposals` (database version 3 migration)
+- **Admin Proposals tab**: View, create, edit, send, and delete proposals from project detail
+- **AI proposal generation**: "Generate with AI" button drafts scope, goals, activities, deliverables, and terms from locked project definition + discovery transcript
+- **Proposal editing modal**: Full form with client info, scope sections, pricing, payment terms, and conditions
+- **Send to client**: Mark proposals as sent — client sees them in the portal
+- **Client portal proposal view**: Professional document layout showing full scope of service
+- **Accept/Decline**: Decision Maker can accept or decline proposals in the portal
+- **Stage 3 auto-advance**: Accepting a proposal at Stage 3 (Scope Lock) automatically advances to Stage 4 (Visual Identity)
+- **Final price propagation**: Accepted proposal's final_price auto-updates the project record
+- **Proposal delete cascade**: Deleting a project also removes associated proposals
+
+### Technical Changes
+- `module.json` database version bumped from 2 to 3
+- 7 new AJAX handlers: `es_create_proposal`, `es_save_proposal`, `es_generate_proposal_ai`, `es_send_proposal`, `es_delete_proposal`, `es_accept_proposal`, `es_decline_proposal`
+- 3 new query methods: `get_proposals()`, `get_proposal()`, `get_accepted_proposal()`
+- Client portal shortcode enhanced with proposal document display and accept/decline buttons
+- Frontend CSS: ~120 lines of proposal section styles (info grid, pricing block, terms block)
+- Frontend JS: Accept/decline handlers using ELCore.ajax
+- Admin JS: New/edit/save/send/delete/AI-generate proposal handlers
+
+---
+
+## [1.14.3] — 2026-02-23
+### Fixed - CRITICAL BUGFIX #2 🐛
+- **Admin menu disappeared**: Shortcode loading was breaking module initialization
+- **Issue**: Loading shortcodes in `__construct()` caused fatal error that prevented admin menu from loading
+- **Solution**: Deferred shortcode loading to `init` hook instead of constructor
+- **Changed method**: `load_shortcodes()` from `private` to `public` so WordPress can call it via hook
+
+### Technical Changes
+- Moved shortcode loading from constructor to `add_action( 'init', [ $this, 'load_shortcodes' ] )`
+- Changed `load_shortcodes()` visibility from `private` to `public`
+- Module now initializes safely before attempting to load shortcodes
+
+## [1.14.2] — 2026-02-23
+### Fixed - CRITICAL BUGFIX 🐛
+- **Shortcodes not loading**: Added missing `load_shortcodes()` method to module initialization
+- **Issue**: Shortcode files existed but were never required or registered with WordPress
+- **Impact**: Portal was showing `[el_expand_site_portal]` text instead of rendering
+- **Solution**: Added `load_shortcodes()` method that requires files and calls `add_shortcode()`
+
+### Technical Changes
+- Added `load_shortcodes()` method to `class-expand-site-module.php`
+- Loads all 4 shortcode files: portal, status, page-review, feedback-form
+- Registers shortcodes during module `__construct()` initialization
+
+## [1.14.1] — 2026-02-23
+### Changed - Modal-based UX 🎯
+- **Card-based interface**: Replaced inline content sections with compact info cards
+- **Modal interactions**: Deliverables, Feedback, and Project Definition now open in modals
+- **Removed redundant badges**: Removed "Completed"/"Active" badges on stage headers (redundant with stage navigation checkmarks)
+- **Better space utilization**: Empty sections no longer take up page space
+- **Improved visual hierarchy**: Cleaner, more focused stage content areas
+
+### Technical Changes
+- Added `.el-es-info-card` component (clickable cards with icon, title, count, arrow)
+- Added `.el-es-modal` system (overlay, container, header, body, close button)
+- Added `.el-es-stage-cards` grid layout for stage-specific cards
+- Added `.el-es-global-cards` grid for global info cards
+- Added `chevron-right` icon to icon set
+- Added modal open/close JavaScript with keyboard (Escape) support
+- Updated CSS: 150+ lines of new modal and card styles
+
+## [1.14.0] — 2026-02-23
+### Changed - MAJOR UX REDESIGN 🎨
+- **Client Portal Complete UX Overhaul**:
+  - **Stage Navigation as Primary Element**: Timeline moved to top as interactive navigation
+  - **Progressive Disclosure**: Click any stage → see only that stage's content
+  - **Modern Tech Color Palette**: Indigo (#6366F1) + Cyan (#06B6D4) replacing dark navy + pink
+  - **SVG Line Icons**: All emoji replaced with professional Feather Icons
+  - **Wizard/Stepper Pattern**: Clear visual states (completed ✓, current, upcoming)
+  - **Improved Information Architecture**: Stage-specific content (deliverables, feedback) filtered by selection
+  - **Better Visual Hierarchy**: Clear focus on what matters NOW
+
+### Added
+- **Stage Navigation System**:
+  - 8 clickable stage buttons with hover states
+  - Completed stages show checkmark icon (green background)
+  - Current stage highlighted with primary color (indigo)
+  - Upcoming stages grayed out and disabled
+  - URL hash support for bookmarking stages (#stage-3)
+  - Smooth scroll between stage content areas
+
+- **Icon System**:
+  - 14 inline SVG icons (no external dependencies)
+  - Consistent 20px size with 2px stroke weight
+  - Icons: check-circle, circle, file-text, file, message-circle, users, user, clipboard, calendar, activity, info, alert-triangle, alert-circle, external-link
+  - Helper function `el_es_icon()` for reusable icons
+
+- **CSS Variables**:
+  - Complete Modern Tech color system (36 variables)
+  - Brand colors (primary, accent, secondary with hover/light variations)
+  - Semantic colors (success, warning, error, info with light variants)
+  - Neutral scale (11 grays from 50-900)
+  - 8 stage-specific colors for visual differentiation
+
+- **New UX Strategy Document**: `CLIENT-PORTAL-UX-STRATEGY.md` explaining design decisions
+- **New Color System Document**: `EXPAND-SITE-COLOR-SYSTEM.md` with complete palette reference
+
+### Removed
+- **Stats Grid**: Redundant with stage navigation (progress already visible)
+- **All Emoji Icons**: 📍📄💬👥📋🚀 replaced with professional SVG line icons
+- **Linear Content Layout**: Replaced with progressive disclosure pattern
+
+### Technical
+- **JavaScript**: Added stage switching functionality with smooth animations
+- **CSS**: Complete rewrite (1000+ lines)
+  - CSS Grid for responsive layouts
+  - Flexbox for component alignment
+  - CSS transitions for smooth interactions
+  - Mobile-first responsive design
+  - Hover effects with transforms and shadows
+- **HTML Structure**: Complete reorganization
+  - Stage navigation wrapper
+  - Individual stage content areas
+  - Global sections (definition, team, notes)
+  - Semantic heading hierarchy (H1→H2→H3)
+- **Accessibility**: WCAG AA compliant
+  - Proper color contrast (4.5:1 minimum)
+  - ARIA labels on interactive elements
+  - Keyboard navigation support
+  - Focus states on all buttons
+
+### Design Philosophy
+- **Progressive Disclosure**: Show only relevant content for selected stage
+- **Clear Visual Hierarchy**: Most important element (stage nav) is most prominent
+- **Context Over Content**: What matters NOW, not everything at once
+- **Affordances**: Make interactive elements obviously clickable
+- **Professional**: Line icons, modern colors, clean typography
+
+---
+
 ## [1.13.1] — 2026-02-22
 ### Fixed
 - **Client Portal Missing Sections**: Actually added the sections that failed to save in v1.13.0

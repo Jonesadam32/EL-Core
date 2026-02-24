@@ -1,201 +1,307 @@
 <?php
 /**
- * EL Core — Brand Settings
- * Colors, fonts, logo, organization name
+ * EL Core — Brand Settings Page
+ *
+ * Five sections: Logo & Identity, Brand Colors, Typography, Brand Voice, Dark Mode.
+ * Fred's tool for configuring ELS's own global brand.
+ * All fields use EL_Admin_UI::* framework.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 $core  = EL_Core::instance();
 $brand = $core->settings->get_brand();
+$ai    = $core->settings->get_group( 'ai' );
 
-// Handle form submission
-if ( isset( $_POST['el_save_brand'] ) && check_admin_referer( 'el_core_brand_nonce' ) ) {
-    $new_brand = [
-        'org_name'        => sanitize_text_field( $_POST['org_name'] ?? '' ),
-        'primary_color'   => sanitize_hex_color( $_POST['primary_color'] ?? '#1a1a2e' ) ?: '#1a1a2e',
-        'secondary_color' => sanitize_hex_color( $_POST['secondary_color'] ?? '#16213e' ) ?: '#16213e',
-        'accent_color'    => sanitize_hex_color( $_POST['accent_color'] ?? '#e94560' ) ?: '#e94560',
-        'font_heading'    => sanitize_text_field( $_POST['font_heading'] ?? 'Inter, sans-serif' ),
-        'font_body'       => sanitize_text_field( $_POST['font_body'] ?? 'Inter, sans-serif' ),
-        'logo_url'        => esc_url_raw( $_POST['logo_url'] ?? '' ),
-    ];
+$font_options = [
+    'Inter, sans-serif'       => 'Inter',
+    'Poppins, sans-serif'     => 'Poppins',
+    'Montserrat, sans-serif'  => 'Montserrat',
+    'Raleway, sans-serif'     => 'Raleway',
+    'Playfair Display, serif' => 'Playfair Display',
+    'Merriweather, serif'     => 'Merriweather',
+    'Lora, serif'             => 'Lora',
+    'Source Serif Pro, serif' => 'Source Serif Pro',
+];
 
-    $core->settings->set_group( 'brand', $new_brand );
-    $brand = $new_brand;
+$tone_options = [
+    'professional'  => __( 'Professional', 'el-core' ),
+    'friendly'      => __( 'Friendly', 'el-core' ),
+    'inspirational' => __( 'Inspirational', 'el-core' ),
+    'bold'          => __( 'Bold', 'el-core' ),
+    'calm'          => __( 'Calm', 'el-core' ),
+];
 
-    echo '<div class="notice notice-success"><p>Brand settings saved!</p></div>';
-}
+ob_start();
 
-// Handle AI settings save
-if ( isset( $_POST['el_save_ai'] ) && check_admin_referer( 'el_core_ai_nonce' ) ) {
-    $ai_settings = [
-        'provider'   => sanitize_text_field( $_POST['ai_provider'] ?? 'anthropic' ),
-        'api_key'    => sanitize_text_field( $_POST['ai_api_key'] ?? '' ),
-        'model'      => sanitize_text_field( $_POST['ai_model'] ?? 'claude-sonnet-4-5-20250929' ),
-        'max_tokens' => absint( $_POST['ai_max_tokens'] ?? 1024 ),
-    ];
-
-    $core->settings->set_group( 'ai', $ai_settings );
-
-    echo '<div class="notice notice-success"><p>AI settings saved!</p></div>';
-}
-
-$ai = $core->settings->get_group( 'ai' );
+echo EL_Admin_UI::page_header( [
+    'title'    => __( 'Brand & Configuration', 'el-core' ),
+    'subtitle' => __( 'Global brand identity, colors, typography, and AI settings.', 'el-core' ),
+] );
 ?>
+<form method="post" action="options.php" id="el-brand-settings-form">
+    <?php settings_fields( 'el_core_brand_group' ); ?>
 
-<div class="wrap el-core-admin">
-    <h1>Brand & Configuration</h1>
+    <?php
+    // ─── SECTION 1: Logo & Identity ───────────────────────────────────────────
 
-    <!-- Brand Settings -->
-    <div class="el-admin-card el-admin-card-full">
-        <h2>Brand Identity</h2>
-        <p>These settings define your organization's visual identity across the entire system.</p>
+    $logo_content = EL_Admin_UI::form_section( [
+        'title'       => __( 'Logo & Identity', 'el-core' ),
+        'description' => __( 'Upload your logo and favicon. These are used in the site header, email templates, and browser tabs.', 'el-core' ),
+    ] );
 
-        <form method="post">
-            <?php wp_nonce_field( 'el_core_brand_nonce' ); ?>
+    // Helper: build a media-upload field row
+    $media_field = function( string $field_key, string $label, string $value, string $preview_id, string $helper ) {
+        $html  = '<div class="el-form-row">';
+        $html .= '<label class="el-form-label">' . esc_html( $label ) . '</label>';
+        $html .= '<div class="el-form-field">';
+        $html .= '<div class="el-media-row">';
+        $html .= '<input type="url" name="el_core_brand[' . esc_attr( $field_key ) . ']" value="' . esc_attr( $value ) . '" class="el-input el-input-url" />';
+        $html .= ' <button type="button" class="el-btn el-btn-secondary el-media-upload-btn" data-target="' . esc_attr( $field_key ) . '" data-preview="' . esc_attr( $preview_id ) . '">';
+        $html .= '<span class="dashicons dashicons-upload"></span> ' . esc_html__( 'Upload', 'el-core' );
+        $html .= '</button>';
+        $html .= '</div>';
+        $has_value = ! empty( $value );
+        $html .= '<div class="el-logo-preview-wrap" id="' . esc_attr( $preview_id ) . '"' . ( $has_value ? '' : ' style="display:none;"' ) . '>';
+        if ( $has_value ) {
+            $html .= '<img src="' . esc_url( $value ) . '" class="el-logo-preview" alt="" />';
+        }
+        $html .= '</div>';
+        $html .= '<p class="el-form-helper">' . esc_html( $helper ) . '</p>';
+        $html .= '</div></div>';
+        return $html;
+    };
 
-            <table class="form-table">
-                <tr>
-                    <th scope="row"><label for="org_name">Organization Name</label></th>
-                    <td><input type="text" id="org_name" name="org_name" value="<?php echo esc_attr( $brand['org_name'] ); ?>" class="regular-text" /></td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="logo_url">Logo URL</label></th>
-                    <td>
-                        <input type="url" id="logo_url" name="logo_url" value="<?php echo esc_attr( $brand['logo_url'] ); ?>" class="regular-text" />
-                        <button type="button" class="button" id="el-upload-logo">Upload Logo</button>
-                        <?php if ( $brand['logo_url'] ) : ?>
-                            <br><img src="<?php echo esc_url( $brand['logo_url'] ); ?>" style="max-height: 60px; margin-top: 10px;" />
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Brand Colors</th>
-                    <td>
-                        <fieldset>
-                            <label>
-                                Primary:
-                                <input type="color" name="primary_color" value="<?php echo esc_attr( $brand['primary_color'] ); ?>" />
-                                <code><?php echo esc_html( $brand['primary_color'] ); ?></code>
-                            </label>
-                            <br><br>
-                            <label>
-                                Secondary:
-                                <input type="color" name="secondary_color" value="<?php echo esc_attr( $brand['secondary_color'] ); ?>" />
-                                <code><?php echo esc_html( $brand['secondary_color'] ); ?></code>
-                            </label>
-                            <br><br>
-                            <label>
-                                Accent:
-                                <input type="color" name="accent_color" value="<?php echo esc_attr( $brand['accent_color'] ); ?>" />
-                                <code><?php echo esc_html( $brand['accent_color'] ); ?></code>
-                            </label>
-                        </fieldset>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="font_heading">Heading Font</label></th>
-                    <td>
-                        <select id="font_heading" name="font_heading">
-                            <?php
-                            $fonts = [
-                                'Inter, sans-serif',
-                                'Arial, sans-serif',
-                                'Georgia, serif',
-                                'Roboto, sans-serif',
-                                'Open Sans, sans-serif',
-                                'Montserrat, sans-serif',
-                                'Lato, sans-serif',
-                                'Poppins, sans-serif',
-                            ];
-                            foreach ( $fonts as $font ) :
-                            ?>
-                                <option value="<?php echo esc_attr( $font ); ?>" <?php selected( $brand['font_heading'], $font ); ?>><?php echo esc_html( explode(',', $font)[0] ); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="font_body">Body Font</label></th>
-                    <td>
-                        <select id="font_body" name="font_body">
-                            <?php foreach ( $fonts as $font ) : ?>
-                                <option value="<?php echo esc_attr( $font ); ?>" <?php selected( $brand['font_body'], $font ); ?>><?php echo esc_html( explode(',', $font)[0] ); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                </tr>
-            </table>
+    $logo_content .= $media_field( 'logo_url', __( 'Primary Logo', 'el-core' ), $brand['logo_url'], 'el-preview-logo', __( 'Used in the site header and email templates.', 'el-core' ) );
+    $logo_content .= $media_field( 'logo_variant_dark', __( 'Logo — Dark Background Variant', 'el-core' ), $brand['logo_variant_dark'], 'el-preview-logo-dark', __( 'White or light version of your logo for dark backgrounds.', 'el-core' ) );
+    $logo_content .= $media_field( 'logo_variant_light', __( 'Logo — Light Background Variant', 'el-core' ), $brand['logo_variant_light'], 'el-preview-logo-light', __( 'Dark version of your logo for light or white backgrounds.', 'el-core' ) );
+    $logo_content .= $media_field( 'favicon_url', __( 'Favicon', 'el-core' ), $brand['favicon_url'], 'el-preview-favicon', __( 'Square image, 512×512px recommended. Appears in browser tabs.', 'el-core' ) );
 
-            <p class="submit">
-                <input type="submit" name="el_save_brand" class="button-primary" value="Save Brand Settings" />
-            </p>
-        </form>
+    echo EL_Admin_UI::card( [ 'content' => $logo_content, 'class' => 'el-settings-card' ] );
+
+    // ─── SECTION 2: Brand Colors ──────────────────────────────────────────────
+
+    $color_content = EL_Admin_UI::form_section( [
+        'title'       => __( 'Brand Colors', 'el-core' ),
+        'description' => __( 'Enter hex color codes for your brand palette. These generate a full design token set used across the site.', 'el-core' ),
+    ] );
+
+    $color_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[primary_color]',
+        'id'          => 'el-color-primary',
+        'label'       => __( 'Primary Color', 'el-core' ),
+        'type'        => 'text',
+        'value'       => $brand['primary_color'],
+        'placeholder' => '#1a1a2e',
+        'helper'      => __( 'Main brand color — used for buttons, headings, and key UI elements.', 'el-core' ),
+    ] );
+
+    $color_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[secondary_color]',
+        'id'          => 'el-color-secondary',
+        'label'       => __( 'Secondary Color', 'el-core' ),
+        'type'        => 'text',
+        'value'       => $brand['secondary_color'],
+        'placeholder' => '#16213e',
+        'helper'      => __( 'Supporting color — used for backgrounds, cards, and secondary UI.', 'el-core' ),
+    ] );
+
+    $color_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[accent_color]',
+        'id'          => 'el-color-accent',
+        'label'       => __( 'Accent Color', 'el-core' ),
+        'type'        => 'text',
+        'value'       => $brand['accent_color'],
+        'placeholder' => '#e94560',
+        'helper'      => __( 'Highlight color — used for CTAs, badges, and links.', 'el-core' ),
+    ] );
+
+    // Live color swatch preview strip (read-only visual feedback)
+    $swatch_content  = '<div class="el-color-swatch-row">';
+    $swatch_content .= '<div class="el-color-swatch-item"><span class="el-color-swatch" id="el-swatch-primary" style="background:' . esc_attr( $brand['primary_color'] ) . '"></span><small>' . esc_html__( 'Primary', 'el-core' ) . '</small></div>';
+    $swatch_content .= '<div class="el-color-swatch-item"><span class="el-color-swatch" id="el-swatch-secondary" style="background:' . esc_attr( $brand['secondary_color'] ) . '"></span><small>' . esc_html__( 'Secondary', 'el-core' ) . '</small></div>';
+    $swatch_content .= '<div class="el-color-swatch-item"><span class="el-color-swatch" id="el-swatch-accent" style="background:' . esc_attr( $brand['accent_color'] ) . '"></span><small>' . esc_html__( 'Accent', 'el-core' ) . '</small></div>';
+    $swatch_content .= '</div>';
+    $color_content .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Preview', 'el-core' ) . '</label><div class="el-form-field">' . $swatch_content . '</div></div>';
+
+    echo EL_Admin_UI::card( [ 'content' => $color_content, 'class' => 'el-settings-card' ] );
+
+    // ─── SECTION 3: Typography ────────────────────────────────────────────────
+
+    $type_content = EL_Admin_UI::form_section( [
+        'title'       => __( 'Typography', 'el-core' ),
+        'description' => __( 'Choose heading and body fonts. Select from the list or enter a custom font name.', 'el-core' ),
+    ] );
+
+    $type_content .= EL_Admin_UI::form_row( [
+        'name'    => 'el_core_brand[font_heading]',
+        'id'      => 'el-font-heading',
+        'label'   => __( 'Heading Font', 'el-core' ),
+        'type'    => 'select',
+        'value'   => $brand['font_heading'],
+        'options' => $font_options,
+        'helper'  => __( 'Applied to all headings (H1–H4).', 'el-core' ),
+    ] );
+
+    $type_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[font_heading_custom]',
+        'id'          => 'el-font-heading-custom',
+        'label'       => __( 'Or enter a custom heading font', 'el-core' ),
+        'type'        => 'text',
+        'value'       => isset( $font_options[ $brand['font_heading'] ] ) ? '' : $brand['font_heading'],
+        'placeholder' => 'e.g. Nunito, sans-serif',
+        'helper'      => __( 'Overrides the dropdown above. Make sure this font is loaded by your theme.', 'el-core' ),
+    ] );
+
+    $type_content .= EL_Admin_UI::form_row( [
+        'name'    => 'el_core_brand[font_body]',
+        'id'      => 'el-font-body',
+        'label'   => __( 'Body Font', 'el-core' ),
+        'type'    => 'select',
+        'value'   => $brand['font_body'],
+        'options' => $font_options,
+        'helper'  => __( 'Used for paragraphs and general content text.', 'el-core' ),
+    ] );
+
+    $type_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[font_body_custom]',
+        'id'          => 'el-font-body-custom',
+        'label'       => __( 'Or enter a custom body font', 'el-core' ),
+        'type'        => 'text',
+        'value'       => isset( $font_options[ $brand['font_body'] ] ) ? '' : $brand['font_body'],
+        'placeholder' => 'e.g. Nunito, sans-serif',
+        'helper'      => __( 'Overrides the dropdown above. Make sure this font is loaded by your theme.', 'el-core' ),
+    ] );
+
+    echo EL_Admin_UI::card( [ 'content' => $type_content, 'class' => 'el-settings-card' ] );
+
+    // ─── SECTION 4: Brand Voice ───────────────────────────────────────────────
+
+    $voice_content = EL_Admin_UI::form_section( [
+        'title'       => __( 'Brand Voice', 'el-core' ),
+        'description' => __( 'These fields feed AI-generated content with tone and audience context.', 'el-core' ),
+    ] );
+
+    $voice_content .= EL_Admin_UI::form_row( [
+        'name'    => 'el_core_brand[brand_tone]',
+        'id'      => 'el-brand-tone',
+        'label'   => __( 'Tone', 'el-core' ),
+        'type'    => 'select',
+        'value'   => $brand['brand_tone'],
+        'options' => $tone_options,
+        'helper'  => __( 'How should AI-generated content sound to your audience?', 'el-core' ),
+    ] );
+
+    $voice_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[brand_audience]',
+        'id'          => 'el-brand-audience',
+        'label'       => __( 'Target Audience', 'el-core' ),
+        'type'        => 'text',
+        'value'       => $brand['brand_audience'],
+        'placeholder' => __( 'K-12 educators and district administrators', 'el-core' ),
+        'helper'      => __( 'Describe who you are primarily speaking to.', 'el-core' ),
+    ] );
+
+    $voice_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[brand_values]',
+        'id'          => 'el-brand-values',
+        'label'       => __( 'Brand Values', 'el-core' ),
+        'type'        => 'textarea',
+        'value'       => $brand['brand_values'],
+        'placeholder' => __( '2-3 sentences describing what your organization stands for.', 'el-core' ),
+        'helper'      => __( 'Used to guide AI-generated content to match your voice.', 'el-core' ),
+    ] );
+
+    echo EL_Admin_UI::card( [ 'content' => $voice_content, 'class' => 'el-settings-card' ] );
+
+    // ─── SECTION 5: Dark Mode ─────────────────────────────────────────────────
+
+    $dark_content = EL_Admin_UI::form_section( [
+        'title'       => __( 'Dark Mode', 'el-core' ),
+        'description' => '',
+    ] );
+
+    $dark_content .= EL_Admin_UI::form_row( [
+        'name'        => 'el_core_brand[dark_mode_preference]',
+        'id'          => 'el-dark-mode',
+        'label'       => __( 'Dark Mode Support', 'el-core' ),
+        'type'        => 'checkbox',
+        'value'       => (bool) $brand['dark_mode_preference'],
+        'placeholder' => __( 'This installation should support dark mode', 'el-core' ),
+        'helper'      => __( 'Records your preference. No dark styles are generated yet — this will be used in a future update.', 'el-core' ),
+    ] );
+
+    echo EL_Admin_UI::card( [ 'content' => $dark_content, 'class' => 'el-settings-card' ] );
+    ?>
+
+    <?php
+    // Hidden fields — preserve AI suggestions set by the portal workflow (not edited here)
+    echo '<input type="hidden" name="el_core_brand[org_name]" value="' . esc_attr( $brand['org_name'] ) . '" />';
+    echo '<input type="hidden" name="el_core_brand[ai_palette_suggestions]" value="' . esc_attr( $brand['ai_palette_suggestions'] ) . '" />';
+    echo '<input type="hidden" name="el_core_brand[palette_selected]" value="' . esc_attr( $brand['palette_selected'] ?? '' ) . '" />';
+    ?>
+
+    <div class="el-settings-save-row">
+        <?php submit_button( __( 'Save Brand Settings', 'el-core' ), 'primary large', 'submit', false ); ?>
     </div>
+</form>
 
-    <!-- AI Settings -->
-    <div class="el-admin-card el-admin-card-full">
-        <h2>AI Configuration</h2>
-        <p>Configure the AI provider for intelligent features across all modules.</p>
+<?php
+// ─── AI SETTINGS (separate form) ──────────────────────────────────────────────
 
-        <form method="post">
-            <?php wp_nonce_field( 'el_core_ai_nonce' ); ?>
+$ai_content = EL_Admin_UI::form_section( [
+    'title'       => __( 'AI Configuration', 'el-core' ),
+    'description' => __( 'API credentials for AI features across all modules.', 'el-core' ),
+] );
+?>
+<form method="post" action="options.php">
+    <?php settings_fields( 'el_core_ai_group' ); ?>
+    <?php
+    $ai_content .= EL_Admin_UI::form_row( [
+        'name'    => 'el_core_ai[provider]',
+        'id'      => 'el-ai-provider',
+        'label'   => __( 'AI Provider', 'el-core' ),
+        'type'    => 'select',
+        'value'   => $ai['provider'],
+        'options' => [
+            'anthropic' => 'Anthropic (Claude)',
+            'openai'    => 'OpenAI (GPT)',
+        ],
+    ] );
 
-            <table class="form-table">
-                <tr>
-                    <th scope="row"><label for="ai_provider">AI Provider</label></th>
-                    <td>
-                        <select id="ai_provider" name="ai_provider">
-                            <option value="anthropic" <?php selected( $ai['provider'], 'anthropic' ); ?>>Anthropic (Claude)</option>
-                            <option value="openai" <?php selected( $ai['provider'], 'openai' ); ?>>OpenAI (GPT)</option>
-                        </select>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="ai_api_key">API Key</label></th>
-                    <td>
-                        <input type="password" id="ai_api_key" name="ai_api_key" value="<?php echo esc_attr( $ai['api_key'] ); ?>" class="regular-text" />
-                        <p class="description">Your API key is stored securely in the WordPress database.</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="ai_model">Model</label></th>
-                    <td>
-                        <input type="text" id="ai_model" name="ai_model" value="<?php echo esc_attr( $ai['model'] ); ?>" class="regular-text" />
-                        <p class="description">Anthropic: claude-sonnet-4-5-20250929 | OpenAI: gpt-4o</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="ai_max_tokens">Default Max Tokens</label></th>
-                    <td>
-                        <input type="number" id="ai_max_tokens" name="ai_max_tokens" value="<?php echo esc_attr( $ai['max_tokens'] ); ?>" min="100" max="8192" />
-                    </td>
-                </tr>
-            </table>
+    $ai_content .= EL_Admin_UI::form_row( [
+        'name'   => 'el_core_ai[api_key]',
+        'id'     => 'el-ai-api-key',
+        'label'  => __( 'API Key', 'el-core' ),
+        'type'   => 'password',
+        'value'  => $ai['api_key'],
+        'helper' => __( 'Stored in the WordPress database.', 'el-core' ),
+    ] );
 
-            <p class="submit">
-                <input type="submit" name="el_save_ai" class="button-primary" value="Save AI Settings" />
-            </p>
-        </form>
+    $ai_content .= EL_Admin_UI::form_row( [
+        'name'   => 'el_core_ai[model]',
+        'id'     => 'el-ai-model',
+        'label'  => __( 'Model', 'el-core' ),
+        'type'   => 'text',
+        'value'  => $ai['model'],
+        'helper' => __( 'Anthropic: claude-sonnet-4-5-20250929 | OpenAI: gpt-4o', 'el-core' ),
+    ] );
+
+    $ai_content .= EL_Admin_UI::form_row( [
+        'name'  => 'el_core_ai[max_tokens]',
+        'id'    => 'el-ai-max-tokens',
+        'label' => __( 'Default Max Tokens', 'el-core' ),
+        'type'  => 'number',
+        'value' => $ai['max_tokens'],
+    ] );
+
+    echo EL_Admin_UI::card( [ 'content' => $ai_content, 'class' => 'el-settings-card' ] );
+    ?>
+    <div class="el-settings-save-row">
+        <?php submit_button( __( 'Save AI Settings', 'el-core' ), 'primary large', 'submit', false ); ?>
     </div>
-</div>
+</form>
 
-<script>
-jQuery(document).ready(function($) {
-    // Media uploader for logo
-    $('#el-upload-logo').on('click', function(e) {
-        e.preventDefault();
-        var uploader = wp.media({
-            title: 'Select Logo',
-            button: { text: 'Use as Logo' },
-            multiple: false
-        });
-        uploader.on('select', function() {
-            var attachment = uploader.state().get('selection').first().toJSON();
-            $('#logo_url').val(attachment.url);
-        });
-        uploader.open();
-    });
-});
-</script>
+<?php
+$page_html = ob_get_clean();
+echo EL_Admin_UI::wrap( $page_html );

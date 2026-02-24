@@ -4,9 +4,10 @@
 > Read this at the start of every session. Work through tasks in order. Check off completed items with [x].
 > Push to GitHub after every session so this stays current.
 >
-> **Last Updated:** February 22, 2026
-> **Plugin Version:** v1.13.1 (Phase 2F complete + Client Portal Retrofit)
-> **Deployed Version:** v1.10.7 on qd19d0iehj-staging.wpdns.site
+> **Last Updated:** February 23, 2026
+> **Plugin Version:** v1.19.2 (deployed and tested ✅)
+> **Next Build:** v1.20.0 (Phase 2G-B — Stakeholder Review & Decision System)
+> **Deployed Version:** v1.19.2 on staging
 > **Local Repo:** `C:\Github\EL Core\`
 > **Plugin Source:** `C:\Github\EL Core\el-core\`
 > **Build Script:** `C:\Github\EL Core\build-zip.ps1` (run from repo root)
@@ -98,7 +99,10 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [ ] **Checkpoint C** — after 2D: deploy, Fred tests adding/removing stakeholders on a project
 - [ ] **Checkpoint D** — after 2E: deploy, Fred tests setting a deadline and the flagging system
 - [ ] **Checkpoint E** — after 2F: deploy, Fred tests pasting a transcript and reviewing AI-extracted data
-- [ ] **Checkpoint F** — after 2G: deploy, Fred tests mood board upload and AI color option generation
+- [x] **Checkpoint E-2** — after 2F-UX: deploy v1.14.7, Fred tests new client portal UX ✅ PASSED
+- [ ] **Checkpoint E-3** — after 2F-B: deploy, Fred tests proposal creation from locked definition
+- [ ] **Checkpoint E-4** — after 2F-E (Organizations): deploy, Fred tests creating organizations, linking projects, client profile page
+- [x] **Checkpoint F** — after 2G-A: v1.19.2 deployed, Fred tests brand settings and CSS token expansion ✅ PASSED
 - [ ] **Checkpoint G** — after 2H + 2I: deploy, Fred tests full client workflow input and content review flow
 - [ ] **Checkpoint H** — after 2J + 2K: final deploy, Fred does full end-to-end test of all client-facing pages
 
@@ -225,21 +229,210 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] Mobile responsive (stacks vertically on phone, 2-column grid on tablet)
 - [x] **Built v1.13.1 - Client portal retrofit COMPLETE ✅**
 
-### 2G — Branding Workflow
+### 2F-UX — Client Portal UX Redesign ✅ COMPLETE
 
-- [ ] Add Branding tab to `admin/views/project-detail.php`
-  - Radio: "Client has existing brand" / "We need to create branding"
-  - If existing: fields for logo URL, color hex codes, font names
-  - If creating: mood board image upload, "Generate Brand Options" button
-- [ ] AJAX handler: `es_generate_brand_options`
-  - Receive mood board image URL
-  - AI prompt: suggest 3 color palette options, each with primary/secondary/accent hex codes, heading font, body font, 1-sentence rationale — return JSON
-  - Save to `el_es_brand_options.ai_options`
-  - Return options to JS
-- [ ] Admin view: display 3 color swatch options with font names and rationale
-- [ ] AJAX handler: `es_select_brand_option` — agency selects which option to present to client
-- [ ] AJAX handler: `es_lock_brand` — Decision Maker locks their selection
-- [ ] New shortcode `[el_brand_selector]` — client-facing brand option selection, DM can select and lock
+- [x] Stage navigation as primary element (interactive wizard/stepper)
+- [x] Progressive disclosure (click stage → see only that stage's content)
+- [x] Modern Tech color palette: Indigo (#6366F1) + Cyan (#06B6D4)
+- [x] All emoji replaced with 14 SVG Feather Icons
+- [x] Wizard pattern: completed ✓, current highlighted, upcoming disabled
+- [x] URL hash support for bookmarking (#stage-3)
+- [x] Modal-based UX: Deliverables, Feedback, Project Definition as clickable info cards → open modals
+- [x] Removed redundant stage headers and status badges (info already in stage nav)
+- [x] Three info cards on one horizontal line (Deliverables, Feedback, Project Definition)
+- [x] Project Team: removed avatars, fixed card sizing/padding
+- [x] WCAG AA compliant (4.5:1 contrast ratio)
+- [x] Mobile responsive (768px and 480px breakpoints)
+- [x] **Built v1.14.0 through v1.14.7 (multiple bugfix iterations)**
+- [x] **Deployed v1.14.7 to staging - UX Redesign COMPLETE ✅**
+
+### 2F-B — Proposal / Scope of Service Generation
+
+> **Goal:** Generate professional Scope of Service proposals from locked project definitions.
+> This is built INTO Expand Site (not a standalone module) because the proposal format is specific to web design projects.
+> Adapted from the existing proposal system in the ELS monolith (`el-solutions.php`).
+
+**Database:**
+- [x] Create `el_es_proposals` table via migration (database version 3)
+
+**Admin UI:**
+- [x] Add "Proposal" tab to `admin/views/project-detail.php`
+- [x] Proposal display in client portal — professional document layout
+- [x] Accept/Decline buttons for Decision Maker
+
+**AJAX Handlers:**
+- [x] `es_create_proposal`, `es_save_proposal`, `es_generate_proposal_ai`, `es_send_proposal`, `es_delete_proposal`
+- [x] `es_accept_proposal` / `es_decline_proposal`
+- [x] Accepted proposal locks Stage 3 and advances to Stage 4
+- [x] **Built v1.15.0 — Phase 2F-B COMPLETE ✅**
+
+### 2F-C — Proposal Narrative Redesign ✅ COMPLETE
+
+- [x] Database migration: 5 new LONGTEXT columns on `el_es_proposals` (version 4)
+- [x] AI prompt rewrite: generates 5 narrative sections as flowing prose
+- [x] Admin edit modal: 5 narrative textareas + help text
+- [x] Client portal: document-style layout (Georgia serif, letterhead, indigo section headers)
+- [x] **Built v1.16.0 — Phase 2F-C COMPLETE ✅**
+
+### 2F-D — Payment Terms & T&C Settings
+
+> **Cursor prompt:** `cursor-prompt-payment-terms-settings.md`
+> **Target version:** v1.17.0
+
+- [ ] Add `default_payment_terms` and `default_terms_conditions` to `module.json` settings array
+- [ ] Seed default text on activation (only if setting is currently empty — never overwrite existing)
+- [ ] Add two textarea fields to Expand Site settings admin page using `EL_Admin_UI::form_row()`
+- [ ] Auto-populate `payment_terms` and `terms_conditions` on new proposal creation from settings defaults
+- [ ] Add `// TODO: Invoice trigger — Phase 2F-E` comment in `handle_accept_proposal()`
+- [ ] Bump to v1.17.0, update CHANGELOG, build ZIP, deploy
+- [ ] **Test:** Settings page shows both textareas with default text pre-filled
+- [ ] **Test:** New proposal creation auto-populates both fields
+- [ ] **Test:** Existing proposals unaffected
+
+### 2F-E — Organizations & Client Management (Core Infrastructure)
+
+> **Cursor prompt:** `cursor-prompt-organizations.md`
+> **Target version:** v1.18.0
+
+**Database (core tables — `el_` prefix):**
+- [ ] Create `el_organizations` table: id, name, type, status, address, phone, website, created_at, updated_at
+- [ ] Create `el_contacts` table: id, organization_id, first_name, last_name, email, phone, title, is_primary, user_id, created_at, updated_at
+- [ ] Add `organization_id` BIGINT to `el_es_projects` + migration to create orgs from existing client_name values
+
+**Admin UI:**
+- [ ] Register "Clients" submenu under EL Core admin menu
+- [ ] Client list: card grid with org name, type/status badges, contact count, project count
+- [ ] Client profile page: details card, contacts table, linked projects list
+- [ ] Add/Edit/Delete organizations and contacts via AJAX modals
+- [ ] Portal access on contacts: auto-create WP user
+
+**Project creation integration:**
+- [ ] Organization autocomplete in "Create Project" replaces plain text client name
+- [ ] Auto-add primary contact as Decision Maker stakeholder on project creation
+- [ ] Project list shows org name linked to client profile
+
+**AJAX Handlers:**
+- [ ] `el_create_organization`, `el_update_organization`, `el_delete_organization`, `el_get_organization`
+- [ ] `el_add_contact`, `el_update_contact`, `el_delete_contact`, `el_get_contact`
+- [ ] `el_search_organizations`
+
+**Testing:**
+- [ ] Create org, add contacts with/without portal access, verify WP user creation
+- [ ] Create project linked to org, verify project list shows org name
+- [ ] Open client profile — contacts and projects listed
+- [ ] Existing projects still work via `client_name` fallback
+
+---
+
+### 2G — Branding System (Two Parts)
+
+---
+
+#### 2G-A — Admin Brand Settings + CSS Token Expansion
+
+> **ARCHITECTURE NOTE (Feb 23, 2026):** The admin Settings → Brand page is Fred's tool for ELS's own brand. Simple: logo, colors, fonts, brand voice. AI palette generation and client color selection belong in the Expand Site client portal (Phase 2G-B).
+>
+> **v1.19.0 was built incorrectly** — it put AI analysis, Pickr color wheels, and palette voting inside the admin page. Fix this in v1.19.1.
+>
+> **Cursor prompt:** `cursor-prompt-branding-fix.md`
+> **Target version:** v1.19.1
+
+**v1.19.0 work that is CORRECT — keep as-is:**
+- `class-settings.php`: 9 new brand fields (logo variants, dark mode, brand voice, ai_palette_suggestions, palette_selected) ✅
+- `class-asset-loader.php`: `generate_full_token_set()` expanding from 5 to ~25 CSS tokens ✅
+- `class-ai-client.php`: `complete_with_image()` and `call_anthropic_vision()` (used later by portal) ✅
+
+**v1.19.0 work that was WRONG — remove in v1.19.1:**
+- `settings-brand.php`: remove AI analysis path, Pickr color pickers, palette swatches, semantic preview
+- `admin.js`: remove Pickr init, palette rendering, analyze logo handler
+- `admin.css`: remove palette card styles
+- `class-el-core.php`: remove `el_analyze_logo` and `el_save_brand_selection` AJAX handlers, remove Pickr CDN enqueue
+
+**What the admin brand page SHOULD have after fix:**
+- [x] Section 1 — Logo: primary logo, logo variant dark, logo variant light, favicon (media uploader buttons)
+- [x] Section 2 — Brand Colors: three plain hex text inputs for primary, secondary, accent — NO color wheel, NO AI
+- [x] Section 3 — Typography: heading font select + body font select (existing 8-option lists)
+- [x] Section 4 — Brand Voice: tone select, audience text field, values textarea
+- [x] Section 5 — Dark Mode: single checkbox
+- [x] All sections use `EL_Admin_UI::*` — no raw HTML
+
+**Testing (v1.19.1/v1.19.2):**
+- [x] All 5 sections save and reload correctly
+- [x] Frontend shows expanded `--el-*` CSS variables in browser inspector
+- [x] `--el-primary-dark` is visually darker than `--el-primary`
+- [x] Semantic colors present and correct hues
+- [x] Expand Site CSS still renders correctly (no broken variables)
+- [x] No JS console errors on brand page
+- [x] Bump to v1.19.2, update CHANGELOG, build ZIP, upload
+- [x] **Checkpoint F: Fred tests brand settings end-to-end ✅ PASSED**
+
+---
+
+#### 2G-B — Stakeholder Review & Decision System (client portal)
+
+> **What this is:** AI logo analysis, palette generation, and stakeholder voting all happen HERE — inside the Expand Site client portal as part of the project workflow. NOT in the admin settings page.
+>
+> **Full spec:** `cursor-prompt-stakeholder-review-system.md` — read before starting.
+> **Target versions:** v1.20.0 (Steps 1–3), v1.21.0 (Steps 4–5)
+> **Prerequisite:** v1.19.2 deployed and tested ✅
+
+**Step 1 — Database Schema (v1.20.0)**
+- [ ] Add `el_es_review_items` table to module.json (new database version)
+- [ ] Add `el_es_review_votes` table
+- [ ] Add `el_es_annotations` table (schema only — no UI until Phase 2H)
+- [ ] Add `el_es_templates` table
+- [ ] Add new capabilities: `es_review_content`, `es_close_review`, `es_manage_templates`
+- [ ] Deploy, verify all 4 tables created in database
+
+**Step 2 — Template Library Admin Page (v1.20.0)**
+- [ ] Create `modules/expand-site/admin/views/template-library.php`
+- [ ] Register "Template Library" submenu under Expand Site in admin
+- [ ] Card grid view of templates grouped by style category
+- [ ] "Add Template" button → modal: title, category select, description, image URL + media uploader, active toggle
+- [ ] Edit / Delete / Active toggle per template card
+- [ ] Filter bar: by category, by active/inactive
+- [ ] AJAX handlers: `es_save_template`, `es_delete_template`, `es_reorder_templates`
+- [ ] **Checkpoint:** Add 6 sample templates across 3 categories — verify display and CRUD ✅
+
+**Step 3 — Mood Board in Client Portal (v1.20.0)**
+- [ ] Add "Template Style" section to Branding tab in `[el_expand_site_portal]` shortcode
+- [ ] Display active templates grouped by category in card grid
+- [ ] Each card: preview image (lightbox on click), category badge, title
+- [ ] Vote buttons per card: Liked ♥ / Neutral / Disliked ✕ (AJAX, immediate save, toggle behavior)
+- [ ] Progress tracker: "X of Y team members responded" (names only — no votes shown until DM closes)
+- [ ] Deadline countdown banner if deadline is set
+- [ ] DM: "View Results" button appears after all voted or deadline passed
+- [ ] Results view: per-template breakdown (liked/neutral/disliked count + per-stakeholder breakdown)
+- [ ] DM: "Confirm Style Direction" → closes review, records selection, shows confirmation banner
+- [ ] AJAX handlers: `es_get_mood_board`, `es_save_template_vote`, `es_get_review_status`, `es_get_review_results`, `es_close_review`
+- [ ] Notification hooks (no email yet): `el_review_item_created`, `el_review_vote_submitted`, `el_review_closed`
+- [ ] **Checkpoint:** Vote as each stakeholder type, verify progress tracker, DM closes review ✅
+
+**Step 4 — Brand Palette Voting + AI Logo Analysis (v1.21.0)**
+- [ ] Admin Branding tab on project detail page: "Analyze Logo" button + logo URL input
+- [ ] AJAX handler `es_analyze_client_logo`:
+  - Admin-triggered; receives logo URL linked to project
+  - Calls Claude vision API via `complete_with_image()` in class-ai-client.php
+  - Returns 3 palette options (primary, secondary, accent, font_heading, font_body, rationale)
+  - Saves JSON to `el_core_brand.ai_palette_suggestions`
+- [ ] Admin sees 3 palette previews with "Release to Portal" button
+- [ ] Brand Palette section in client portal Branding tab (after mood board)
+- [ ] 3 side-by-side cards: color swatches, font names, AI rationale
+- [ ] Vote buttons: Prefer / Neutral / Don't Prefer (AJAX, same pattern as mood board)
+- [ ] Progress tracker + deadline countdown (same pattern as mood board)
+- [ ] DM: "Lock Brand Colors" → saves to `el_core_brand`, locks palette section
+- [ ] AJAX handlers: `es_get_palette_votes`, `es_save_palette_vote`
+- [ ] **Checkpoint:** Generate AI palettes, verify 3 appear in portal, vote as stakeholders, DM locks ✅
+
+**Step 5 — Admin Review Management (v1.21.0)**
+- [ ] Project detail → Branding tab: list existing review items with status badges (Open / Awaiting Results / Closed)
+- [ ] "Create Review Session" button: select type (mood_board / brand_palette), set optional deadline
+- [ ] "Set/Extend Deadline" control per review item
+- [ ] "View Results" per item — full breakdown table
+- [ ] AJAX handlers: `es_create_review_item`, `es_set_review_deadline`
+- [ ] **Checkpoint:** Create review from admin, set deadline, verify portal shows countdown ✅
+
+---
 
 ### 2H — User Workflow Definition
 
@@ -274,9 +467,9 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 ### 2J — Shortcode Updates
 
 - [ ] `[el_project_portal]` — update for DM vs Contributor roles, show deadline, show flag notice
-- [ ] New shortcode `[el_client_dashboard]` — shows all projects current user is a stakeholder on, each as a card with stage/deadline/status, links to portal
+- [ ] New shortcode `[el_client_dashboard]` — shows all projects current user is a stakeholder on
 - [ ] New shortcode `[el_workflow_input]` (see 2H)
-- [ ] New shortcode `[el_brand_selector]` (see 2G)
+- [ ] New shortcode `[el_brand_selector]` (see 2G-B)
 - [ ] New shortcode `[el_content_review]` (see 2I)
 - [ ] Register all new shortcodes in `module.json`
 
@@ -292,11 +485,12 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 > Goal: Rebuild existing core admin pages to use `class-admin-ui.php` components.
 > Currently Brand, Modules, and Roles use older raw HTML patterns.
+> Note: settings-brand.php is being handled as part of Phase 2G-A.
 
-- [ ] Rebuild `admin/views/settings-brand.php` using `EL_Admin_UI::*` components
+- [x] Rebuild `admin/views/settings-brand.php` using `EL_Admin_UI::*` components (done in v1.19.1)
 - [ ] Rebuild `admin/views/settings-modules.php` using `EL_Admin_UI::*` components
 - [ ] Rebuild `admin/views/settings-roles.php` using `EL_Admin_UI::*` components
-- [ ] Verify all three pages save settings correctly after rebuild
+- [ ] Verify all pages save settings correctly after rebuild
 - [ ] Verify brand color changes reflect immediately via CSS variables
 
 ---
@@ -304,7 +498,6 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 ## PHASE 4 — EVENTS MODULE ADMIN UI
 
 > Goal: Allow events to be created and managed from WordPress admin without SQL.
-> Also: make this module resale-ready — clean, configurable, well-documented.
 
 - [ ] Create `modules/events/admin/views/event-list.php` — sortable/filterable event table using EL_Admin_UI
 - [ ] Create `modules/events/admin/views/event-form.php` — create and edit form using EL_Admin_UI
@@ -320,25 +513,22 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ## PHASE 5 — REGISTRATION MODULE TESTING AND ADMIN UI
 
-> Goal: Verify registration module works end-to-end. Build admin UI for managing registrations.
-> Also: make resale-ready — configurable flows, clean admin.
-
 ### Testing
 - [ ] Activate on expandedlearningsolutions.com
-- [ ] Test open registration mode — user registers and logs in immediately
-- [ ] Test approval-based mode — user lands in pending, admin approves, user can log in
-- [ ] Test invite-only mode — blocked without valid invite code
-- [ ] Test closed mode — registration page shows closed message
-- [ ] Test email verification flow — register, receive email, click link, account activates
-- [ ] Test login blocking — pending/unverified users cannot log in
-- [ ] Test rate limiting — 5 failed attempts triggers lockout
+- [ ] Test open registration mode
+- [ ] Test approval-based mode
+- [ ] Test invite-only mode
+- [ ] Test closed mode
+- [ ] Test email verification flow
+- [ ] Test login blocking for pending/unverified users
+- [ ] Test rate limiting
 - [ ] Fix any bugs found
 
 ### Admin UI
 - [ ] Pending registrations list with approve/reject actions (EL_Admin_UI)
 - [ ] Invite code management — create, view usage, disable (EL_Admin_UI)
 - [ ] User management table — status, verification state, role (EL_Admin_UI)
-- [ ] Registration settings page (registration mode, email verification toggle, allowed roles, custom fields)
+- [ ] Registration settings page
 
 ---
 
@@ -352,7 +542,7 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ---
 
-## PHASE 6B — EXPAND PARTNERS MODULE (new)
+## PHASE 6B — EXPAND PARTNERS MODULE
 
 > Proprietary internal module for managing ELS partner relationships end-to-end.
 > Pipeline: Application → Discovery → Contract → Onboarding → Site Build → Training → Active Partner
@@ -363,156 +553,101 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 ### Phase A — Foundation
 
 - [ ] Create `modules/expand-partners/module.json` — capabilities, shortcodes, database declarations
-- [ ] Create `el_ep_applications` table — application form submissions pre-pipeline
-- [ ] Create `el_ep_partners` table — partner records with stage, rates, status
-- [ ] Create `el_ep_stage_history` table
-- [ ] Create `el_ep_onboarding_checklist` table
-- [ ] Create `el_ep_project_brief` table
-- [ ] Create `el_ep_invoices` table
-- [ ] Create `el_ep_messages` table
+- [ ] Create `el_ep_applications`, `el_ep_partners`, `el_ep_stage_history`, `el_ep_onboarding_checklist`, `el_ep_project_brief`, `el_ep_invoices`, `el_ep_messages` tables
 - [ ] Create `modules/expand-partners/class-expand-partners-module.php` — module skeleton
 - [ ] Shortcode `[el_partner_apply]` — public application form (no WP account required)
 - [ ] Admin view: Pending Applications queue with advance/decline actions
-- [ ] AJAX handler: `ep_submit_application` (nopriv — guests can apply)
-- [ ] AJAX handler: `ep_advance_application` — converts application to partner record, enters Stage 1
-- [ ] AJAX handler: `ep_decline_application`
-- [ ] **Checkpoint A:** Deploy, test application form submission, verify pending queue, verify advance to Stage 1 creates partner record
+- [ ] AJAX handlers: `ep_submit_application` (nopriv), `ep_advance_application`, `ep_decline_application`
+- [ ] **Checkpoint A:** Deploy, test application form, verify pending queue, verify advance to Stage 1
 
 ### Phase B — Pipeline Stages 1–3
 
-- [ ] Admin partner list view — name, project, stage badge, status, balance owed
-- [ ] Admin partner detail view with tabs: Overview, Stage History, Brief, Contract, Onboarding
-- [ ] Stage 1 — Discovery: transcript textarea + "Process with AI" button, editable brief fields, confirm button
-- [ ] AJAX handler: `ep_process_transcript` — AI extracts Project Brief fields from pasted transcript
-- [ ] AJAX handler: `ep_save_brief` — save edited brief fields
-- [ ] AJAX handler: `ep_confirm_brief` — lock brief and mark Stage 1 complete
-- [ ] Stage 2 — Contract: contract status field (unsigned / signed), signed date, notes
-- [ ] AJAX handler: `ep_mark_contract_signed`
+- [ ] Admin partner list + detail view with tabs: Overview, Stage History, Brief, Contract, Onboarding
+- [ ] Stage 1 — Discovery: transcript textarea + "Process with AI", editable brief fields, confirm button
+- [ ] AJAX handlers: `ep_process_transcript`, `ep_save_brief`, `ep_confirm_brief`
+- [ ] Stage 2 — Contract: status field (unsigned/signed), signed date, notes
 - [ ] Stage 3 — Onboarding: checklist items per partner, status tracking
-- [ ] AJAX handler: `ep_update_checklist_item` — mark item submitted or confirmed
-- [ ] Advance stage button on admin detail view (with notes field)
-- [ ] AJAX handler: `ep_advance_stage`
-- [ ] **Checkpoint B:** Deploy, run through Stages 1–3 manually with test partner, verify AI transcript extraction works, verify stage history records correctly
+- [ ] AJAX handlers: `ep_mark_contract_signed`, `ep_update_checklist_item`, `ep_advance_stage`
+- [ ] **Checkpoint B:** Run through Stages 1–3 with test partner, verify AI extraction and stage history
 
 ### Phase C — Stages 4–5 and Active State
 
-- [ ] Stage 4 — Site Build: milestone list (simple checklist, not full Expand Site pipeline), partner sign-off button
-- [ ] Stage 5 — Training: resource links with completion tracking per partner
-- [ ] AJAX handler: `ep_mark_training_complete`
-- [ ] AJAX handler: `ep_partner_sign_off` — partner confirms stage complete
-- [ ] Active Partner status badge on admin list and detail view
-- [ ] **Checkpoint C:** Deploy, advance a test partner through all stages to Active, verify status updates correctly
+- [ ] Stage 4 — Site Build: milestone checklist, partner sign-off button
+- [ ] Stage 5 — Training: resource links with completion tracking
+- [ ] AJAX handlers: `ep_mark_training_complete`, `ep_partner_sign_off`
+- [ ] **Checkpoint C:** Advance test partner through all stages to Active
 
 ### Phase D — Revenue Tracking
 
 - [ ] Partner invoice log form: client name, date, amount, revenue type (product / training)
-- [ ] Auto-calculate ELS fee on save based on partner's stored rates
-- [ ] AJAX handler: `ep_log_invoice`
-- [ ] AJAX handler: `ep_mark_fee_paid` — admin marks ELS fee as received
+- [ ] Auto-calculate ELS fee based on partner's stored rates
+- [ ] AJAX handlers: `ep_log_invoice`, `ep_mark_fee_paid`
 - [ ] Partner dashboard totals: total revenue, fee owed, fee paid
 - [ ] Admin revenue overview: all partners with outstanding balances, sortable
 - [ ] Flag partners with no invoice logged in 60+ days
-- [ ] **Checkpoint D:** Deploy, log test invoices of both types, verify fee calculations, verify totals update correctly
+- [ ] **Checkpoint D:** Log test invoices, verify fee calculations and totals
 
 ### Phase E — Messaging
 
 - [ ] Threaded message system between partner and ELS admin
-- [ ] AJAX handler: `ep_send_message`
-- [ ] AJAX handler: `ep_mark_read`
+- [ ] AJAX handlers: `ep_send_message`, `ep_mark_read`
 - [ ] Unread message count badge on admin partner list
-- [ ] **Checkpoint E:** Deploy, test message send/receive from both admin and partner portal
+- [ ] **Checkpoint E:** Test message send/receive from both admin and partner portal
 
 ### Phase F — Partner Portal Shortcodes
 
-- [ ] Shortcode `[el_partner_portal]` — full partner dashboard with tabs:
-  - Overview (stage progress, action items)
-  - Revenue (invoice log, log new invoice form, totals) — Active partners only
-  - Project (build milestones, content review links) — Stages 4–5
-  - Resources (training materials)
-  - Messages (threaded with ELS)
-  - Support (link to help desk when Support Agent module exists)
-- [ ] Portal adapts tabs and content based on current stage
-- [ ] Partner cannot see Revenue tab until Active
-- [ ] Register both shortcodes in `module.json`
+- [ ] Shortcode `[el_partner_portal]` — full partner dashboard with tabs: Overview, Revenue, Project, Resources, Messages, Support
+- [ ] Portal adapts tabs based on current stage (Revenue only visible when Active)
 - [ ] **Checkpoint F:** Full end-to-end test — application through Active portal
 
 ---
 
-## PHASE 7 — TUTORIALS MODULE (new)
+## PHASE 7 — TUTORIALS MODULE
 
-> A module that ships pre-activated by default. Every installation gets it, but it can be turned off.
-> No other module depends on it to function — it is self-contained.
+> Ships pre-activated by default. No other module depends on it.
 
 - [ ] Define `module.json` — schema, capabilities, shortcodes, settings
 - [ ] Database tables: `el_tutorials`, `el_tutorial_categories`, `el_tutorial_completions`
 - [ ] Business logic: `class-tutorials-module.php`
 - [ ] Admin UI: tutorial list, create/edit form, category management
 - [ ] Shortcodes: `[el_tutorial_library]`, `[el_tutorial]`, `[el_tutorial_progress]`
-- [ ] Completion tracking: mark as seen, don't show again
-- [ ] Contextual triggers: show tutorial when user first visits a specific page
-- [ ] Multiple delivery methods: modal, sidebar panel, inline embed
-- [ ] Settings: enable/disable per delivery method, auto-show behavior
+- [ ] Completion tracking, contextual triggers, multiple delivery methods (modal, sidebar, inline)
 
 ---
 
-## PHASE 8 — SUPPORT AGENT MODULE (new)
+## PHASE 8 — SUPPORT AGENT MODULE
 
-> AI-powered help system. Depends on Tutorials module (declared in module.json requires).
-> Uses `class-ai-client.php` from core.
+> AI-powered help. Depends on Tutorials module. Uses `class-ai-client.php` from core.
 
 - [ ] Define `module.json` with `"modules": ["tutorials"]` dependency
 - [ ] Database tables: `el_support_tickets`
 - [ ] Business logic: `class-support-agent-module.php`
-- [ ] Chat widget: floating button, opens conversation panel
-- [ ] System prompt built dynamically from active modules + tutorial library
-- [ ] Searches tutorials to answer "how do I..." questions
-- [ ] Creates support tickets when issue not resolved
-- [ ] Escalation: flags for human follow-up
+- [ ] Chat widget, dynamic system prompt, tutorial search, ticket creation, escalation
 - [ ] Admin UI: ticket list, conversation history, escalation management
 - [ ] Shortcode: `[el_support_chat]`
 
 ---
 
-## PHASE 9 — LMS MODULE (new)
+## PHASE 9 — LMS MODULE
 
-> Highest priority revenue-driving module. Build after Tutorials and Support Agent are stable.
-> AI Tutor is a sub-feature within LMS — not a separate module.
+> Highest priority revenue-driving module. AI Tutor is a sub-feature within LMS.
 
 - [ ] Define `module.json` — schema, capabilities, shortcodes, settings
 - [ ] Database tables: `el_courses`, `el_lessons`, `el_enrollments`, `el_progress`, `el_completions`
 - [ ] Business logic: `class-lms-module.php`
 - [ ] Admin UI: course builder, lesson management, enrollment management, progress reports
 - [ ] Shortcodes: `[el_course_list]`, `[el_course]`, `[el_lesson]`, `[el_progress]`, `[el_enroll]`
-- [ ] AI Tutor sub-feature: chat interface within lesson context, answers course content questions
-- [ ] Progress tracking and completion certificates (hooks into Certificates module when built)
+- [ ] AI Tutor sub-feature: chat interface within lesson context
 - [ ] Settings: enrollment modes, completion requirements, AI Tutor enable/disable
 
 ---
 
-## PHASE 10 — REMAINING MODULES (plan only, build after Phase 9)
+## PHASE 10 — REMAINING MODULES (plan only)
 
-**Certificates Module**
-- PDF certificate generation on course/event completion
-- Badge system
-- Shortcode: `[el_certificate]`, `[el_badge_wall]`
-
-**Analytics Module**
-- Dashboards for course progress, event attendance, registration trends
-- Data export (CSV)
-- Shortcodes: `[el_analytics_dashboard]`
-
-**Notifications Module**
-- Email templates with brand variable support
-- In-app notification feed
-- Digest emails
-- Hooks other modules use to trigger notifications
-
-**EL Theme**
-- Companion block theme
-- Reads brand settings from EL Core via `el_core_get_brand_colors()` etc.
-- Header/footer template variations
-- Block patterns for common educational page layouts
-- `theme.json` with EL Core brand integration
+**Certificates Module** — PDF generation, badge system
+**Analytics Module** — Dashboards, reports, CSV export
+**Notifications Module** — Email templates, in-app feed, digest emails
+**EL Theme** — Companion block theme, reads EL Core brand settings, block patterns
 
 ---
 

@@ -9,6 +9,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 $module     = EL_Expand_Site_Module::instance();
+$core       = EL_Core::instance();
 $project_id = absint( $_GET['project'] ?? 0 );
 $project    = $module->get_project( $project_id );
 
@@ -26,6 +27,7 @@ $pages          = $module->get_pages( $project_id );
 $change_orders  = $module->get_change_orders( $project_id );
 $stakeholders   = $module->get_stakeholders( $project_id );
 $definition     = $module->get_project_definition( $project_id );
+$proposals      = $module->get_proposals( $project_id );
 $current_stage  = (int) $project->current_stage;
 
 $pending_feedback = count( array_filter( $feedback, fn( $f ) => $f->status === 'pending' ) );
@@ -82,26 +84,6 @@ $html .= EL_Admin_UI::stats_grid( [
     ],
 ] );
 
-// ── Stage Progress Bar ──
-$progress_html = '<div class="el-es-stage-progress">';
-foreach ( EL_Expand_Site_Module::STAGES as $num => $stage ) {
-    $state = 'upcoming';
-    if ( $num < $current_stage ) $state = 'completed';
-    if ( $num === $current_stage ) $state = 'current';
-
-    $progress_html .= '<div class="el-es-stage-step el-es-stage-' . esc_attr( $state ) . '">';
-    $progress_html .= '<div class="el-es-stage-number">' . $num . '</div>';
-    $progress_html .= '<div class="el-es-stage-label">' . esc_html( $stage['name'] ) . '</div>';
-    $progress_html .= '</div>';
-}
-$progress_html .= '</div>';
-
-$html .= EL_Admin_UI::card( [
-    'title'   => __( 'Pipeline Progress', 'el-core' ),
-    'icon'    => 'editor-ol',
-    'content' => $progress_html,
-] );
-
 // ── Tabs ──
 $html .= EL_Admin_UI::tab_nav( [
     'group' => 'project-tabs',
@@ -109,10 +91,12 @@ $html .= EL_Admin_UI::tab_nav( [
         [ 'id' => 'overview',      'label' => __( 'Overview', 'el-core' ),      'icon' => 'dashboard',      'active' => true ],
         [ 'id' => 'stakeholders',  'label' => __( 'Stakeholders', 'el-core' ),  'icon' => 'groups',         'badge' => count( $stakeholders ) ],
         [ 'id' => 'transcript',    'label' => __( 'Discovery', 'el-core' ),     'icon' => 'media-text' ],
+        [ 'id' => 'proposals',     'label' => __( 'Proposals', 'el-core' ),    'icon' => 'media-document', 'badge' => count( $proposals ) ?: null ],
         [ 'id' => 'stages',        'label' => __( 'Stage History', 'el-core' ), 'icon' => 'backup' ],
         [ 'id' => 'deliverables',  'label' => __( 'Deliverables', 'el-core' ),  'icon' => 'media-document', 'badge' => count( $deliverables ) ],
         [ 'id' => 'pages',         'label' => __( 'Pages', 'el-core' ),         'icon' => 'admin-page',     'badge' => count( $pages ) ],
         [ 'id' => 'feedback',      'label' => __( 'Feedback', 'el-core' ),      'icon' => 'format-chat',    'badge' => $pending_feedback ?: null ],
+        [ 'id' => 'branding',      'label' => __( 'Branding', 'el-core' ),      'icon' => 'art' ],
     ],
 ] );
 
@@ -183,7 +167,7 @@ if ( $is_locked ) {
 
 // Transcript input section
 if ( ! $definition || ! $definition->locked_at ) {
-    $transcript_value = esc_textarea( $project->discovery_transcript ?? '' );
+    $transcript_value = esc_textarea( wp_unslash( $project->discovery_transcript ?? '' ) );
     $has_transcript = ! empty( $project->discovery_transcript );
     
     $transcript_content .= '<div class="el-card" style="margin-bottom: 20px;">';
@@ -305,6 +289,189 @@ $html .= EL_Admin_UI::tab_panel( [
     'group'   => 'project-tabs',
     'content' => $transcript_content,
 ] );
+
+// ── Tab: Proposals ──
+$proposals_content = '';
+
+$accepted_proposal = $module->get_accepted_proposal( $project_id );
+if ( $accepted_proposal ) {
+    $accepted_by_user = get_userdata( $accepted_proposal->accepted_by );
+    $proposals_content .= EL_Admin_UI::notice( [
+        'message' => sprintf(
+            __( '<strong>Proposal Accepted</strong> — %s accepted on %s. Final price: $%s', 'el-core' ),
+            $accepted_by_user ? esc_html( $accepted_by_user->display_name ) : 'Client',
+            date_i18n( 'M j, Y g:i A', strtotime( $accepted_proposal->accepted_at ) ),
+            number_format( (float) $accepted_proposal->final_price, 2 )
+        ),
+        'type' => 'success',
+    ] );
+}
+
+$proposal_rows = [];
+foreach ( $proposals as $prop ) {
+    $status_variant = match ( $prop->status ) {
+        'draft'    => 'default',
+        'sent'     => 'info',
+        'accepted' => 'success',
+        'declined' => 'error',
+        'revised'  => 'warning',
+        default    => 'default',
+    };
+
+    $prop_actions = '';
+    if ( $prop->status === 'draft' ) {
+        $prop_actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Edit', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'edit',
+            'class'   => 'el-es-edit-proposal-btn',
+            'data'    => [ 'proposal-id' => $prop->id ],
+        ] );
+        $prop_actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Send', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'email',
+            'class'   => 'el-es-send-proposal-btn',
+            'data'    => [ 'proposal-id' => $prop->id ],
+        ] );
+        $prop_actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Delete', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'trash',
+            'class'   => 'el-es-delete-proposal-btn',
+            'data'    => [ 'proposal-id' => $prop->id ],
+        ] );
+    } elseif ( $prop->status === 'sent' ) {
+        $prop_actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Edit', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'edit',
+            'class'   => 'el-es-edit-proposal-btn',
+            'data'    => [ 'proposal-id' => $prop->id ],
+        ] );
+    }
+
+    $proposal_rows[] = [
+        'number' => '<strong>' . esc_html( $prop->proposal_number ) . '</strong>',
+        'title'  => esc_html( $prop->proposal_title ?: '—' ),
+        'price'  => $prop->final_price > 0 ? '$' . number_format( (float) $prop->final_price, 2 ) : ( $prop->budget_low > 0 ? '$' . number_format( (float) $prop->budget_low, 0 ) . '–$' . number_format( (float) $prop->budget_high, 0 ) : '—' ),
+        'status' => EL_Admin_UI::badge( [ 'label' => ucfirst( $prop->status ), 'variant' => $status_variant ] ),
+        'date'   => date_i18n( 'M j, Y', strtotime( $prop->created_at ) ),
+        '__actions' => $prop_actions,
+    ];
+}
+
+$proposals_content .= EL_Admin_UI::data_table( [
+    'columns' => [
+        [ 'key' => 'number', 'label' => __( '#', 'el-core' ) ],
+        [ 'key' => 'title',  'label' => __( 'Title', 'el-core' ) ],
+        [ 'key' => 'price',  'label' => __( 'Price', 'el-core' ) ],
+        [ 'key' => 'status', 'label' => __( 'Status', 'el-core' ) ],
+        [ 'key' => 'date',   'label' => __( 'Created', 'el-core' ) ],
+    ],
+    'rows'  => $proposal_rows,
+    'empty' => [
+        'icon'    => 'media-document',
+        'title'   => __( 'No proposals yet', 'el-core' ),
+        'message' => __( 'Create a proposal to send to the client for approval.', 'el-core' ),
+        'action'  => [ 'label' => __( 'New Proposal', 'el-core' ), 'variant' => 'primary', 'data' => [ 'modal-open' => 'create-proposal-modal' ] ],
+    ],
+] );
+
+$html .= EL_Admin_UI::tab_panel( [
+    'id'      => 'proposals',
+    'group'   => 'project-tabs',
+    'content' => EL_Admin_UI::card( [
+        'title'   => __( 'Scope of Service Proposals', 'el-core' ),
+        'icon'    => 'media-document',
+        'content' => $proposals_content,
+        'actions' => [
+            [ 'label' => __( 'New Proposal', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'class' => 'el-es-new-proposal-btn', 'data' => [ 'project-id' => $project_id ] ],
+        ],
+    ] ),
+] );
+
+// ── Proposal Edit Modal ──
+$edit_proposal_form  = '<form id="edit-proposal-form">';
+$edit_proposal_form .= '<input type="hidden" name="proposal_id" id="edit-proposal-id" value="">';
+$edit_proposal_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+
+$edit_proposal_form .= '<div style="display:flex; gap:10px; margin-bottom:15px;">';
+$edit_proposal_form .= EL_Admin_UI::btn( [
+    'label'   => __( 'Generate with AI', 'el-core' ),
+    'variant' => 'secondary',
+    'icon'    => 'admin-generic',
+    'id'      => 'generate-proposal-ai-btn',
+    'data'    => [ 'project-id' => $project_id ],
+] );
+$edit_proposal_form .= '<span id="ai-proposal-status" style="line-height:36px; color:#666;"></span>';
+$edit_proposal_form .= '</div>';
+
+$edit_proposal_form .= '<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">';
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'proposal_title', 'label' => __( 'Proposal Title', 'el-core' ), 'required' => true, 'id' => 'prop-title' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'client_name', 'label' => __( 'Client Name', 'el-core' ), 'id' => 'prop-client-name' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'client_organization', 'label' => __( 'Organization', 'el-core' ), 'id' => 'prop-client-org' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'client_email', 'label' => __( 'Client Email', 'el-core' ), 'type' => 'email', 'id' => 'prop-client-email' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'project_dates', 'label' => __( 'Project Dates', 'el-core' ), 'placeholder' => 'e.g., March–May 2026', 'id' => 'prop-dates' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'project_location', 'label' => __( 'Location', 'el-core' ), 'id' => 'prop-location' ] );
+$edit_proposal_form .= '</div>';
+
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_situation', 'label' => __( 'Situation', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-situation', 'help' => __( 'Mirror the client\'s specific problem back to them. Reference their organization and real details from the transcript.', 'el-core' ) ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_what_we_build', 'label' => __( 'What We\'re Building', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-what-we-build', 'help' => __( 'Describe capabilities by user type. One sentence per user type, focused on what they can do and what outcome that enables.', 'el-core' ) ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_why_els', 'label' => __( 'Why ELS', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-why-els', 'help' => __( 'Why Expanded Learning Solutions is the right partner. Reference similar organizations served.', 'el-core' ) ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_investment', 'label' => __( 'Investment', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-investment', 'help' => __( 'Development cost + annual platform fee as monthly number + ROI comparison. No bullet points — write as a paragraph.', 'el-core' ) ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_next_steps', 'label' => __( 'Next Steps', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-next-steps', 'help' => __( 'Specific steps that happen after acceptance. Be concrete about timeline.', 'el-core' ) ] );
+
+$edit_proposal_form .= '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">';
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'budget_low', 'label' => __( 'Budget Low ($)', 'el-core' ), 'type' => 'number', 'id' => 'prop-budget-low' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'budget_high', 'label' => __( 'Budget High ($)', 'el-core' ), 'type' => 'number', 'id' => 'prop-budget-high' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'final_price', 'label' => __( 'Final Price ($)', 'el-core' ), 'type' => 'number', 'id' => 'prop-final-price' ] );
+$edit_proposal_form .= '</div>';
+
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'payment_terms', 'label' => __( 'Payment Terms', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-payment' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'terms_conditions', 'label' => __( 'Terms & Conditions', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-terms' ] );
+
+$edit_proposal_form .= '<div class="el-form-row">';
+$edit_proposal_form .= EL_Admin_UI::btn( [ 'label' => __( 'Save Proposal', 'el-core' ), 'variant' => 'primary', 'icon' => 'saved', 'type' => 'submit' ] );
+$edit_proposal_form .= '</div>';
+$edit_proposal_form .= '</form>';
+
+$html .= EL_Admin_UI::modal( [
+    'id'      => 'edit-proposal-modal',
+    'title'   => __( 'Edit Proposal', 'el-core' ),
+    'content' => $edit_proposal_form,
+    'size'    => 'large',
+] );
+
+// Expose proposal data as JSON for JS to populate modal
+$proposals_json = [];
+foreach ( $proposals as $prop ) {
+    $proposals_json[ $prop->id ] = [
+        'id'                     => $prop->id,
+        'proposal_title'         => $prop->proposal_title,
+        'client_name'            => $prop->client_name,
+        'client_organization'    => $prop->client_organization,
+        'client_email'           => $prop->client_email,
+        'project_dates'          => $prop->project_dates,
+        'project_location'       => $prop->project_location,
+        'scope_description'      => $prop->scope_description,
+        'goals_objectives'       => $prop->goals_objectives,
+        'activities_description' => $prop->activities_description,
+        'deliverables_text'      => $prop->deliverables_text,
+        'section_situation'      => $prop->section_situation ?? '',
+        'section_what_we_build'  => $prop->section_what_we_build ?? '',
+        'section_why_els'        => $prop->section_why_els ?? '',
+        'section_investment'     => $prop->section_investment ?? '',
+        'section_next_steps'     => $prop->section_next_steps ?? '',
+        'budget_low'             => $prop->budget_low,
+        'budget_high'            => $prop->budget_high,
+        'final_price'            => $prop->final_price,
+        'payment_terms'          => $prop->payment_terms,
+        'terms_conditions'       => $prop->terms_conditions,
+        'status'                 => $prop->status,
+    ];
+}
+$html .= '<script>var elProposalsData = ' . wp_json_encode( $proposals_json ) . ';</script>';
 
 // ── Tab: Stakeholders ──
 $stakeholder_rows = [];
@@ -732,8 +899,57 @@ $html .= EL_Admin_UI::modal( [
 ] );
 
 // Add Stakeholder modal
+// Build org contacts quick-add section
+$org_contacts_html = '';
+$org_id = absint( $project->organization_id ?? 0 );
+if ( $org_id && isset( $core ) && $core->organizations ) {
+    $org_contacts = $core->organizations->get_contacts( $org_id );
+    $existing_stakeholder_user_ids = array_map( fn( $s ) => (int) $s->user_id, $stakeholders );
+
+    $available_contacts = array_filter( $org_contacts, fn( $c ) =>
+        $c->user_id > 0 && ! in_array( (int) $c->user_id, $existing_stakeholder_user_ids, true )
+    );
+
+    if ( ! empty( $available_contacts ) ) {
+        $org_contacts_html .= '<div style="margin-bottom:18px;">';
+        $org_contacts_html .= '<p style="font-weight:600;margin:0 0 8px;font-size:13px;color:#374151;">'
+            . __( 'Contacts from this organization:', 'el-core' ) . '</p>';
+        $org_contacts_html .= '<div style="display:flex;flex-direction:column;gap:6px;">';
+        foreach ( $available_contacts as $oc ) {
+            $role_default = $oc->is_primary ? 'decision_maker' : 'contributor';
+            $badge = $oc->is_primary
+                ? ' <span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:9px;font-weight:600;">Primary</span>'
+                : '';
+            $org_contacts_html .= '<div style="display:flex;align-items:center;justify-content:space-between;'
+                . 'padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">';
+            $org_contacts_html .= '<div>';
+            $org_contacts_html .= '<strong style="font-size:13px;">' . esc_html( $oc->first_name . ' ' . $oc->last_name ) . '</strong>'
+                . $badge;
+            if ( $oc->title ) {
+                $org_contacts_html .= '<br><span style="font-size:12px;color:#6b7280;">' . esc_html( $oc->title ) . '</span>';
+            }
+            $org_contacts_html .= '</div>';
+            $org_contacts_html .= '<button type="button" class="el-btn el-btn-secondary el-quick-add-stakeholder-btn" '
+                . 'style="font-size:12px;padding:4px 10px;" '
+                . 'data-user-id="' . esc_attr( $oc->user_id ) . '" '
+                . 'data-name="' . esc_attr( $oc->first_name . ' ' . $oc->last_name ) . '" '
+                . 'data-role="' . esc_attr( $role_default ) . '" '
+                . 'data-project-id="' . esc_attr( $project_id ) . '">'
+                . __( 'Add', 'el-core' )
+                . '</button>';
+            $org_contacts_html .= '</div>';
+        }
+        $org_contacts_html .= '</div>';
+        $org_contacts_html .= '<hr style="margin:14px 0;border:none;border-top:1px solid #e5e7eb;">';
+        $org_contacts_html .= '</div>';
+    }
+}
+
 $stakeholder_form  = '<form id="add-stakeholder-form">';
 $stakeholder_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+if ( $org_contacts_html ) {
+    $stakeholder_form .= $org_contacts_html;
+}
 $stakeholder_form .= EL_Admin_UI::notice( [
     'message' => __( 'Search for an existing WordPress user or enter an email to create a new user account.', 'el-core' ),
     'type'    => 'info',
@@ -782,6 +998,170 @@ $html .= EL_Admin_UI::modal( [
     'id'      => 'add-stakeholder-modal',
     'title'   => __( 'Add Stakeholder', 'el-core' ),
     'content' => $stakeholder_form,
+] );
+
+// ── Tab: Branding — Review Management ──
+$branding_content = '';
+$review_items     = $module->get_review_items( $project_id, 'mood_board' );
+
+$branding_content .= '<div id="es-branding-tab" data-project-id="' . esc_attr( $project_id ) . '">';
+
+if ( empty( $review_items ) ) {
+    $branding_content .= EL_Admin_UI::notice( [
+        'message' => __( 'No mood board review sessions for this project yet. Create one to let your team vote on style direction.', 'el-core' ),
+        'type'    => 'info',
+    ] );
+} else {
+    foreach ( $review_items as $ri ) {
+        $dm_dec       = $ri->dm_decision ? json_decode( $ri->dm_decision, true ) : [];
+        $sel_ids      = $dm_dec['selected_template_ids'] ?? [];
+        $conf_ids     = $dm_dec['confirmed_template_ids'] ?? [];
+        $is_closed    = ( $ri->status === 'closed' );
+        $badge_class  = $is_closed ? 'el-badge el-badge-success' : 'el-badge el-badge-warning';
+        $badge_label  = $is_closed ? __( 'Closed', 'el-core' ) : __( 'Open', 'el-core' );
+
+        $all_votes    = $module->get_review_votes( (int) $ri->id );
+        $voted_ids    = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
+        $sh_all       = $module->get_stakeholders( $project_id );
+        $total_sh     = count( $sh_all );
+        $responded    = count( array_filter( $sh_all, fn( $s ) => in_array( (int) $s->user_id, $voted_ids, true ) ) );
+
+        $branding_content .= '<div class="el-card" style="margin-bottom:20px;">';
+        $branding_content .= '<div class="el-card__header" style="display:flex;justify-content:space-between;align-items:center;">';
+        $branding_content .= '<h3 class="el-card__title">' . esc_html( $ri->title ) . '</h3>';
+        $branding_content .= '<span class="' . $badge_class . '">' . $badge_label . '</span>';
+        $branding_content .= '</div>';
+        $branding_content .= '<div class="el-card__body">';
+
+        // Review info rows
+        $branding_content .= EL_Admin_UI::detail_row( [ 'label' => __( 'Templates selected', 'el-core' ), 'value' => count( $sel_ids ), 'icon' => 'images-alt2' ] );
+        $branding_content .= EL_Admin_UI::detail_row( [
+            'label' => __( 'Responses', 'el-core' ),
+            'value' => sprintf( __( '%1$d of %2$d team members', 'el-core' ), $responded, $total_sh ),
+            'icon'  => 'groups',
+        ] );
+
+        if ( $ri->deadline ) {
+            $branding_content .= EL_Admin_UI::detail_row( [
+                'label' => __( 'Deadline', 'el-core' ),
+                'value' => date_i18n( 'M j, Y', strtotime( $ri->deadline ) ),
+                'icon'  => 'calendar-alt',
+            ] );
+        }
+
+        if ( $is_closed && ! empty( $conf_ids ) ) {
+            global $wpdb;
+            $tbl  = $wpdb->prefix . 'el_es_templates';
+            $ph   = implode( ',', array_fill( 0, count( $conf_ids ), '%d' ) );
+            $ctpl = $wpdb->get_results( $wpdb->prepare( "SELECT title FROM {$tbl} WHERE id IN ({$ph})", ...$conf_ids ) );
+            $labels = implode( ', ', array_map( fn( $t ) => esc_html( $t->title ), $ctpl ) );
+            $branding_content .= EL_Admin_UI::detail_row( [ 'label' => __( 'Confirmed Direction', 'el-core' ), 'value' => $labels, 'icon' => 'yes-alt' ] );
+        }
+
+        // Actions
+        $branding_content .= '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">';
+
+        if ( ! $is_closed ) {
+            // Set / extend deadline
+            $branding_content .= EL_Admin_UI::btn( [
+                'label'   => $ri->deadline ? __( 'Extend Deadline', 'el-core' ) : __( 'Set Deadline', 'el-core' ),
+                'variant' => 'secondary',
+                'icon'    => 'calendar-alt',
+                'data'    => [
+                    'action'          => 'set-review-deadline',
+                    'review-item-id'  => $ri->id,
+                ],
+            ] );
+        }
+
+        $branding_content .= '</div>';
+        $branding_content .= '</div>'; // end card body
+        $branding_content .= '</div>'; // end card
+    }
+}
+
+// "Create Review Session" button
+$branding_content .= EL_Admin_UI::btn( [
+    'label'   => __( 'Create Mood Board Session', 'el-core' ),
+    'variant' => 'primary',
+    'icon'    => 'plus-alt',
+    'data'    => [ 'modal-open' => 'create-review-modal' ],
+] );
+
+$branding_content .= '</div>';
+
+$html .= EL_Admin_UI::tab_panel( [
+    'id'      => 'branding',
+    'group'   => 'project-tabs',
+    'content' => EL_Admin_UI::card( [ 'title' => __( 'Branding Review Management', 'el-core' ), 'icon' => 'art', 'content' => $branding_content ] ),
+] );
+
+// ── Modal: Create Review Session ──
+$active_templates = $module->get_templates( [ 'is_active' => 1 ] );
+
+$create_review_form  = '<form id="create-review-form">';
+$create_review_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+$create_review_form .= '<input type="hidden" name="review_type" value="mood_board">';
+$create_review_form .= EL_Admin_UI::form_row( [
+    'name'        => 'title',
+    'label'       => __( 'Session Title', 'el-core' ),
+    'type'        => 'text',
+    'value'       => __( 'Style Direction', 'el-core' ),
+    'placeholder' => __( 'e.g. Style Direction', 'el-core' ),
+] );
+$create_review_form .= EL_Admin_UI::form_row( [
+    'name'  => 'deadline',
+    'label' => __( 'Response Deadline (optional)', 'el-core' ),
+    'type'  => 'date',
+] );
+$create_review_form .= '<div class="el-form-row">';
+$create_review_form .= '<label class="el-form-label">' . __( 'Select Templates for This Client', 'el-core' ) . '</label>';
+$create_review_form .= '<div class="el-form-field">';
+
+if ( empty( $active_templates ) ) {
+    $create_review_form .= '<p style="color:#666;">' . __( 'No active templates found. Add some in the Template Library first.', 'el-core' ) . '</p>';
+} else {
+    // Group by category
+    $tpl_by_cat = [];
+    foreach ( $active_templates as $tpl ) {
+        $tpl_by_cat[ $tpl->style_category ][] = $tpl;
+    }
+
+    $create_review_form .= '<div class="es-template-picker">';
+    foreach ( $tpl_by_cat as $cat => $cat_tpls ) {
+        $create_review_form .= '<div class="es-template-picker-category">';
+        $create_review_form .= '<div class="es-template-picker-cat-label">' . esc_html( $cat ) . '</div>';
+        $create_review_form .= '<div class="es-template-picker-grid">';
+        foreach ( $cat_tpls as $tpl ) {
+            $img = esc_url( $tpl->image_url );
+            $create_review_form .= '<label class="es-template-picker-card">';
+            $create_review_form .= '<input type="checkbox" name="template_ids[]" value="' . esc_attr( $tpl->id ) . '">';
+            if ( $img ) {
+                $create_review_form .= '<img src="' . $img . '" alt="' . esc_attr( $tpl->title ) . '">';
+            } else {
+                $create_review_form .= '<div class="es-template-picker-no-img">No Image</div>';
+            }
+            $create_review_form .= '<div class="es-template-picker-title">' . esc_html( $tpl->title ) . '</div>';
+            $create_review_form .= '</label>';
+        }
+        $create_review_form .= '</div>';
+        $create_review_form .= '</div>';
+    }
+    $create_review_form .= '</div>'; // end es-template-picker
+}
+
+$create_review_form .= '</div>'; // end el-form-field
+$create_review_form .= '</div>'; // end el-form-row
+
+$create_review_form .= '<div class="el-form-row">';
+$create_review_form .= EL_Admin_UI::btn( [ 'label' => __( 'Create Review Session', 'el-core' ), 'variant' => 'primary', 'icon' => 'plus-alt', 'type' => 'submit' ] );
+$create_review_form .= '</div>';
+$create_review_form .= '</form>';
+
+$html .= EL_Admin_UI::modal( [
+    'id'      => 'create-review-modal',
+    'title'   => __( 'Create Mood Board Review Session', 'el-core' ),
+    'content' => $create_review_form,
 ] );
 
 echo EL_Admin_UI::wrap( $html );

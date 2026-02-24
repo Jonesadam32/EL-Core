@@ -29,13 +29,27 @@ class EL_Settings {
      */
     private array $defaults = [
         'brand' => [
-            'org_name'        => '',
-            'primary_color'   => '#1a1a2e',
-            'secondary_color' => '#16213e',
-            'accent_color'    => '#e94560',
-            'font_heading'    => 'Inter, sans-serif',
-            'font_body'       => 'Inter, sans-serif',
-            'logo_url'        => '',
+            // Core identity
+            'org_name'              => '',
+            'primary_color'         => '#1a1a2e',
+            'secondary_color'       => '#16213e',
+            'accent_color'          => '#e94560',
+            'font_heading'          => 'Inter, sans-serif',
+            'font_body'             => 'Inter, sans-serif',
+            'logo_url'              => '',
+            // Logo variants
+            'logo_variant_dark'     => '',
+            'logo_variant_light'    => '',
+            'favicon_url'           => '',
+            // Dark mode intent
+            'dark_mode_preference'  => false,
+            // AI palette workflow
+            'ai_palette_suggestions' => '',
+            'palette_selected'      => null,
+            // Brand voice
+            'brand_tone'            => 'professional',
+            'brand_audience'        => '',
+            'brand_values'          => '',
         ],
         'ai' => [
             'provider'        => 'anthropic',
@@ -228,13 +242,46 @@ class EL_Settings {
     public function sanitize_brand( $input ): array {
         $clean = [];
 
+        // Core identity
         $clean['org_name']        = sanitize_text_field( $input['org_name'] ?? '' );
         $clean['primary_color']   = sanitize_hex_color( $input['primary_color'] ?? '#1a1a2e' ) ?: '#1a1a2e';
         $clean['secondary_color'] = sanitize_hex_color( $input['secondary_color'] ?? '#16213e' ) ?: '#16213e';
         $clean['accent_color']    = sanitize_hex_color( $input['accent_color'] ?? '#e94560' ) ?: '#e94560';
-        $clean['font_heading']    = sanitize_text_field( $input['font_heading'] ?? 'Inter, sans-serif' );
-        $clean['font_body']       = sanitize_text_field( $input['font_body'] ?? 'Inter, sans-serif' );
+        // Custom font overrides dropdown if filled in
+        $font_heading_custom = sanitize_text_field( $input['font_heading_custom'] ?? '' );
+        $clean['font_heading'] = $font_heading_custom
+            ? $font_heading_custom
+            : sanitize_text_field( $input['font_heading'] ?? 'Inter, sans-serif' );
+        $font_body_custom = sanitize_text_field( $input['font_body_custom'] ?? '' );
+        $clean['font_body'] = $font_body_custom
+            ? $font_body_custom
+            : sanitize_text_field( $input['font_body'] ?? 'Inter, sans-serif' );
         $clean['logo_url']        = esc_url_raw( $input['logo_url'] ?? '' );
+
+        // Logo variants
+        $clean['logo_variant_dark']  = esc_url_raw( $input['logo_variant_dark'] ?? '' );
+        $clean['logo_variant_light'] = esc_url_raw( $input['logo_variant_light'] ?? '' );
+        $clean['favicon_url']        = esc_url_raw( $input['favicon_url'] ?? '' );
+
+        // Dark mode intent
+        $clean['dark_mode_preference'] = ! empty( $input['dark_mode_preference'] );
+
+        // AI palette workflow — preserve existing suggestions if not submitted
+        $existing = $this->get( 'brand', 'ai_palette_suggestions', '' );
+        $clean['ai_palette_suggestions'] = isset( $input['ai_palette_suggestions'] )
+            ? wp_kses_post( $input['ai_palette_suggestions'] )
+            : $existing;
+
+        $palette_selected = $input['palette_selected'] ?? null;
+        $clean['palette_selected'] = is_numeric( $palette_selected ) ? absint( $palette_selected ) : null;
+
+        // Brand voice
+        $allowed_tones       = [ 'professional', 'friendly', 'inspirational', 'bold', 'calm' ];
+        $tone                = sanitize_key( $input['brand_tone'] ?? 'professional' );
+        $clean['brand_tone'] = in_array( $tone, $allowed_tones, true ) ? $tone : 'professional';
+
+        $clean['brand_audience'] = sanitize_text_field( $input['brand_audience'] ?? '' );
+        $clean['brand_values']   = sanitize_textarea_field( $input['brand_values'] ?? '' );
 
         // Clear cache so next read gets fresh data
         unset( $this->cache['brand'] );
