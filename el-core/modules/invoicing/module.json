@@ -1,0 +1,118 @@
+{
+  "name": "Invoicing",
+  "slug": "invoicing",
+  "version": "1.0.0",
+  "description": "Invoice creation, payment tracking, product management, and revenue reporting. Replaces QuickBooks as ELS invoicing tool.",
+  "author": "Expanded Learning Solutions",
+  "requires": {
+    "el_core": "1.0.0",
+    "php": "8.0",
+    "modules": []
+  },
+  "capabilities": [
+    "manage_invoices",
+    "create_invoices",
+    "view_invoices"
+  ],
+  "default_role_mapping": {
+    "administrator": ["manage_invoices", "create_invoices", "view_invoices"],
+    "editor": ["create_invoices", "view_invoices"],
+    "subscriber": ["view_invoices"]
+  },
+  "database": {
+    "version": 1,
+    "tables": {
+      "el_inv_products": {
+        "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+        "name": "VARCHAR(255) NOT NULL",
+        "slug": "VARCHAR(100) NOT NULL",
+        "category": "VARCHAR(50) DEFAULT 'service'",
+        "default_price": "DECIMAL(10,2) DEFAULT 0",
+        "billing_cycle": "VARCHAR(20) DEFAULT 'one-time'",
+        "status": "VARCHAR(20) DEFAULT 'active'",
+        "description": "TEXT",
+        "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+      },
+      "el_inv_invoices": {
+        "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+        "organization_id": "BIGINT UNSIGNED NOT NULL",
+        "contact_id": "BIGINT UNSIGNED DEFAULT 0",
+        "project_id": "BIGINT UNSIGNED DEFAULT 0",
+        "invoice_number": "VARCHAR(50) NOT NULL",
+        "status": "VARCHAR(20) DEFAULT 'draft'",
+        "issue_date": "DATE NULL",
+        "due_date": "DATE NULL",
+        "paid_date": "DATE NULL",
+        "subtotal": "DECIMAL(10,2) DEFAULT 0",
+        "tax_rate": "DECIMAL(5,2) DEFAULT 0",
+        "tax_amount": "DECIMAL(10,2) DEFAULT 0",
+        "total": "DECIMAL(10,2) DEFAULT 0",
+        "amount_paid": "DECIMAL(10,2) DEFAULT 0",
+        "balance_due": "DECIMAL(10,2) DEFAULT 0",
+        "notes": "TEXT",
+        "internal_notes": "TEXT",
+        "sent_at": "DATETIME NULL",
+        "viewed_at": "DATETIME NULL",
+        "created_by": "BIGINT UNSIGNED DEFAULT 0",
+        "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+      },
+      "el_inv_line_items": {
+        "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+        "invoice_id": "BIGINT UNSIGNED NOT NULL",
+        "product_id": "BIGINT UNSIGNED DEFAULT 0",
+        "description": "VARCHAR(500) NOT NULL",
+        "quantity": "DECIMAL(10,2) DEFAULT 1",
+        "unit_price": "DECIMAL(10,2) DEFAULT 0",
+        "amount": "DECIMAL(10,2) DEFAULT 0",
+        "sort_order": "INT UNSIGNED DEFAULT 0"
+      },
+      "el_inv_payments": {
+        "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+        "invoice_id": "BIGINT UNSIGNED NOT NULL",
+        "amount": "DECIMAL(10,2) NOT NULL",
+        "payment_method": "VARCHAR(50) DEFAULT ''",
+        "payment_date": "DATE NOT NULL",
+        "reference_number": "VARCHAR(100) DEFAULT ''",
+        "notes": "TEXT",
+        "recorded_by": "BIGINT UNSIGNED DEFAULT 0",
+        "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+      }
+    }
+  },
+  "shortcodes": [
+    {
+      "tag": "el_invoice_list",
+      "file": "shortcodes/invoice-list.php",
+      "description": "Admin/staff: all invoices with filters and stats",
+      "params": {}
+    },
+    {
+      "tag": "el_client_invoices",
+      "file": "shortcodes/client-invoices.php",
+      "description": "Client portal: their invoices and payment status",
+      "params": {}
+    },
+    {
+      "tag": "el_invoice_view",
+      "file": "shortcodes/invoice-view.php",
+      "description": "Single invoice detail (printable/PDF-ready)",
+      "params": { "id": { "type": "integer", "default": 0 } }
+    },
+    {
+      "tag": "el_revenue_dashboard",
+      "file": "shortcodes/revenue-dashboard.php",
+      "description": "Revenue reporting with breakdowns",
+      "params": {}
+    }
+  ],
+  "settings": [
+    { "key": "default_due_days", "label": "Default Payment Due (days from issue)", "type": "number", "default": 30 },
+    { "key": "default_tax_rate", "label": "Default Tax Rate (%)", "type": "number", "default": 0 },
+    { "key": "invoice_prefix", "label": "Invoice Number Prefix", "type": "string", "default": "ELS" },
+    { "key": "company_address", "label": "Company Address (shown on invoices)", "type": "string", "default": "" },
+    { "key": "company_phone", "label": "Company Phone (shown on invoices)", "type": "string", "default": "" },
+    { "key": "company_email", "label": "Company Email (shown on invoices)", "type": "string", "default": "" },
+    { "key": "default_invoice_notes", "label": "Default Invoice Footer Notes", "type": "string", "default": "" }
+  ]
+}

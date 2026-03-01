@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.24.0] — 2026-03-01
+### Added
+- **Invoicing module (Phase 6A Step 1)** — database + module skeleton
+- New module `invoicing`: `module.json` with tables `el_inv_products`, `el_inv_invoices`, `el_inv_line_items`, `el_inv_payments`; capabilities `manage_invoices`, `create_invoices`, `view_invoices`; shortcodes `el_invoice_list`, `el_client_invoices`, `el_invoice_view`, `el_revenue_dashboard`; settings for due days, tax, prefix, company info
+- `class-invoicing-module.php`: singleton, admin menu (Invoices, Products, Revenue), AJAX handler stubs for all invoice/product/payment/reporting actions
+- Placeholder shortcode files and empty admin views; assets skeleton (invoicing.css, invoicing.js)
+
+---
+
 ## [1.23] — 2026-03-01
 ### Release
 - Release 1.23 — sync with staging; ZIP and versioned backup per release rules

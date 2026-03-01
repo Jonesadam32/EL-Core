@@ -1,0 +1,10 @@
+/**
+ * Invoicing module styles
+ * Class prefix: el-inv-
+ * Built in Steps 2–6.
+ */
+
+.el-inv-placeholder {
+    color: #646970;
+    font-style: italic;
+}

@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** February 24, 2026
+> **Last Updated:** March 1, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.21.4 (deployed on staging) — v1.22.0 IN PROGRESS (Definition Consensus Review System)
+> **Current Plugin Version:** 1.24.0 — Phase 6A Step 1 (Invoicing module skeleton) complete. v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
 
 ---
 
@@ -135,6 +135,11 @@
 
 **Step 6 — Wireframe Annotation (Phase 2H — separate session, do not build yet)**
 
+**Invoicing module** (Phase 6A — Step 1 done; prerequisite: v1.22.0 deployed)
+- Full build spec: **`docs/cursor-handoff-invoicing-module.md`** (canonical copy in repo)
+- Step 1 complete: `module.json`, `class-invoicing-module.php`, 4 shortcodes (placeholders), 4 tables, capabilities, settings. Next: Step 2 (Product Management).
+- Replaces QuickBooks; invoice CRUD, payments, products, revenue dashboard, CSV export
+
 ---
 
 ## CRITICAL LESSONS LEARNED
@@ -203,6 +208,11 @@ Read @START-HERE-NEXT-SESSION.md. I'm working on the Expand Site workstream.
 **Core workstream** (Canvas, Admin UI, infrastructure):
 ```
 Read @START-HERE-NEXT-SESSION.md. I'm working on the Core workstream.
+```
+
+**Invoicing module workstream:**
+```
+Read @START-HERE-NEXT-SESSION.md and @docs/cursor-handoff-invoicing-module.md. I'm working on the Invoicing module.
 ```
 
 ---

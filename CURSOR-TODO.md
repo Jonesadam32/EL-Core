@@ -4,9 +4,9 @@
 > Read this at the start of every session. Work through tasks in order. Check off completed items with [x].
 > Push to GitHub after every session so this stays current.
 >
-> **Last Updated:** February 23, 2026
-> **Plugin Version:** v1.19.2 (deployed and tested ✅)
-> **Next Build:** v1.20.0 (Phase 2G-B — Stakeholder Review & Decision System)
+> **Last Updated:** March 1, 2026
+> **Plugin Version:** v1.24.0 (Phase 6A Step 1 — Invoicing skeleton done)
+> **Next Build:** Phase 6A Step 2 (Product Management) or deploy v1.24.0 to verify Step 1 checkpoint
 > **Deployed Version:** v1.19.2 on staging
 > **Local Repo:** `C:\Github\EL Core\`
 > **Plugin Source:** `C:\Github\EL Core\el-core\`
@@ -542,6 +542,51 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ---
 
+## PHASE 6A — INVOICING MODULE
+
+> Replaces QuickBooks as ELS's sole invoicing tool. Full build spec: **`docs/cursor-handoff-invoicing-module.md`** — read before starting.
+> **Prerequisite:** v1.22.0 deployed and tested. Table prefix: `el_inv_`. CSS prefix: `el-inv-`.
+> Client linking: `el_organizations` + `el_contacts` (core). Project linking: `el_es_projects.id` for now.
+
+### Step 1 — Database + Module Skeleton
+
+- [x] Create `module.json` with tables, capabilities, shortcodes, settings (see handoff)
+- [x] Create `class-invoicing-module.php` skeleton (singleton, init_hooks, AJAX registrations)
+- [x] Create empty shortcode files (placeholder HTML)
+- [ ] **Checkpoint:** Module activates, tables created, admin menu appears
+
+### Step 2 — Product Management
+
+- [ ] Build `admin/views/product-list.php` with `EL_Admin_UI::*`
+- [ ] AJAX: create, update, delete, seed products
+- [ ] Seed default products (6 from handoff)
+- [ ] **Checkpoint:** Products page works, seed data created
+
+### Step 3 — Invoice CRUD
+
+- [ ] Build `admin/views/invoice-list.php` and `invoice-edit.php` (org autocomplete, line items, calculations)
+- [ ] AJAX: create, update, delete, duplicate, get invoice
+- [ ] Auto-increment invoice numbers (ELS-YYYY-NNN)
+- [ ] **Checkpoint:** Create invoice, add line items, save, view in list
+
+### Step 4 — Payment Recording
+
+- [ ] Payment modal in admin; AJAX: record payment, delete payment
+- [ ] Auto-update invoice totals and status; overdue detection on page load
+- [ ] **Checkpoint:** Record payment, status changes, overdue flagging works
+
+### Step 5 — Send & Client Portal
+
+- [ ] Send invoice (mark sent, wp_mail); build `[el_client_invoices]` and `[el_invoice_view]` shortcodes with print styles
+- [ ] **Checkpoint:** Send invoice, client sees in portal, print looks professional
+
+### Step 6 — Revenue Dashboard + Export
+
+- [ ] Build `[el_revenue_dashboard]` shortcode (charts, breakdowns); CSV export handler
+- [ ] **Checkpoint:** Dashboard accurate, CSV exports correctly
+
+---
+
 ## PHASE 6B — EXPAND PARTNERS MODULE
 
 > Proprietary internal module for managing ELS partner relationships end-to-end.
@@ -670,6 +715,7 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - Guest AJAX needs both hooks: `el_core_ajax_{action}` AND `el_core_ajax_nopriv_{action}`
 - CSS class prefix for shared components: `el-`
 - CSS class prefix for Expand Site: `el-es-`
+- CSS class prefix for Invoicing module: `el-inv-`
 - Shortcodes return HTML strings — never echo
 - Module classes contain business logic only — no CREATE TABLE, no add_shortcode()
 - Stage names and pipeline configuration come from settings — never hardcode them
