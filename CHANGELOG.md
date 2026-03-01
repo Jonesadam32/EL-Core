@@ -6,6 +6,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.23] — 2026-03-01
+### Release
+- Release 1.23 — sync with staging; ZIP and versioned backup per release rules
+
+---
+
 ## [1.22.0] — 2026-02-24 — IN PROGRESS
 ### Added
 - **Definition Consensus Review System** — full stakeholder review workflow for project definitions
