@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.24.1] — 2026-03-02
+### Added
+- **Invoicing module (Phase 6A Step 2)** — Product Management
+- Products admin page: card grid, filters (category, status), Add/Edit modal, Delete confirm, Seed Default Products button
+- AJAX handlers: `inv_create_product`, `inv_update_product`, `inv_delete_product`, `inv_get_products`, `inv_seed_products`
+- Seed creates 6 default ELS products (LMS Licensing, PD Training, Coaching, Retreat, Expand Site, NYC SMV Tool) when missing
+- Admin JS: product form submit, edit/delete modals, slug auto-fill from name, seed button
+- Product list CSS (el-inv-product-grid, cards, actions)
+
+---
+
 ## [1.24.0] — 2026-03-01
 ### Added
 - **Invoicing module (Phase 6A Step 1)** — database + module skeleton
