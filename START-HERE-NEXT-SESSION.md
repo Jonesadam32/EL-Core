@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 1, 2026
+> **Last Updated:** March 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.24.0 — Phase 6A Step 1 (Invoicing module skeleton) complete. v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
+> **Current Plugin Version:** 1.24.1 — Invoicing Phase 6A Step 2 (Product Management) done ✅. **Next: Step 3 — Invoice CRUD** (invoice list + invoice editor, line items, auto-number ELS-YYYY-NNN). v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
 
 ---
 
@@ -135,10 +135,10 @@
 
 **Step 6 — Wireframe Annotation (Phase 2H — separate session, do not build yet)**
 
-**Invoicing module** (Phase 6A — Step 1 done; prerequisite: v1.22.0 deployed)
+**Invoicing module** (Phase 6A — Step 2 done; next: Step 3)
 - Full build spec: **`docs/cursor-handoff-invoicing-module.md`** (canonical copy in repo)
-- Step 1 complete: `module.json`, `class-invoicing-module.php`, 4 shortcodes (placeholders), 4 tables, capabilities, settings. Next: Step 2 (Product Management).
-- Replaces QuickBooks; invoice CRUD, payments, products, revenue dashboard, CSV export
+- **Done:** Step 1 (DB + skeleton), Step 2 (Product Management — list, add/edit/delete, seed 6 default products). **Next: Step 3 — Invoice CRUD**: build `admin/views/invoice-list.php` and `invoice-edit.php`, org/contact autocomplete, line items, AJAX create/update/delete/duplicate/get, invoice numbers ELS-YYYY-NNN. Checkpoint: create invoice, add line items, save, view in list.
+- Replaces QuickBooks; then Step 4 (payments), Step 5 (send + client portal), Step 6 (revenue + export)
 
 ---
 
@@ -212,7 +212,7 @@ Read @START-HERE-NEXT-SESSION.md. I'm working on the Core workstream.
 
 **Invoicing module workstream:**
 ```
-Read @START-HERE-NEXT-SESSION.md and @docs/cursor-handoff-invoicing-module.md. I'm working on the Invoicing module.
+Read @START-HERE-NEXT-SESSION.md and @docs/cursor-handoff-invoicing-module.md. Phase 6A Step 3 is in CURSOR-TODO.md. Start with Step 3 (Invoice CRUD — invoice list + editor, line items, AJAX, ELS-YYYY-NNN numbers).
 ```
 
 ---

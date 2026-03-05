@@ -560,7 +560,7 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] Build `admin/views/product-list.php` with `EL_Admin_UI::*`
 - [x] AJAX: create, update, delete, seed products
 - [x] Seed default products (6 from handoff)
-- [ ] **Checkpoint:** Products page works, seed data created
+- [x] **Checkpoint:** Products page works, seed data created ✅
 
 ### Step 3 — Invoice CRUD
 
