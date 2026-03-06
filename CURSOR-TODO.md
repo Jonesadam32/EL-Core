@@ -4,9 +4,9 @@
 > Read this at the start of every session. Work through tasks in order. Check off completed items with [x].
 > Push to GitHub after every session so this stays current.
 >
-> **Last Updated:** March 1, 2026
-> **Plugin Version:** v1.24.0 (Phase 6A Step 1 — Invoicing skeleton done)
-> **Next Build:** Phase 6A Step 2 (Product Management) or deploy v1.24.0 to verify Step 1 checkpoint
+> **Last Updated:** March 4, 2026
+> **Plugin Version:** v1.24.4 (Phase 6A Step 4 — Payment Recording done)
+> **Next Build:** Phase 6A Step 5 (Send & Client Portal) or deploy v1.24.4 to verify Step 4 checkpoint
 > **Deployed Version:** v1.19.2 on staging
 > **Local Repo:** `C:\Github\EL Core\`
 > **Plugin Source:** `C:\Github\EL Core\el-core\`
@@ -564,15 +564,15 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ### Step 3 — Invoice CRUD
 
-- [ ] Build `admin/views/invoice-list.php` and `invoice-edit.php` (org autocomplete, line items, calculations)
-- [ ] AJAX: create, update, delete, duplicate, get invoice
-- [ ] Auto-increment invoice numbers (ELS-YYYY-NNN)
+- [x] Build `admin/views/invoice-list.php` and `invoice-edit.php` (org autocomplete, line items, calculations)
+- [x] AJAX: create, update, delete, duplicate, get invoice
+- [x] Auto-increment invoice numbers (ELS-YYYY-NNN)
 - [ ] **Checkpoint:** Create invoice, add line items, save, view in list
 
 ### Step 4 — Payment Recording
 
-- [ ] Payment modal in admin; AJAX: record payment, delete payment
-- [ ] Auto-update invoice totals and status; overdue detection on page load
+- [x] Payment modal in admin; AJAX: record payment, delete payment
+- [x] Auto-update invoice totals and status; overdue detection on page load
 - [ ] **Checkpoint:** Record payment, status changes, overdue flagging works
 
 ### Step 5 — Send & Client Portal

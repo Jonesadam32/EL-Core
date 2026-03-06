@@ -3,7 +3,7 @@
  * Plugin Name: EL Core
  * Plugin URI: https://expandedlearningsolutions.com
  * Description: Modular platform for educational organizations. Provides LMS, events, certificates, analytics, and more — all configurable per installation.
- * Version: 1.24.6
+ * Version: 1.24.4
  * Author: Expanded Learning Solutions LLC
  * Author URI: https://expandedlearningsolutions.com
  * License: GPL v2 or later
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // ── Plugin Constants ──
-define( 'EL_CORE_VERSION', '1.24.6' );
+define( 'EL_CORE_VERSION', '1.24.4' );
 define( 'EL_CORE_FILE', __FILE__ );
 define( 'EL_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EL_CORE_URL', plugin_dir_url( __FILE__ ) );

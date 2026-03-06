@@ -6,6 +6,53 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.24.6] — 2026-03-06
+### Fixed
+- **Invoicing** — Invoice list: removed duplicate Edit button; added Delete button (marks invoice as cancelled) for every row, with confirmation.
+
+---
+
+## [1.24.5] — 2026-03-06
+### Added
+- **Invoicing** — Invoice preview and view
+- Preview URL: `/?el_invoice_view=1&id=X` shows printable invoice (customer view) for logged-in users with `view_invoices` or `create_invoices`
+- Invoice list: "View" opens preview in new tab; "Edit" still goes to editor
+- Invoice editor: "Preview" opens same URL in new tab (saved invoice only)
+- Shortcode `[el_invoice_view id="X"]` renders the same invoice view on any page (with permission check)
+### Fixed
+- **Invoicing** — Save Draft: read `line_items` from `$_POST` with `wp_unslash()` so JSON is not corrupted by global sanitization; applies to both create and update invoice
+
+---
+
+## [1.24.4] — 2026-03-04
+### Added
+- **Invoicing (Phase 6A Step 4)** — Payment recording
+- Record Payment modal on invoice list: amount (pre-filled with balance due), payment method (Check, ACH, Wire, Zelle, Other), payment date, reference number, notes
+- AJAX: `inv_record_payment` (creates `el_inv_payments` row, recalculates invoice amount_paid/balance_due/status/paid_date), `inv_delete_payment` (removes payment, recalculates totals)
+- `handle_get_invoice` now returns `payments` array for payment history
+- Auto-update invoice status to paid when balance_due reaches 0, to partial when amount_paid > 0
+- Overdue detection on invoice list page load (sent/viewed/partial with due_date passed and balance_due > 0 → status overdue) — already present in v1.24.2, confirmed in place
+
+---
+## [1.24.3] — 2026-03-04
+### Fixed
+- **Invoicing** — Create Invoice critical error: invoice editor view now builds line-items content as a single string and guards `$core->organizations`; defensive null/array checks for products, contacts, projects, and row data.
+
+---
+
+## [1.24.2] — 2026-03-04
+### Added
+- **Invoicing module (Phase 6A Step 3)** — Invoice CRUD
+- Invoice list admin page: stats (outstanding, overdue, collected month/year), status filter, table with Invoice #, Client, Amount, Status, Issue/Due dates, Balance due, Actions (View/Edit, Duplicate, Record Payment, Cancel)
+- Overdue automation: on list load, invoices with due_date passed and balance_due > 0 marked as overdue
+- Invoice editor (create/edit): organization type-ahead (core search_organizations), billing contact and project dropdowns per org; issue/due date, tax rate; line items table (product dropdown or freeform, qty, unit price, amount); subtotal/tax/total; notes and internal notes; Save Draft, Preview
+- AJAX: `inv_create_invoice`, `inv_update_invoice`, `inv_delete_invoice` (soft cancel), `inv_get_invoice`, `inv_duplicate_invoice`; `inv_get_organization_contacts`, `inv_get_org_projects`
+- Invoice numbers: auto-generated ELS-YYYY-NNN (prefix from settings, sequence per year)
+- Admin JS: org search debounce, contacts/projects on org select; line item product fill, add/remove row, totals recalc; save draft (create/update); list Duplicate and Cancel actions
+- Invoice editor CSS: autocomplete, line-items table, totals block
+
+---
+
 ## [1.24.1] — 2026-03-02
 ### Added
 - **Invoicing module (Phase 6A Step 2)** — Product Management

@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 2, 2026
+> **Last Updated:** March 4, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.24.1 — Invoicing Phase 6A Step 2 (Product Management) done ✅. **Next: Step 3 — Invoice CRUD** (invoice list + invoice editor, line items, auto-number ELS-YYYY-NNN). v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
+> **Current Plugin Version:** 1.24.4 — Invoicing Phase 6A Step 4 (Payment Recording) done ✅. Payment modal, record/delete payment, auto-update totals/status, overdue on load. **Next: Step 5 — Send & Client Portal** (mark sent, wp_mail; [el_client_invoices], [el_invoice_view], print). v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
 
 ---
 
@@ -135,10 +135,10 @@
 
 **Step 6 — Wireframe Annotation (Phase 2H — separate session, do not build yet)**
 
-**Invoicing module** (Phase 6A — Step 2 done; next: Step 3)
+**Invoicing module** (Phase 6A — Step 4 done; next: Step 5)
 - Full build spec: **`docs/cursor-handoff-invoicing-module.md`** (canonical copy in repo)
-- **Done:** Step 1 (DB + skeleton), Step 2 (Product Management — list, add/edit/delete, seed 6 default products). **Next: Step 3 — Invoice CRUD**: build `admin/views/invoice-list.php` and `invoice-edit.php`, org/contact autocomplete, line items, AJAX create/update/delete/duplicate/get, invoice numbers ELS-YYYY-NNN. Checkpoint: create invoice, add line items, save, view in list.
-- Replaces QuickBooks; then Step 4 (payments), Step 5 (send + client portal), Step 6 (revenue + export)
+- **Done:** Step 1 (DB + skeleton), Step 2 (Product Management), Step 3 (Invoice CRUD), Step 4 (Payment Recording — modal, record/delete payment, auto-update status, overdue on load). **Next: Step 5 — Send & Client Portal**: mark sent, wp_mail; [el_client_invoices], [el_invoice_view], print styles.
+- Replaces QuickBooks; then Step 6 (revenue + export)
 
 ---
 
