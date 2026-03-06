@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 6, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.24.7 — Invoicing Phase 6A Step 5 (Send & Client Portal) done ✅. Send/Resend invoice, wp_mail, [el_client_invoices], [el_invoice_view] with print styles, client org access only. **Next: Step 6 — Revenue Dashboard + Export**. v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
+> **Current Plugin Version:** 1.25.0 — Invoicing Phase 6A Step 6 (Revenue Dashboard + Export) done ✅. Revenue metrics, by product/client/month, CSV export. View As from Client profile + client invoices page. **Next:** Deploy v1.25.0 checkpoint; then Phase 6B or other. v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
 
 ---
 
@@ -135,10 +135,10 @@
 
 **Step 6 — Wireframe Annotation (Phase 2H — separate session, do not build yet)**
 
-**Invoicing module** (Phase 6A — Step 5 done; next: Step 6)
+**Invoicing module** (Phase 6A — Step 6 done ✅)
 - Full build spec: **`docs/cursor-handoff-invoicing-module.md`** (canonical copy in repo)
-- **Done:** Step 1 (DB + skeleton), Step 2 (Product Management), Step 3 (Invoice CRUD), Step 4 (Payment Recording), Step 5 (Send & Client Portal — send/resend, wp_mail, [el_client_invoices], [el_invoice_view], print, client org access). **Next: Step 6 — Revenue Dashboard + Export**.
-- Replaces QuickBooks; then Step 6 (revenue + export)
+- **Done:** Step 1–6 (DB, products, CRUD, payments, Send & Client Portal, Revenue Dashboard + CSV export). View As from Clients page.
+- Replaces QuickBooks; Phase 6A complete. Next: Phase 6B (Expand Partners) or deploy checkpoint.
 
 ---
 
