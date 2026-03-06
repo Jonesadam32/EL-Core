@@ -28,6 +28,7 @@ class EL_Invoicing_Module {
     private function init_hooks(): void {
         add_action( 'admin_menu', [ $this, 'register_admin_pages' ], 20 );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
+        add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_assets' ] );
 
         // Invoice CRUD
         add_action( 'el_core_ajax_inv_create_invoice',   [ $this, 'handle_create_invoice' ] );
@@ -82,6 +83,10 @@ class EL_Invoicing_Module {
             wp_die( esc_html__( 'Invoice not found.', 'el-core' ), 404 );
         }
         $invoice = $invoices[0];
+        $effective_user = $this->get_effective_client_user_id();
+        if ( ! $this->can_user_view_invoice( $effective_user, $invoice ) ) {
+            wp_die( esc_html__( 'You do not have permission to view this invoice.', 'el-core' ), 403 );
+        }
         $line_items = $this->core->database->query( 'el_inv_line_items', [ 'invoice_id' => $id ], [ 'orderby' => 'sort_order', 'order' => 'ASC' ] );
         $line_items = is_array( $line_items ) ? $line_items : [];
         $org = $this->core->organizations && $invoice->organization_id
@@ -90,14 +95,23 @@ class EL_Invoicing_Module {
         $contact = $this->core->organizations && $invoice->contact_id
             ? $this->core->organizations->get_contact( (int) $invoice->contact_id )
             : null;
-        $this->render_invoice_view_html( $invoice, $line_items, $org, $contact );
+        $viewing_as_user_id = 0;
+        if ( current_user_can( 'manage_invoices' ) && ! empty( $_GET['el_view_as'] ) ) {
+            $va = absint( $_GET['el_view_as'] );
+            if ( $va && $this->get_effective_client_user_id() === $va ) {
+                $viewing_as_user_id = $va;
+            }
+        }
+        $this->render_invoice_view_html( $invoice, $line_items, $org, $contact, $viewing_as_user_id );
         exit;
     }
 
     /**
      * Output full HTML page for one invoice (preview / print / customer view).
+     *
+     * @param int $viewing_as_user_id When > 0, show "Viewing as [Name] — Exit view" bar (admin only).
      */
-    private function render_invoice_view_html( object $invoice, array $line_items, ?object $org, ?object $contact ): void {
+    private function render_invoice_view_html( object $invoice, array $line_items, ?object $org, ?object $contact, int $viewing_as_user_id = 0 ): void {
         $org_name   = $org ? ( $org->name ?? '' ) : '';
         $contact_name = $contact ? trim( ( $contact->first_name ?? '' ) . ' ' . ( $contact->last_name ?? '' ) ) : '';
         $contact_email = $contact ? ( $contact->email ?? '' ) : '';
@@ -110,6 +124,16 @@ class EL_Invoicing_Module {
         }
         if ( $company_name === '' ) {
             $company_name = 'Expanded Learning Solutions';
+        }
+        $view_as_bar = '';
+        if ( $viewing_as_user_id > 0 ) {
+            $viewing_user = get_user_by( 'id', $viewing_as_user_id );
+            $exit_url = home_url( '/' );
+            $view_as_bar = '<div class="el-inv-view-as-bar el-inv-view-as-active el-inv-no-print" style="background:#f1f5f9;padding:0.5rem 1rem;margin:0 0 1rem;border-bottom:1px solid #e2e8f0;">' .
+                '<span class="el-inv-view-as-label">' . esc_html__( 'Viewing as:', 'el-core' ) . '</span> ' .
+                '<span class="el-inv-view-as-name">' . esc_html( $viewing_user ? $viewing_user->display_name : (string) $viewing_as_user_id ) . '</span> ' .
+                '<a href="' . esc_url( $exit_url ) . '" class="el-inv-view-as-exit">' . esc_html__( 'Exit view', 'el-core' ) . '</a>' .
+                '</div>';
         }
         header( 'Content-Type: text/html; charset=utf-8' );
         ?>
@@ -135,6 +159,7 @@ class EL_Invoicing_Module {
     </style>
 </head>
 <body class="el-inv-view">
+    <?php if ( $view_as_bar ) { echo $view_as_bar; } ?>
     <div class="el-inv-view">
         <h1><?php echo esc_html( __( 'INVOICE', 'el-core' ) ); ?></h1>
         <p class="el-inv-meta">
@@ -196,14 +221,18 @@ class EL_Invoicing_Module {
 
     /**
      * Return invoice view HTML fragment for use in shortcode (no full document).
-     * Caller must ensure user has view_invoices or create_invoices.
+     * Enforces org access for clients (view_invoices only).
      */
     public function get_invoice_view_fragment( int $invoice_id ): string {
         $invoices = $this->core->database->query( 'el_inv_invoices', [ 'id' => $invoice_id ], [ 'limit' => 1 ] );
         if ( empty( $invoices ) ) {
             return '<p class="el-inv-invoice-not-found">' . esc_html__( 'Invoice not found.', 'el-core' ) . '</p>';
         }
-        $invoice    = $invoices[0];
+        $invoice = $invoices[0];
+        $effective_user = $this->get_effective_client_user_id();
+        if ( ! $this->can_user_view_invoice( $effective_user, $invoice ) ) {
+            return '<p class="el-inv-invoice-not-found">' . esc_html__( 'You do not have permission to view this invoice.', 'el-core' ) . '</p>';
+        }
         $line_items = $this->core->database->query( 'el_inv_line_items', [ 'invoice_id' => $invoice_id ], [ 'orderby' => 'sort_order', 'order' => 'ASC' ] );
         $line_items = is_array( $line_items ) ? $line_items : [];
         $org        = $this->core->organizations && $invoice->organization_id ? $this->core->organizations->get_organization( (int) $invoice->organization_id ) : null;
@@ -469,6 +498,22 @@ class EL_Invoicing_Module {
             'ajaxUrl' => admin_url( 'admin-ajax.php' ),
             'nonce'   => wp_create_nonce( 'el_core_nonce' ),
         ] );
+    }
+
+    /**
+     * Enqueue front-end assets when client shortcodes are present.
+     */
+    public function enqueue_frontend_assets(): void {
+        global $post;
+        if ( ! $post || ! has_shortcode( $post->post_content, 'el_client_invoices' ) && ! has_shortcode( $post->post_content, 'el_invoice_view' ) ) {
+            return;
+        }
+        wp_enqueue_style(
+            'el-invoicing-front',
+            EL_CORE_URL . 'modules/invoicing/assets/css/invoicing.css',
+            [],
+            EL_CORE_VERSION
+        );
     }
 
     // ═══════════════════════════════════════════
@@ -883,7 +928,81 @@ class EL_Invoicing_Module {
         EL_AJAX_Handler::success( [ 'invoice_id' => $new_id, 'invoice_number' => $new_number ] );
     }
 
-    public function handle_send_invoice( array $data ): void    { $this->ajax_not_implemented( 'create_invoices' ); }
+    public function handle_send_invoice( array $data ): void {
+        if ( ! current_user_can( 'create_invoices' ) ) {
+            wp_send_json_error( [ 'message' => 'Forbidden' ], 403 );
+        }
+        $invoice_id = absint( $data['invoice_id'] ?? 0 );
+        if ( ! $invoice_id ) {
+            wp_send_json_error( [ 'message' => __( 'Invalid invoice.', 'el-core' ) ], 400 );
+        }
+        $invoices = $this->core->database->query( 'el_inv_invoices', [ 'id' => $invoice_id ], [ 'limit' => 1 ] );
+        if ( empty( $invoices ) ) {
+            wp_send_json_error( [ 'message' => __( 'Invoice not found.', 'el-core' ) ], 404 );
+        }
+        $inv = $invoices[0];
+        if ( $inv->status === 'cancelled' ) {
+            wp_send_json_error( [ 'message' => __( 'Cannot send a cancelled invoice.', 'el-core' ) ], 400 );
+        }
+
+        $now = current_time( 'mysql' );
+        $issue_date = $inv->issue_date ? $inv->issue_date : gmdate( 'Y-m-d' );
+        $this->core->database->update( 'el_inv_invoices', [
+            'status'    => 'sent',
+            'sent_at'   => $now,
+            'issue_date' => $issue_date,
+            'updated_at' => $now,
+        ], [ 'id' => $invoice_id ] );
+
+        $org = $this->core->organizations->get_organization( (int) $inv->organization_id );
+        $contact = $inv->contact_id ? $this->core->organizations->get_contact( (int) $inv->contact_id ) : null;
+        if ( ! $contact && $org ) {
+            $contact = $this->core->organizations->get_primary_contact( (int) $inv->organization_id );
+        }
+        $to_email = $contact && ! empty( $contact->email ) ? $contact->email : '';
+        if ( $to_email === '' && $org ) {
+            $contacts = $this->core->organizations->get_contacts( (int) $inv->organization_id );
+            foreach ( $contacts as $c ) {
+                if ( ! empty( $c->email ) ) {
+                    $to_email = $c->email;
+                    break;
+                }
+            }
+        }
+        $company_name = $this->core->settings->get( 'mod_invoicing', 'company_name', '' );
+        if ( $company_name === '' && function_exists( 'el_core_get_org_name' ) ) {
+            $company_name = el_core_get_org_name();
+        }
+        if ( $company_name === '' ) {
+            $company_name = 'Expanded Learning Solutions';
+        }
+        $view_url = home_url( '/?el_invoice_view=1&id=' . $invoice_id );
+        $subject = sprintf(
+            /* translators: 1: invoice number, 2: company name */
+            __( 'Invoice %1$s from %2$s', 'el-core' ),
+            $inv->invoice_number,
+            $company_name
+        );
+        $total = number_format( (float) $inv->total, 2 );
+        $body = sprintf(
+            /* translators: 1: company name, 2: invoice number, 3: total amount, 4: view URL */
+            __( "Hello,\n\nYou have received an invoice from %1\$s.\n\nInvoice: %2\$s\nAmount: $%3\$s\n\nView your invoice: %4\$s\n\nThank you.", 'el-core' ),
+            $company_name,
+            $inv->invoice_number,
+            $total,
+            $view_url
+        );
+        $sent = false;
+        if ( $to_email !== '' ) {
+            $headers = [ 'Content-Type: text/plain; charset=UTF-8' ];
+            $sent = wp_mail( $to_email, $subject, $body, $headers );
+        }
+
+        $message = $sent
+            ? __( 'Invoice sent.', 'el-core' )
+            : __( 'Invoice marked as sent. No email was sent (no recipient address).', 'el-core' );
+        EL_AJAX_Handler::success( [ 'email_sent' => $sent ], $message );
+    }
 
     public function handle_record_payment( array $data ): void {
         if ( ! current_user_can( 'manage_invoices' ) ) {
@@ -948,9 +1067,349 @@ class EL_Invoicing_Module {
         $this->recalc_invoice_from_payments( $invoice_id );
         EL_AJAX_Handler::success( [ 'message' => __( 'Payment removed.', 'el-core' ) ] );
     }
-    public function handle_get_revenue_data( array $data ): void { $this->ajax_not_implemented( 'manage_invoices' ); }
-    public function handle_export_csv( array $data ): void     { $this->ajax_not_implemented( 'manage_invoices' ); }
-    public function handle_get_client_invoices( array $data ): void { $this->ajax_not_implemented( 'view_invoices' ); }
+    /**
+     * Get revenue dashboard data (metrics, by product, by client, by month). Used by admin view and AJAX.
+     */
+    public function get_revenue_data(): array {
+        global $wpdb;
+        $inv_table   = $this->core->database->get_table_name( 'el_inv_invoices' );
+        $pay_table   = $this->core->database->get_table_name( 'el_inv_payments' );
+        $line_table  = $this->core->database->get_table_name( 'el_inv_line_items' );
+        $prod_table  = $this->core->database->get_table_name( 'el_inv_products' );
+        $org_table   = $this->core->database->get_table_name( 'el_organizations' );
+
+        $y = (int) gmdate( 'Y' );
+        $m = (int) gmdate( 'n' );
+        $month_start = $y . '-' . str_pad( (string) $m, 2, '0', STR_PAD_LEFT ) . '-01';
+        $month_end   = gmdate( 'Y-m-t', strtotime( $month_start ) );
+        $quarter_start = $y . '-' . str_pad( (string) ( ( (int) ( ( $m - 1 ) / 3 ) ) * 3 + 1 ), 2, '0', STR_PAD_LEFT ) . '-01';
+        $quarter_end   = gmdate( 'Y-m-t', strtotime( $quarter_start . ' +2 months' ) );
+        $year_start  = $y . '-01-01';
+        $year_end    = $y . '-12-31';
+
+        $revenue_month  = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM {$pay_table} WHERE payment_date >= %s AND payment_date <= %s",
+            $month_start, $month_end
+        ) );
+        $revenue_quarter = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM {$pay_table} WHERE payment_date >= %s AND payment_date <= %s",
+            $quarter_start, $quarter_end
+        ) );
+        $revenue_year   = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM {$pay_table} WHERE YEAR(payment_date) = %d",
+            $y
+        ) );
+        $prior_year     = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM {$pay_table} WHERE YEAR(payment_date) = %d",
+            $y - 1
+        ) );
+        $total_outstanding = (float) $wpdb->get_var(
+            "SELECT COALESCE(SUM(balance_due), 0) FROM {$inv_table} WHERE status != 'cancelled'"
+        );
+        $total_overdue = (float) $wpdb->get_var(
+            "SELECT COALESCE(SUM(balance_due), 0) FROM {$inv_table} WHERE status = 'overdue'"
+        );
+        $avg_days = $wpdb->get_var(
+            "SELECT AVG(DATEDIFF(paid_date, issue_date)) FROM {$inv_table} WHERE status = 'paid' AND paid_date IS NOT NULL AND issue_date IS NOT NULL"
+        );
+        $avg_days_to_payment = $avg_days !== null ? round( (float) $avg_days, 1 ) : null;
+
+        $by_product = $wpdb->get_results(
+            "SELECT p.id, p.name, COALESCE(SUM(li.amount), 0) AS total_invoiced
+             FROM {$prod_table} p
+             LEFT JOIN {$line_table} li ON li.product_id = p.id
+             LEFT JOIN {$inv_table} i ON i.id = li.invoice_id AND i.status != 'cancelled'
+             GROUP BY p.id, p.name ORDER BY total_invoiced DESC",
+            OBJECT_K
+        );
+        $grand_invoiced = (float) $wpdb->get_var( "SELECT COALESCE(SUM(total), 0) FROM {$inv_table} WHERE status != 'cancelled'" );
+        foreach ( (array) $by_product as $k => $row ) {
+            $by_product[ $k ]->total_invoiced = (float) $row->total_invoiced;
+            $by_product[ $k ]->pct = $grand_invoiced > 0 ? round( 100 * (float) $row->total_invoiced / $grand_invoiced, 1 ) : 0;
+        }
+
+        $by_client = $wpdb->get_results(
+            "SELECT o.id, o.name AS org_name,
+                    COALESCE(SUM(i.total), 0) AS total_invoiced,
+                    COALESCE(SUM(i.amount_paid), 0) AS total_paid,
+                    COALESCE(SUM(i.balance_due), 0) AS outstanding
+             FROM {$org_table} o
+             LEFT JOIN {$inv_table} i ON i.organization_id = o.id AND i.status != 'cancelled'
+             GROUP BY o.id, o.name
+             HAVING total_invoiced > 0
+             ORDER BY total_paid DESC",
+            OBJECT_K
+        );
+        foreach ( (array) $by_client as $k => $row ) {
+            $by_client[ $k ]->total_invoiced = (float) $row->total_invoiced;
+            $by_client[ $k ]->total_paid    = (float) $row->total_paid;
+            $by_client[ $k ]->outstanding   = (float) $row->outstanding;
+        }
+
+        $by_month = [];
+        for ( $i = 11; $i >= 0; $i-- ) {
+            $mo = gmdate( 'Y-m', strtotime( $month_start . " -{$i} months" ) );
+            $mo_start = $mo . '-01';
+            $mo_end   = gmdate( 'Y-m-t', strtotime( $mo_start ) );
+            $invoiced = (float) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COALESCE(SUM(total), 0) FROM {$inv_table} WHERE status != 'cancelled' AND issue_date >= %s AND issue_date <= %s",
+                $mo_start, $mo_end
+            ) );
+            $collected = (float) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COALESCE(SUM(amount), 0) FROM {$pay_table} WHERE payment_date >= %s AND payment_date <= %s",
+                $mo_start, $mo_end
+            ) );
+            $by_month[] = [ 'month' => $mo, 'label' => date_i18n( 'M Y', strtotime( $mo_start ) ), 'invoiced' => $invoiced, 'collected' => $collected ];
+        }
+
+        return [
+            'revenue_month'          => $revenue_month,
+            'revenue_quarter'        => $revenue_quarter,
+            'revenue_year'           => $revenue_year,
+            'prior_year'             => $prior_year,
+            'prior_year_pct_change'  => $prior_year > 0 ? round( 100 * ( $revenue_year - $prior_year ) / $prior_year, 1 ) : null,
+            'total_outstanding'      => $total_outstanding,
+            'total_overdue'          => $total_overdue,
+            'avg_days_to_payment'    => $avg_days_to_payment,
+            'by_product'             => array_values( (array) $by_product ),
+            'by_client'              => array_values( (array) $by_client ),
+            'by_month'               => $by_month,
+        ];
+    }
+
+    public function handle_get_revenue_data( array $data ): void {
+        if ( ! current_user_can( 'manage_invoices' ) ) {
+            wp_send_json_error( [ 'message' => 'Forbidden' ], 403 );
+        }
+        EL_AJAX_Handler::success( $this->get_revenue_data() );
+    }
+
+    public function handle_export_csv( array $data ): void {
+        if ( ! current_user_can( 'manage_invoices' ) ) {
+            wp_die( esc_html__( 'Forbidden.', 'el-core' ), 403 );
+        }
+        $period = isset( $data['period'] ) ? sanitize_text_field( $data['period'] ) : 'month';
+        $start  = isset( $data['start_date'] ) ? sanitize_text_field( $data['start_date'] ) : '';
+        $end    = isset( $data['end_date'] ) ? sanitize_text_field( $data['end_date'] ) : '';
+
+        global $wpdb;
+        $inv_table  = $this->core->database->get_table_name( 'el_inv_invoices' );
+        $pay_table  = $this->core->database->get_table_name( 'el_inv_payments' );
+        $line_table = $this->core->database->get_table_name( 'el_inv_line_items' );
+        $org_table  = $this->core->database->get_table_name( 'el_organizations' );
+
+        if ( $period === 'month' && $start && $end ) {
+            $filename = 'els-invoices-' . $start . '.csv';
+            $invoices = $wpdb->get_results( $wpdb->prepare(
+                "SELECT i.*, o.name AS org_name FROM {$inv_table} i
+                 LEFT JOIN {$org_table} o ON o.id = i.organization_id
+                 WHERE i.status != 'cancelled' AND i.issue_date >= %s AND i.issue_date <= %s ORDER BY i.issue_date, i.id",
+                $start . '-01', gmdate( 'Y-m-t', strtotime( $start . '-01' ) )
+            ) );
+            $rows = [];
+            foreach ( (array) $invoices as $inv ) {
+                $descriptions = $wpdb->get_col( $wpdb->prepare(
+                    "SELECT description FROM {$line_table} WHERE invoice_id = %d ORDER BY sort_order",
+                    $inv->id
+                ) );
+                $desc = implode( '; ', (array) $descriptions );
+                $latest_pay = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT payment_date, payment_method FROM {$pay_table} WHERE invoice_id = %d ORDER BY payment_date DESC LIMIT 1",
+                    $inv->id
+                ) );
+                $rows[] = [
+                    $inv->issue_date ?? '',
+                    $inv->invoice_number,
+                    $inv->org_name ?? '',
+                    $desc,
+                    number_format( (float) $inv->total, 2 ),
+                    $inv->status === 'paid' ? 'paid' : ( (float) $inv->amount_paid > 0 ? 'partial' : 'unpaid' ),
+                    $latest_pay ? $latest_pay->payment_date : ( $inv->paid_date ?? '' ),
+                    $latest_pay ? $latest_pay->payment_method : '',
+                    number_format( (float) $inv->amount_paid, 2 ),
+                    number_format( (float) $inv->balance_due, 2 ),
+                ];
+            }
+            $headers = [ 'Date', 'Invoice Number', 'Client Name', 'Description', 'Amount', 'Payment Status', 'Payment Date', 'Payment Method', 'Amount Paid', 'Balance Due' ];
+        } elseif ( $period === 'quarter' || $period === 'year' ) {
+            $year = $period === 'year' ? ( $start ? (int) substr( $start, 0, 4 ) : (int) gmdate( 'Y' ) ) : ( $start ? (int) substr( $start, 0, 4 ) : (int) gmdate( 'Y' ) );
+            $filename = $period === 'year' ? "els-revenue-summary-{$year}.csv" : "els-revenue-summary-{$year}-Q" . ( $period === 'quarter' && $start ? ceil( (int) substr( $start, 5, 2 ) / 3 ) : ceil( (int) gmdate( 'n' ) / 3 ) ) . ".csv";
+            $months = $period === 'year' ? 12 : 3;
+            $rows = [];
+            for ( $mo = 1; $mo <= ( $period === 'year' ? 12 : 3 ); $mo++ ) {
+                $mo_start = $year . '-' . str_pad( (string) ( $period === 'year' ? $mo : ( ( ceil( (int) gmdate( 'n' ) / 3 ) - 1 ) * 3 + $mo ) ), 2, '0', STR_PAD_LEFT ) . '-01';
+                if ( $period === 'quarter' ) {
+                    $q = (int) ceil( (int) gmdate( 'n' ) / 3 );
+                    $mo_start = $year . '-' . str_pad( (string) ( ( $q - 1 ) * 3 + $mo ), 2, '0', STR_PAD_LEFT ) . '-01';
+                }
+                if ( strtotime( $mo_start ) > strtotime( gmdate( 'Y-m-d' ) ) ) {
+                    continue;
+                }
+                $mo_end = gmdate( 'Y-m-t', strtotime( $mo_start ) );
+                $invoiced = (float) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COALESCE(SUM(total), 0) FROM {$inv_table} WHERE status != 'cancelled' AND issue_date >= %s AND issue_date <= %s",
+                    $mo_start, $mo_end
+                ) );
+                $collected = (float) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COALESCE(SUM(amount), 0) FROM {$pay_table} WHERE payment_date >= %s AND payment_date <= %s",
+                    $mo_start, $mo_end
+                ) );
+                $n_inv = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$inv_table} WHERE status != 'cancelled' AND issue_date >= %s AND issue_date <= %s",
+                    $mo_start, $mo_end
+                ) );
+                $n_pay = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$pay_table} WHERE payment_date >= %s AND payment_date <= %s",
+                    $mo_start, $mo_end
+                ) );
+                $outstanding = (float) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COALESCE(SUM(balance_due), 0) FROM {$inv_table} WHERE status != 'cancelled' AND issue_date <= %s",
+                    $mo_end
+                ) );
+                $rows[] = [ date_i18n( 'Y-m', strtotime( $mo_start ) ), number_format( $invoiced, 2 ), number_format( $collected, 2 ), number_format( $outstanding, 2 ), $n_inv, $n_pay ];
+            }
+            $headers = [ 'Period', 'Total Invoiced', 'Total Collected', 'Outstanding', 'Number of Invoices', 'Number of Payments' ];
+        } else {
+            wp_die( esc_html__( 'Invalid export period.', 'el-core' ), 400 );
+        }
+
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'Cache-Control: no-cache, no-store, must-revalidate' );
+        $out = fopen( 'php://output', 'w' );
+        fputcsv( $out, $headers );
+        foreach ( $rows as $row ) {
+            fputcsv( $out, $row );
+        }
+        fclose( $out );
+        exit;
+    }
+
+    /**
+     * User ID to use for client portal context (current user, or "view as" target when admin uses View As).
+     */
+    public function get_effective_client_user_id(): int {
+        $current = get_current_user_id();
+        if ( ! $current || ! current_user_can( 'manage_invoices' ) ) {
+            return $current;
+        }
+        $view_as = isset( $_GET['el_view_as'] ) ? absint( $_GET['el_view_as'] ) : 0;
+        if ( ! $view_as || $view_as === $current ) {
+            return $current;
+        }
+        $user = get_user_by( 'id', $view_as );
+        if ( ! $user ) {
+            return $current;
+        }
+        global $wpdb;
+        $contact_table = $this->core->database->get_table_name( 'el_contacts' );
+        $has_contact = $wpdb->get_var( $wpdb->prepare(
+            "SELECT 1 FROM {$contact_table} WHERE user_id = %d LIMIT 1",
+            $view_as
+        ) );
+        if ( ! $has_contact ) {
+            return $current;
+        }
+        return $view_as;
+    }
+
+    /**
+     * Get organization IDs the current user (or view-as user) can see (via el_contacts.user_id).
+     */
+    public function get_organization_ids_for_current_user(): array {
+        return $this->get_organization_ids_for_user( $this->get_effective_client_user_id() );
+    }
+
+    /**
+     * List of clients (users linked to a contact) for the View As dropdown. Only for manage_invoices.
+     */
+    public function get_view_as_client_list(): array {
+        if ( ! current_user_can( 'manage_invoices' ) ) {
+            return [];
+        }
+        global $wpdb;
+        $contact_table = $this->core->database->get_table_name( 'el_contacts' );
+        $org_table = $this->core->database->get_table_name( 'el_organizations' );
+        $user_ids = $wpdb->get_col(
+            "SELECT DISTINCT c.user_id FROM {$contact_table} c WHERE c.user_id > 0 ORDER BY c.user_id ASC"
+        );
+        if ( empty( $user_ids ) ) {
+            return [];
+        }
+        $list = [];
+        foreach ( array_map( 'intval', $user_ids ) as $uid ) {
+            $user = get_user_by( 'id', $uid );
+            if ( ! $user ) {
+                continue;
+            }
+            $org_name = $wpdb->get_var( $wpdb->prepare(
+                "SELECT o.name FROM {$contact_table} c LEFT JOIN {$org_table} o ON o.id = c.organization_id WHERE c.user_id = %d LIMIT 1",
+                $uid
+            ) );
+            $list[] = [
+                'user_id'      => $uid,
+                'display_name' => $user->display_name ?: ( $user->user_login ?? (string) $uid ),
+                'org_name'     => $org_name ?: '',
+            ];
+        }
+        return $list;
+    }
+
+    public function handle_get_client_invoices( array $data ): void {
+        if ( ! current_user_can( 'view_invoices' ) ) {
+            wp_send_json_error( [ 'message' => 'Forbidden' ], 403 );
+        }
+        $org_ids = $this->get_organization_ids_for_current_user();
+        if ( empty( $org_ids ) ) {
+            EL_AJAX_Handler::success( [ 'invoices' => [], 'outstanding' => 0 ] );
+            return;
+        }
+        global $wpdb;
+        $inv_table = $this->core->database->get_table_name( 'el_inv_invoices' );
+        $placeholders = implode( ',', array_fill( 0, count( $org_ids ), '%d' ) );
+        $invoices = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$inv_table} WHERE organization_id IN ({$placeholders}) AND status != 'cancelled' ORDER BY created_at DESC",
+            ...$org_ids
+        ) );
+        $outstanding = 0;
+        foreach ( (array) $invoices as $inv ) {
+            $outstanding += (float) $inv->balance_due;
+        }
+        EL_AJAX_Handler::success( [
+            'invoices'   => $invoices,
+            'outstanding' => round( $outstanding, 2 ),
+        ] );
+    }
+
+    /**
+     * Whether the current user is allowed to view this invoice (admin/staff = true, client = only if invoice belongs to their org).
+     */
+    public function can_user_view_invoice( int $user_id, object $invoice ): bool {
+        if ( user_can( $user_id, 'manage_invoices' ) || user_can( $user_id, 'create_invoices' ) ) {
+            return true;
+        }
+        if ( ! user_can( $user_id, 'view_invoices' ) ) {
+            return false;
+        }
+        $org_ids = $this->get_organization_ids_for_user( $user_id );
+        return in_array( (int) $invoice->organization_id, $org_ids, true );
+    }
+
+    /**
+     * Get organization IDs for a given user (via el_contacts.user_id).
+     */
+    private function get_organization_ids_for_user( int $user_id ): array {
+        if ( ! $user_id ) {
+            return [];
+        }
+        global $wpdb;
+        $contact_table = $this->core->database->get_table_name( 'el_contacts' );
+        $ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT DISTINCT organization_id FROM {$contact_table} WHERE user_id = %d AND organization_id > 0",
+            $user_id
+        ) );
+        return array_map( 'intval', array_filter( (array) $ids ) );
+    }
 
     /**
      * Stub response for AJAX actions not yet implemented.

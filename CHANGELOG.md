@@ -6,6 +6,40 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.25.0] — 2026-03-06
+### Added
+- **Invoicing (Phase 6A Step 6)** — Revenue Dashboard + Export
+- Revenue admin page (EL Core → Revenue): metric cards (this month, quarter, year, outstanding, overdue, avg days to payment), revenue by product (table + bar), revenue by client (table), revenue by month (last 12 months)
+- CSV export: Export This Month, Export Quarter, Export Year (POST forms to inv_export_csv); monthly = invoice detail (els-invoices-YYYY-MM.csv), quarter/year = summary (els-revenue-summary-YYYY-QN.csv)
+- `get_revenue_data()` method for server-side dashboard rendering
+- Shortcode `[el_revenue_dashboard]` — admin-only, links to Revenue admin page
+
+---
+
+## [1.24.9] — 2026-03-06
+### Added
+- **View As from Clients** — On the admin Client profile page (organization detail), each contact with portal access now has a "View As" button that opens the client portal (invoices page) in a new tab as that contact. Uses the first published page containing `[el_client_invoices]` and appends `?el_view_as=USER_ID`. Helper `el_core_get_client_portal_view_as_url( $user_id )` in `includes/functions.php`.
+
+---
+
+## [1.24.8] — 2026-03-06
+### Added
+- **Invoicing** — "View As" for client portal: admins (manage_invoices) can select a client from a dropdown on the [el_client_invoices] page to see invoices as that client; URL uses `?el_view_as=USER_ID`; "Viewing as [Name] — Exit view" bar when active; invoice view links and full-page invoice view preserve view-as context and show Exit bar
+
+---
+
+## [1.24.7] — 2026-03-06
+### Added
+- **Invoicing (Phase 6A Step 5)** — Send & Client Portal
+- Send invoice: admin can Send (draft) or Resend (sent) from list or editor; marks status `sent`, sets `sent_at` and `issue_date` if missing; sends email via `wp_mail()` to billing contact (or org primary/first contact) with invoice summary and view link
+- Client portal shortcode `[el_client_invoices]`: shows outstanding balance and table of invoices for the logged-in user’s organization(s) (resolved via `el_contacts.user_id`); links to invoice view
+- Invoice view access: clients (view_invoices only) can only open invoices for their own organization; admins/editors can view any
+- Invoice list: Send / Resend button per row (draft → Send, sent/viewed/partial → Resend)
+- Invoice editor: “Send Invoice” button (saved invoice only)
+- Print styles for invoice view (hide nav/print button when printing; page-break rules)
+- Front-end CSS enqueued when `[el_client_invoices]` or `[el_invoice_view]` is on the page
+
+---
 ## [1.24.6] — 2026-03-06
 ### Fixed
 - **Invoicing** — Invoice list: removed duplicate Edit button; added Delete button (marks invoice as cancelled) for every row, with confirmation.

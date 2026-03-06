@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 4, 2026
+> **Last Updated:** March 6, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.24.4 — Invoicing Phase 6A Step 4 (Payment Recording) done ✅. Payment modal, record/delete payment, auto-update totals/status, overdue on load. **Next: Step 5 — Send & Client Portal** (mark sent, wp_mail; [el_client_invoices], [el_invoice_view], print). v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
+> **Current Plugin Version:** 1.24.7 — Invoicing Phase 6A Step 5 (Send & Client Portal) done ✅. Send/Resend invoice, wp_mail, [el_client_invoices], [el_invoice_view] with print styles, client org access only. **Next: Step 6 — Revenue Dashboard + Export**. v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
 
 ---
 
@@ -135,9 +135,9 @@
 
 **Step 6 — Wireframe Annotation (Phase 2H — separate session, do not build yet)**
 
-**Invoicing module** (Phase 6A — Step 4 done; next: Step 5)
+**Invoicing module** (Phase 6A — Step 5 done; next: Step 6)
 - Full build spec: **`docs/cursor-handoff-invoicing-module.md`** (canonical copy in repo)
-- **Done:** Step 1 (DB + skeleton), Step 2 (Product Management), Step 3 (Invoice CRUD), Step 4 (Payment Recording — modal, record/delete payment, auto-update status, overdue on load). **Next: Step 5 — Send & Client Portal**: mark sent, wp_mail; [el_client_invoices], [el_invoice_view], print styles.
+- **Done:** Step 1 (DB + skeleton), Step 2 (Product Management), Step 3 (Invoice CRUD), Step 4 (Payment Recording), Step 5 (Send & Client Portal — send/resend, wp_mail, [el_client_invoices], [el_invoice_view], print, client org access). **Next: Step 6 — Revenue Dashboard + Export**.
 - Replaces QuickBooks; then Step 6 (revenue + export)
 
 ---

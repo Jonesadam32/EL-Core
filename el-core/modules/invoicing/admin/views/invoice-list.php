@@ -117,6 +117,23 @@ foreach ( $invoices as $inv ) {
     $edit_url = add_query_arg( 'invoice_id', $inv->id, $base_url );
     $view_url = home_url( '/?el_invoice_view=1&id=' . (int) $inv->id );
     $actions  = '<a href="' . esc_url( $view_url ) . '" target="_blank" rel="noopener" class="el-btn el-btn-ghost" title="' . esc_attr__( 'View invoice (customer view)', 'el-core' ) . '"><span class="dashicons dashicons-visibility"></span>' . esc_html__( 'View', 'el-core' ) . '</a>';
+    if ( $inv->status !== 'cancelled' && $inv->status !== 'draft' ) {
+        $actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Resend', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'email-alt',
+            'class'   => 'el-inv-btn-send-invoice',
+            'data'    => [ 'invoice-id' => $inv->id ],
+        ] );
+    } elseif ( $inv->status === 'draft' ) {
+        $actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Send', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'email-alt',
+            'class'   => 'el-inv-btn-send-invoice',
+            'data'    => [ 'invoice-id' => $inv->id ],
+        ] );
+    }
     $actions .= EL_Admin_UI::btn( [
         'label'   => __( 'Edit', 'el-core' ),
         'variant' => 'ghost',

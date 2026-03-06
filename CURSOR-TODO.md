@@ -4,9 +4,9 @@
 > Read this at the start of every session. Work through tasks in order. Check off completed items with [x].
 > Push to GitHub after every session so this stays current.
 >
-> **Last Updated:** March 4, 2026
-> **Plugin Version:** v1.24.4 (Phase 6A Step 4 — Payment Recording done)
-> **Next Build:** Phase 6A Step 5 (Send & Client Portal) or deploy v1.24.4 to verify Step 4 checkpoint
+> **Last Updated:** March 6, 2026
+> **Plugin Version:** v1.25.0 (Phase 6A Step 6 — Revenue Dashboard + Export done)
+> **Next Build:** Deploy v1.25.0 to verify Step 6 checkpoint
 > **Deployed Version:** v1.19.2 on staging
 > **Local Repo:** `C:\Github\EL Core\`
 > **Plugin Source:** `C:\Github\EL Core\el-core\`
@@ -577,12 +577,12 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ### Step 5 — Send & Client Portal
 
-- [ ] Send invoice (mark sent, wp_mail); build `[el_client_invoices]` and `[el_invoice_view]` shortcodes with print styles
+- [x] Send invoice (mark sent, wp_mail); build `[el_client_invoices]` and `[el_invoice_view]` shortcodes with print styles
 - [ ] **Checkpoint:** Send invoice, client sees in portal, print looks professional
 
 ### Step 6 — Revenue Dashboard + Export
 
-- [ ] Build `[el_revenue_dashboard]` shortcode (charts, breakdowns); CSV export handler
+- [x] Build `[el_revenue_dashboard]` shortcode (charts, breakdowns); CSV export handler
 - [ ] **Checkpoint:** Dashboard accurate, CSV exports correctly
 
 ---

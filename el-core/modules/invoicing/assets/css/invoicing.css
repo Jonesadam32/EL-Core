@@ -140,3 +140,173 @@
     padding-top: 8px;
     border-top: 1px solid var(--el-admin-border, #e5e7eb);
 }
+
+/* Client portal (Step 5) */
+.el-inv-view-as-bar {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9375rem;
+}
+.el-inv-view-as-bar.el-inv-view-as-active {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+.el-inv-view-as-label {
+    font-weight: 600;
+    color: #475569;
+}
+.el-inv-view-as-name {
+    color: #1e40af;
+}
+.el-inv-view-as-exit {
+    margin-left: 0.5rem;
+    color: var(--el-primary, #2563eb);
+    text-decoration: none;
+}
+.el-inv-view-as-exit:hover {
+    text-decoration: underline;
+}
+.el-inv-view-as-select {
+    margin-left: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.9375rem;
+    min-width: 200px;
+}
+.el-inv-client-invoices {
+    max-width: 900px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.el-inv-client-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+.el-inv-client-login-required,
+.el-inv-client-empty {
+    color: #64748b;
+}
+.el-inv-client-outstanding {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    font-weight: 600;
+}
+.el-inv-client-outstanding-amount {
+    margin-left: 0.5rem;
+    color: #0f766e;
+}
+.el-inv-client-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.el-inv-client-table th,
+.el-inv-client-table td {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+.el-inv-client-table th {
+    background: #f1f5f9;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+.el-inv-client-table .el-inv-col-right {
+    text-align: right;
+}
+.el-inv-client-link {
+    color: var(--el-primary, #2563eb);
+    text-decoration: none;
+}
+.el-inv-client-link:hover {
+    text-decoration: underline;
+}
+.el-inv-client-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+.el-inv-status-draft { background: #e2e8f0; color: #475569; }
+.el-inv-status-sent,
+.el-inv-status-viewed { background: #dbeafe; color: #1d4ed8; }
+.el-inv-status-partial { background: #fef3c7; color: #b45309; }
+.el-inv-status-paid { background: #d1fae5; color: #047857; }
+.el-inv-status-overdue { background: #fee2e2; color: #b91c1c; }
+.el-inv-client-view-btn {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    background: var(--el-primary, #2563eb);
+    color: #fff;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.875rem;
+}
+.el-inv-client-view-btn:hover {
+    opacity: 0.9;
+    color: #fff;
+}
+
+/* Invoice view & print (Step 5) */
+.el-inv-view.el-inv-invoice-view {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    color: #1a1a1a;
+}
+.el-inv-view .el-inv-print {
+    margin-top: 1.5rem;
+}
+/* Revenue dashboard (Step 6) */
+.el-inv-rev-bar-wrap {
+    width: 120px;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.el-inv-rev-bar {
+    height: 100%;
+    background: var(--el-primary, #2563eb);
+    border-radius: 4px;
+    min-width: 2px;
+}
+.el-inv-rev-bar-col {
+    width: 140px;
+}
+.el-inv-export-form {
+    margin: 0;
+}
+.el-inv-export-form .el-btn {
+    margin: 0;
+}
+
+@media print {
+    .el-inv-view .el-inv-print,
+    .el-inv-no-print {
+        display: none !important;
+    }
+    body {
+        margin: 0;
+        padding: 0;
+    }
+    .el-inv-view,
+    .el-inv-view.el-inv-invoice-view {
+        max-width: none;
+        padding: 0;
+    }
+    .el-inv-view table {
+        page-break-inside: avoid;
+    }
+}

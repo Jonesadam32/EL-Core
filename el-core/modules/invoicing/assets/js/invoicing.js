@@ -227,6 +227,33 @@
                 return;
             }
 
+            var sendBtn = e.target.closest('.el-inv-btn-send-invoice');
+            if (sendBtn) {
+                e.preventDefault();
+                var id = sendBtn.dataset.invoiceId;
+                if (!id) return;
+                if (!confirm('Send this invoice to the client by email? It will be marked as sent.')) return;
+                sendBtn.disabled = true;
+                var body = new FormData();
+                body.append('action', 'el_core_action');
+                body.append('el_action', 'inv_send_invoice');
+                body.append('nonce', nonce);
+                body.append('invoice_id', id);
+                fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.success) {
+                            alert((res.data && res.data.message) ? res.data.message : 'Invoice sent.');
+                            window.location.reload();
+                        } else {
+                            alert((res.data && res.data.message) ? res.data.message : 'Send failed.');
+                            sendBtn.disabled = false;
+                        }
+                    })
+                    .catch(function() { alert('Request failed.'); sendBtn.disabled = false; });
+                return;
+            }
+
             var recordPaymentBtn = e.target.closest('.el-inv-btn-record-payment');
             if (recordPaymentBtn) {
                 e.preventDefault();
@@ -552,7 +579,7 @@
             });
         }
 
-        // Preview: open view in new tab (when shortcode exists) or just alert
+        // Preview: open view in new tab
         var previewBtn = document.getElementById('el-inv-btn-preview');
         if (previewBtn) {
             previewBtn.addEventListener('click', function() {
@@ -562,6 +589,43 @@
                 }
                 var viewUrl = window.location.origin + '/?el_invoice_view=1&id=' + invoiceId;
                 window.open(viewUrl, '_blank');
+            });
+        }
+
+        // Send Invoice (from editor)
+        var sendInvoiceBtn = document.getElementById('el-inv-btn-send-invoice');
+        if (sendInvoiceBtn) {
+            sendInvoiceBtn.addEventListener('click', function() {
+                if (!invoiceId || invoiceId === '0') {
+                    alert('Save the invoice first, then send it.');
+                    return;
+                }
+                if (!confirm('Send this invoice to the client by email? It will be marked as sent.')) return;
+                sendInvoiceBtn.disabled = true;
+                sendInvoiceBtn.textContent = 'Sending...';
+                var body = new FormData();
+                body.append('action', 'el_core_action');
+                body.append('el_action', 'inv_send_invoice');
+                body.append('nonce', nonce);
+                body.append('invoice_id', invoiceId);
+                fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.success) {
+                            var msg = (res.data && res.data.message) ? res.data.message : 'Invoice sent.';
+                            alert(msg);
+                            window.location.reload();
+                        } else {
+                            alert((res.data && res.data.message) ? res.data.message : 'Send failed.');
+                            sendInvoiceBtn.disabled = false;
+                            sendInvoiceBtn.textContent = 'Send Invoice';
+                        }
+                    })
+                    .catch(function() {
+                        alert('Request failed.');
+                        sendInvoiceBtn.disabled = false;
+                        sendInvoiceBtn.textContent = 'Send Invoice';
+                    });
             });
         }
     }

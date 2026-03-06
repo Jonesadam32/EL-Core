@@ -123,3 +123,30 @@ function el_core_ai_complete( string $prompt, string $system = '', array $option
         'system' => $system,
     ]));
 }
+
+// ═══════════════════════════════════════════
+// CLIENT PORTAL (VIEW AS)
+// ═══════════════════════════════════════════
+
+/**
+ * URL to open the client portal (or invoices page) "as" a given user (for View As).
+ * Finds the first published page containing [el_client_invoices]; appends ?el_view_as=$user_id.
+ *
+ * @param int $user_id WordPress user ID of the contact (must have portal access).
+ * @return string URL to open in new tab for View As.
+ */
+function el_core_get_client_portal_view_as_url( int $user_id ): string {
+    if ( ! $user_id ) {
+        return home_url( '/' );
+    }
+    static $cached_page_url = null;
+    if ( $cached_page_url === null ) {
+        global $wpdb;
+        $page_id = $wpdb->get_var(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status = 'publish' AND post_content LIKE '%el_client_invoices%' ORDER BY ID ASC LIMIT 1"
+        );
+        $cached_page_url = $page_id ? get_permalink( (int) $page_id ) : home_url( '/' );
+    }
+    $sep = ( strpos( $cached_page_url, '?' ) !== false ) ? '&' : '?';
+    return $cached_page_url . $sep . 'el_view_as=' . $user_id;
+}

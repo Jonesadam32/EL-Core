@@ -130,7 +130,14 @@ if ( empty( $contacts ) ) {
 
         $portal = $c->user_id ? EL_Admin_UI::badge( [ 'label' => 'Portal Access', 'variant' => 'success' ] ) : '—';
 
-        $actions  = EL_Admin_UI::btn( [
+        $actions = '';
+        if ( ! empty( $c->user_id ) ) {
+            $view_as_url = el_core_get_client_portal_view_as_url( (int) $c->user_id );
+            $actions .= '<a href="' . esc_url( $view_as_url ) . '" target="_blank" rel="noopener" class="el-btn el-btn-ghost">'
+                . '<span class="dashicons dashicons-visibility"></span>' . esc_html__( 'View As', 'el-core' )
+                . '</a> ';
+        }
+        $actions .= EL_Admin_UI::btn( [
             'label'   => __( 'Edit', 'el-core' ),
             'variant' => 'ghost',
             'icon'    => 'edit',

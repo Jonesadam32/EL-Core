@@ -108,6 +108,12 @@ ob_start();
                 'id'      => 'el-inv-btn-save-draft',
             ],
             [
+                'label'   => __( 'Send Invoice', 'el-core' ),
+                'variant' => 'primary',
+                'type'    => 'button',
+                'id'      => 'el-inv-btn-send-invoice',
+            ],
+            [
                 'label'   => __( 'Preview', 'el-core' ),
                 'variant' => 'secondary',
                 'type'    => 'button',
