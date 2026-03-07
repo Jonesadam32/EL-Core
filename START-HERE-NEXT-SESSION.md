@@ -5,7 +5,9 @@
 >
 > **Last Updated:** March 6, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.25.0 — Invoicing Phase 6A Step 6 (Revenue Dashboard + Export) done ✅. Revenue metrics, by product/client/month, CSV export. View As from Client profile + client invoices page. **Next:** Deploy v1.25.0 checkpoint; then Phase 6B or other. v1.22.0 Definition Consensus Review System backend DONE, UI NOT YET BUILT.
+> **Current Plugin Version:** 1.26.0 — Definition Consensus Review System (v1.22.0) UI complete ✅. Admin Discovery tab: status badge, Send for Review, comments panel, verdict summary, Lock override. Client portal: full consensus UI (countdown, per-field comments/verdicts, scroll-depth gate, DM decision). **Next:** Deploy v1.26.0, test end-to-end; then Phase 6B or Brand Palette Voting (v1.23.0).
+>
+> **NEW COMPUTER:** Repo backed up to GitHub. Clone, run `.\build-zip.ps1`, upload ZIP. See CURSOR-TODO.md "NEW COMPUTER SETUP" section.
 
 ---
 
@@ -80,7 +82,7 @@
   - `handle_dm_decision` — DM submits final decision, closes review, updates definition status
   - All AJAX hooks registered including `nopriv` variants for logged-in stakeholders on frontend
 
-#### ❌ NOT YET BUILT — start here next session:
+#### ✅ BUILT (v1.26.0):
 1. **Admin UI** (`project-detail.php` Discovery tab):
    - Definition status badge (Draft / Sent for Review / Client Approved / Needs Revision / Locked)
    - "Send to Client for Review" button with deadline date picker
@@ -88,7 +90,7 @@
    - DM verdict summary card ("6 fields accepted, 1 needs revision")
    - Lock button always visible (override), with confirmation prompt if not yet approved
 
-2. **Client Portal** (`expand-site-portal.php` Stage 1):
+2. **Client Portal** (`expand-site-portal.php` Stage 1): ✅
    - Replace current locked-only definition display with full consensus UI
    - Countdown timer showing time remaining in review period
    - Per-field layout: field value → thread of comments → Reply button → "+ Add comment" toggle → "✓ Looks good" / "Needs revision" verdict buttons
@@ -99,11 +101,11 @@
    - "Make Final Decision" section (DM only) — Accept / Needs Revision + note field
    - Post-decision states: approved banner, needs-revision banner with DM note
 
-3. **Admin-side JS** (`expand-site-admin.js`):
+3. **Admin-side JS** (`expand-site-admin.js`): ✅
    - Send for Review form submit handler (with deadline)
    - Comments panel refresh after DM decision
 
-4. **Portal-side JS** (`expand-site.js`):
+4. **Portal-side JS** (`expand-site.js`): ✅
    - Load review data on page load via `es_get_definition_review`
    - Post comment (inline expand/collapse per field)
    - Reply to comment (nested)
@@ -113,7 +115,7 @@
    - DM final decision form submit
    - Handle all post-decision state rendering
 
-5. **CSS** (`expand-site.css` + `admin.css`):
+5. **CSS** (`expand-site.css`): ✅
    - Review status badge styles
    - Per-field comment thread layout
    - Reply nesting indentation
@@ -192,7 +194,8 @@
 | v1.21.2 | Fix: Double-escaping/slashes on transcript + definition fields (wp_unslash + direct $_POST reads) | Built ✅ |
 | v1.21.3 | Fix: site_type VARCHAR(50→100) + DB migration schema v7 | Built ✅ |
 | v1.21.4 | Fix: Remove debug DB error output from handle_save_definition | Uploaded & Tested ✅ |
-| v1.22.0 | Definition Consensus Review System (DB schema v8 + PHP handlers done; UI in progress) | IN PROGRESS 🔨 |
+| v1.22.0 | Definition Consensus Review System (DB schema v8 + PHP handlers done; UI in progress) | DONE ✅ |
+| v1.26.0 | Definition Consensus Review UI complete (admin + portal + JS + CSS) | Built ✅ |
 
 ---
 

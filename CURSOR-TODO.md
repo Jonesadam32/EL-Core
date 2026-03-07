@@ -5,13 +5,31 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 6, 2026
-> **Plugin Version:** v1.25.0 (Phase 6A Step 6 — Revenue Dashboard + Export done)
-> **Next Build:** Deploy v1.25.0 to verify Step 6 checkpoint
+> **Plugin Version:** v1.26.0 (Definition Consensus Review UI complete)
+> **Next Build:** Deploy v1.26.0, test definition review end-to-end
 > **Deployed Version:** v1.19.2 on staging
-> **Local Repo:** `C:\Github\EL Core\`
-> **Plugin Source:** `C:\Github\EL Core\el-core\`
-> **Build Script:** `C:\Github\EL Core\build-zip.ps1` (run from repo root)
-> **Deploy:** Upload `el-core.zip` via WordPress Admin → Plugins → Add New → Upload Plugin
+> **Local Repo:** `C:\Users\jones\Documents\Github\EL-Core` (update path on new computer)
+> **Plugin Source:** `el-core/` folder in repo root
+> **Build Script:** `build-zip.ps1` (run from repo root)
+> **Deploy:** Upload `el-core-vX.X.X.zip` from `releases/` or `%USERPROFILE%\Downloads` via WordPress Admin → Plugins → Add New → Upload Plugin
+
+---
+
+## NEW COMPUTER SETUP (March 6, 2026)
+
+**To restore on a new machine:**
+
+1. **Clone from GitHub:** `git clone https://github.com/YOUR_USERNAME/EL-Core.git` (or your repo URL)
+2. **Open in Cursor** — open the cloned folder as workspace
+3. **Read first:** `START-HERE-NEXT-SESSION.md` and `CURSOR-TODO.md`
+4. **Build ZIP:** From repo root, run `.\build-zip.ps1` (PowerShell). Creates:
+   - `releases/el-core-v1.26.0.zip` — upload to WordPress
+   - `old-versions/v1.26.0/` — versioned backup
+   - `%USERPROFILE%\Downloads\el-core-v1.26.0.zip` — copy in Downloads
+5. **Deploy:** Upload the ZIP via WordPress Admin → Plugins → Add New → Upload Plugin
+6. **Update paths** in this file if your repo lives elsewhere (e.g. `D:\Projects\EL-Core`)
+
+**Current state:** v1.26.0 built. Definition Consensus Review System UI complete. Ready for deploy and end-to-end test.
 
 ---
 

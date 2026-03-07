@@ -1719,8 +1719,9 @@ class EL_Expand_Site_Module {
         }
 
         $result = $this->core->database->update( 'el_es_project_definition', [
-            'locked_at' => current_time( 'mysql' ),
-            'locked_by' => get_current_user_id(),
+            'locked_at'      => current_time( 'mysql' ),
+            'locked_by'     => get_current_user_id(),
+            'review_status' => 'locked',
         ], [ 'project_id' => $project_id ] );
 
         if ( $result !== false ) {
@@ -2028,6 +2029,12 @@ class EL_Expand_Site_Module {
             return;
         }
 
+        // Block non-DM verdicts after deadline
+        if ( $review->deadline && strtotime( $review->deadline ) < time() && ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'The review deadline has passed. Only the Decision Maker can act now.', 'el-core' ) );
+            return;
+        }
+
         $user_id = get_current_user_id();
         $now     = current_time( 'mysql' );
 
@@ -2057,12 +2064,6 @@ class EL_Expand_Site_Module {
                 'updated_at' => $now,
             ] );
             $comment_id = $wpdb->insert_id;
-        }
-
-        // Check if deadline has passed — if so, allow DM to decide but block other verdicts
-        if ( $review->deadline && strtotime( $review->deadline ) < time() && ! $this->is_decision_maker( $project_id ) ) {
-            EL_AJAX_Handler::error( __( 'The review deadline has passed. Only the Decision Maker can act now.', 'el-core' ) );
-            return;
         }
 
         EL_AJAX_Handler::success( [

@@ -39,6 +39,7 @@
         // Discovery transcript processing
         document.addEventListener('click', handleProcessTranscript);
         document.addEventListener('submit', handleSaveDefinition);
+        document.addEventListener('submit', handleSendDefinitionReview);
         document.addEventListener('click', handleLockDefinition);
         
         // Proposals
@@ -698,6 +699,49 @@
         });
     }
 
+    function handleSendDefinitionReview(e) {
+        const form = e.target.closest('#send-definition-review-form');
+        if (!form) return;
+
+        e.preventDefault();
+
+        const projectId = form.querySelector('[name="project_id"]')?.value;
+        const deadline = form.querySelector('[name="deadline"]')?.value;
+        if (!projectId) return;
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+        }
+
+        const fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'es_send_definition_review');
+        fd.append('nonce', elExpandSiteAdmin.nonce);
+        fd.append('project_id', projectId);
+        fd.append('deadline', deadline || '');
+
+        fetch(elExpandSiteAdmin.ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: fd
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (!result.success) throw new Error(result.data?.message || 'Request failed');
+            alert(result.data?.message || 'Sent for review.');
+            window.location.reload();
+        })
+        .catch(err => {
+            alert(err.message || 'Failed to send for review.');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send for Review';
+            }
+        });
+    }
+
     function handleLockDefinition(e) {
         const btn = e.target.closest('#lock-definition-btn');
         if (!btn) return;
@@ -705,8 +749,13 @@
         e.preventDefault();
 
         const projectId = btn.dataset.projectId;
+        const reviewStatus = btn.dataset.reviewStatus || '';
 
-        if (!confirm('Are you sure you want to lock this definition?\n\nOnce locked, it cannot be edited. This confirms the project scope is finalized.')) {
+        let msg = 'Are you sure you want to lock this definition?\n\nOnce locked, it cannot be edited.';
+        if (reviewStatus && reviewStatus !== 'approved') {
+            msg = 'The definition has not yet been approved by the client.\n\nLock anyway? This will override the normal review flow.';
+        }
+        if (!confirm(msg)) {
             return;
         }
 

@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.26.0] — 2026-03-06
+### Added
+- **Expand Site (v1.22.0)** — Definition Consensus Review System UI
+- Admin Discovery tab: definition status badge (Draft / Sent for Review / Client Approved / Needs Revision / Locked), "Send to Client for Review" button with deadline date picker, per-field stakeholder comments panel, DM verdict summary card, Lock button always visible with override confirmation when not yet approved
+- Client portal: full consensus UI when definition is pending review — countdown timer, per-field comments + verdict buttons (✓ Looks good / Needs revision), scroll-depth gate on "Submit My Input", "Make Final Decision" section for DM (Accept / Needs Revision + note), post-decision approved/needs-revision banners
+- Portal JS: load review data via `es_get_definition_review`, post/reply comments, verdict buttons, countdown timer, scroll-depth tracker, DM decision submit
+- Admin JS: Send for Review form handler
+- CSS: review status badges, comment thread layout, verdict buttons (green/amber), countdown timer, DM decision section
+
+---
+
 ## [1.25.0] — 2026-03-06
 ### Added
 - **Invoicing (Phase 6A Step 6)** — Revenue Dashboard + Export

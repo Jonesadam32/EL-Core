@@ -150,8 +150,127 @@ $html .= EL_Admin_UI::tab_panel( [
 // ── Tab: Discovery Transcript ──
 $transcript_content = '';
 
+// Definition status and review data
+$review_status = ( $definition && isset( $definition->review_status ) ) ? $definition->review_status : 'draft';
+$active_review = $module->get_active_definition_review( $project_id );
+$reviews       = $module->get_definition_reviews( $project_id );
+$comments      = $active_review ? $module->get_definition_comments( (int) $active_review->id ) : [];
+$verdicts      = $active_review ? $module->get_definition_verdicts( (int) $active_review->id ) : [];
+
+// Status badge: Draft / Sent for Review / Client Approved / Needs Revision / Locked
+$status_labels = [
+	'draft'          => __( 'Draft', 'el-core' ),
+	'pending_review' => __( 'Sent for Review', 'el-core' ),
+	'approved'       => __( 'Client Approved', 'el-core' ),
+	'needs_revision' => __( 'Needs Revision', 'el-core' ),
+	'locked'         => __( 'Locked', 'el-core' ),
+];
+$status_variants = [
+	'draft'          => 'default',
+	'pending_review' => 'info',
+	'approved'       => 'success',
+	'needs_revision' => 'warning',
+	'locked'         => 'success',
+];
+$effective_status = ( $definition && $definition->locked_at ) ? 'locked' : $review_status;
+$transcript_content .= '<div class="el-es-definition-status-row" style="margin-bottom: 16px;">';
+$transcript_content .= EL_Admin_UI::badge( [
+	'label'   => $status_labels[ $effective_status ] ?? ucfirst( $effective_status ),
+	'variant' => $status_variants[ $effective_status ] ?? 'default',
+] );
+$transcript_content .= '</div>';
+
 // Check if definition is locked
 $is_locked = $definition && $definition->locked_at;
+
+// Send for Review button (when not locked, status is draft or needs_revision)
+$can_send = ! $is_locked && in_array( $effective_status, [ 'draft', 'needs_revision' ], true );
+if ( $can_send ) {
+    $transcript_content .= '<div class="el-es-definition-actions-row" style="margin-bottom: 16px;">';
+    $transcript_content .= EL_Admin_UI::btn( [
+        'label'   => __( 'Send to Client for Review', 'el-core' ),
+        'variant' => 'primary',
+        'icon'    => 'email',
+        'id'      => 'send-definition-review-btn',
+        'data'    => [ 'project-id' => $project_id, 'modal-open' => 'send-definition-review-modal' ],
+    ] );
+    $transcript_content .= '</div>';
+}
+
+// DM verdict summary card (when there's an active open review)
+if ( $active_review && $active_review->status === 'open' && ! empty( $verdicts ) ) {
+    $fields_accepted = 0;
+    $fields_revision = 0;
+    foreach ( $verdicts as $v ) {
+        $rev = $v['needs_revision'] ?? 0;
+        $app = $v['approved'] ?? 0;
+        if ( $rev > 0 ) {
+            $fields_revision++;
+        } elseif ( $app > 0 ) {
+            $fields_accepted++;
+        }
+    }
+    $transcript_content .= '<div class="el-es-verdict-summary-card el-card" style="margin-bottom: 20px;">';
+    $transcript_content .= '<div class="el-card__header"><h3 class="el-card__title">' . esc_html__( 'Stakeholder Verdicts', 'el-core' ) . '</h3></div>';
+    $transcript_content .= '<div class="el-card__body">';
+    $transcript_content .= '<p>' . sprintf(
+        /* translators: %1$d = fields accepted count, %2$d = fields needing revision count */
+        __( '%1$d fields accepted, %2$d need revision', 'el-core' ),
+        (int) $fields_accepted,
+        (int) $fields_revision
+    ) . '</p>';
+    if ( $active_review->deadline ) {
+        $transcript_content .= '<p><small>' . sprintf(
+            /* translators: %s = deadline date */
+            __( 'Deadline: %s', 'el-core' ),
+            date_i18n( 'M j, Y g:i A', strtotime( $active_review->deadline ) )
+        ) . '</small></p>';
+    }
+    $transcript_content .= '</div></div>';
+}
+
+// Per-field stakeholder comments panel (admin sees all comments)
+if ( $active_review && ! empty( $comments ) ) {
+    $def_field_labels = [
+        'site_description'  => __( 'Site Description', 'el-core' ),
+        'primary_goal'       => __( 'Primary Goal', 'el-core' ),
+        'secondary_goals'    => __( 'Secondary Goals', 'el-core' ),
+        'target_customers'   => __( 'Target Customers', 'el-core' ),
+        'user_types'         => __( 'User Types', 'el-core' ),
+        'site_type'          => __( 'Site Type', 'el-core' ),
+        'overall'            => __( 'Overall', 'el-core' ),
+    ];
+    $transcript_content .= '<div class="el-es-definition-comments-panel el-card" style="margin-bottom: 20px;">';
+    $transcript_content .= '<div class="el-card__header"><h3 class="el-card__title">' . esc_html__( 'Stakeholder Comments', 'el-core' ) . '</h3></div>';
+    $transcript_content .= '<div class="el-card__body el-es-comments-list">';
+    foreach ( $comments as $field_key => $field_comments ) {
+        $label = $def_field_labels[ $field_key ] ?? $field_key;
+        $transcript_content .= '<div class="el-es-comments-field" data-field-key="' . esc_attr( $field_key ) . '">';
+        $transcript_content .= '<h4 class="el-es-comments-field-title">' . esc_html( $label ) . '</h4>';
+        foreach ( $field_comments as $c ) {
+            $transcript_content .= '<div class="el-es-comment-item' . ( $c->parent_id ? ' el-es-comment-reply' : '' ) . '">';
+            $transcript_content .= '<div class="el-es-comment-meta">' . esc_html( $c->display_name ?? 'Unknown' );
+            if ( $c->verdict ) {
+                $transcript_content .= ' <span class="el-es-comment-verdict el-es-verdict-' . esc_attr( $c->verdict ) . '">' . ( $c->verdict === 'approved' ? '✓ Looks good' : 'Needs revision' ) . '</span>';
+            }
+            $transcript_content .= ' <span class="el-es-comment-date">' . esc_html( date_i18n( 'M j, g:i A', strtotime( $c->created_at ) ) ) . '</span></div>';
+            $transcript_content .= '<div class="el-es-comment-text">' . nl2br( esc_html( $c->comment ) ) . '</div>';
+            $transcript_content .= '</div>';
+            foreach ( $c->replies ?? [] as $r ) {
+                $transcript_content .= '<div class="el-es-comment-item el-es-comment-reply">';
+                $transcript_content .= '<div class="el-es-comment-meta">' . esc_html( $r->display_name ?? 'Unknown' );
+                if ( ! empty( $r->verdict ) ) {
+                    $transcript_content .= ' <span class="el-es-comment-verdict el-es-verdict-' . esc_attr( $r->verdict ) . '">' . ( $r->verdict === 'approved' ? '✓ Looks good' : 'Needs revision' ) . '</span>';
+                }
+                $transcript_content .= ' <span class="el-es-comment-date">' . esc_html( date_i18n( 'M j, g:i A', strtotime( $r->created_at ) ) ) . '</span></div>';
+                $transcript_content .= '<div class="el-es-comment-text">' . nl2br( esc_html( $r->comment ) ) . '</div>';
+                $transcript_content .= '</div>';
+            }
+        }
+        $transcript_content .= '</div>';
+    }
+    $transcript_content .= '</div></div>';
+}
 
 if ( $is_locked ) {
     $locked_by = get_userdata( $definition->locked_by );
@@ -207,7 +326,7 @@ $def_form .= EL_Admin_UI::form_row( [
     'name'     => 'site_description',
     'label'    => __( 'Site Description', 'el-core' ),
     'type'     => 'textarea',
-    'value'    => $definition->site_description ?? '',
+    'value'    => $definition?->site_description ?? '',
     'readonly' => $is_locked,
     'help'     => __( 'A brief overview of what this website will be.', 'el-core' ),
 ] );
@@ -216,7 +335,7 @@ $def_form .= EL_Admin_UI::form_row( [
     'name'     => 'primary_goal',
     'label'    => __( 'Primary Goal', 'el-core' ),
     'type'     => 'textarea',
-    'value'    => $definition->primary_goal ?? '',
+    'value'    => $definition?->primary_goal ?? '',
     'readonly' => $is_locked,
     'help'     => __( 'The main objective this website should achieve.', 'el-core' ),
 ] );
@@ -225,7 +344,7 @@ $def_form .= EL_Admin_UI::form_row( [
     'name'     => 'secondary_goals',
     'label'    => __( 'Secondary Goals', 'el-core' ),
     'type'     => 'textarea',
-    'value'    => $definition->secondary_goals ?? '',
+    'value'    => $definition?->secondary_goals ?? '',
     'readonly' => $is_locked,
     'help'     => __( 'Additional objectives (one per line or comma-separated).', 'el-core' ),
 ] );
@@ -234,7 +353,7 @@ $def_form .= EL_Admin_UI::form_row( [
     'name'     => 'target_customers',
     'label'    => __( 'Target Customers', 'el-core' ),
     'type'     => 'textarea',
-    'value'    => $definition->target_customers ?? '',
+    'value'    => $definition?->target_customers ?? '',
     'readonly' => $is_locked,
     'help'     => __( 'Who is this site designed to reach?', 'el-core' ),
 ] );
@@ -243,7 +362,7 @@ $def_form .= EL_Admin_UI::form_row( [
     'name'     => 'user_types',
     'label'    => __( 'User Types', 'el-core' ),
     'type'     => 'textarea',
-    'value'    => $definition->user_types ?? '',
+    'value'    => $definition?->user_types ?? '',
     'readonly' => $is_locked,
     'help'     => __( 'Different types of users and their roles (e.g., "Students", "Teachers", "Administrators").', 'el-core' ),
 ] );
@@ -252,7 +371,7 @@ $def_form .= EL_Admin_UI::form_row( [
     'name'     => 'site_type',
     'label'    => __( 'Site Type', 'el-core' ),
     'type'     => 'text',
-    'value'    => $definition->site_type ?? '',
+    'value'    => $definition?->site_type ?? '',
     'readonly' => $is_locked,
     'help'     => __( 'e.g., "E-commerce", "Educational Portal", "Corporate Website"', 'el-core' ),
 ] );
@@ -271,7 +390,10 @@ if ( ! $is_locked ) {
         'variant' => 'primary',
         'icon'    => 'lock',
         'id'      => 'lock-definition-btn',
-        'data'    => [ 'project-id' => $project_id ],
+        'data'    => [
+            'project-id'     => $project_id,
+            'review-status'  => $review_status,
+        ],
     ] );
     $def_form .= '</div>';
 }
@@ -849,6 +971,28 @@ $html .= EL_Admin_UI::modal( [
     'id'      => 'advance-stage-modal',
     'title'   => __( 'Advance to Next Stage', 'el-core' ),
     'content' => $advance_form,
+] );
+
+// Send Definition for Review modal
+$default_review_deadline = date( 'Y-m-d', strtotime( '+7 days' ) );
+$send_review_form  = '<form id="send-definition-review-form">';
+$send_review_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+$send_review_form .= EL_Admin_UI::form_row( [
+    'name'        => 'deadline',
+    'label'       => __( 'Response Deadline', 'el-core' ),
+    'type'        => 'date',
+    'value'       => $default_review_deadline,
+    'helper'      => __( 'Stakeholders must respond by this date. Decision Maker can decide after deadline even if others haven\'t responded.', 'el-core' ),
+] );
+$send_review_form .= '<div class="el-form-row">';
+$send_review_form .= EL_Admin_UI::btn( [ 'label' => __( 'Send for Review', 'el-core' ), 'variant' => 'primary', 'icon' => 'email', 'type' => 'submit' ] );
+$send_review_form .= '</div>';
+$send_review_form .= '</form>';
+
+$html .= EL_Admin_UI::modal( [
+    'id'      => 'send-definition-review-modal',
+    'title'   => __( 'Send Definition to Client for Review', 'el-core' ),
+    'content' => $send_review_form,
 ] );
 
 // Add Deliverable modal

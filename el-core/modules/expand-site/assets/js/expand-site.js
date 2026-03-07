@@ -288,6 +288,378 @@
 })();
 
 // ═══════════════════════════════════════════
+// DEFINITION CONSENSUS REVIEW
+// ═══════════════════════════════════════════
+
+(function() {
+    'use strict';
+
+    var container = document.getElementById('el-es-definition-review');
+    if (!container) return;
+
+    var projectId = container.dataset.projectId;
+    if (!projectId) return;
+
+    var DEF_FIELDS = [
+        { key: 'site_description', label: 'Site Description' },
+        { key: 'primary_goal', label: 'Primary Goal' },
+        { key: 'secondary_goals', label: 'Secondary Goals' },
+        { key: 'target_customers', label: 'Target Customers' },
+        { key: 'user_types', label: 'User Types' },
+        { key: 'site_type', label: 'Site Type' }
+    ];
+
+    var scrollDepthSeen = {};
+    var countdownInterval = null;
+
+    function loadReview() {
+        var loading = container.querySelector('.el-es-definition-review-loading');
+        if (loading) loading.textContent = 'Loading…';
+
+        ELCore.ajax('es_get_definition_review', { project_id: projectId })
+            .then(function(data) {
+                renderReviewUI(data);
+                if (loading) loading.remove();
+            })
+            .catch(function(err) {
+                if (loading) loading.textContent = 'Error: ' + (err.message || 'Failed to load');
+            });
+    }
+
+    function renderReviewUI(data) {
+        var def = data.definition || {};
+        var review = data.review || {};
+        var comments = data.comments || {};
+        var verdicts = data.verdicts || {};
+        var userVerdicts = data.user_verdicts || {};
+        var deadlineTs = data.deadline_ts;
+        var deadlinePassed = data.deadline_passed;
+        var isDm = data.is_dm;
+
+        var html = '';
+
+        // Countdown timer
+        if (deadlineTs && !deadlinePassed) {
+            html += '<div class="el-es-definition-countdown" data-deadline="' + deadlineTs + '">';
+            html += '<span class="el-es-countdown-label">Time remaining:</span> ';
+            html += '<span class="el-es-countdown-value">--</span>';
+            html += '</div>';
+        } else if (deadlinePassed) {
+            html += '<div class="el-es-definition-countdown el-es-countdown-expired">';
+            html += '<span class="el-es-countdown-label">Deadline passed.</span>';
+            html += '</div>';
+        }
+
+        // Per-field layout
+        html += '<div class="el-es-definition-review-fields">';
+        DEF_FIELDS.forEach(function(f) {
+            var val = def[f.key] || '';
+            if (!val) return;
+            var fieldComments = comments[f.key] || [];
+            var userV = userVerdicts[f.key] || '';
+            html += '<div class="el-es-definition-field-block" data-field-key="' + f.key + '" data-scroll-marker="' + f.key + '">';
+            html += '<div class="el-es-definition-field-value">' + escapeHtml(val).replace(/\n/g, '<br>') + '</div>';
+            html += '<div class="el-es-definition-field-label">' + escapeHtml(f.label) + '</div>';
+            html += '<div class="el-es-definition-comments" data-field-key="' + f.key + '">';
+            fieldComments.forEach(function(c) {
+                html += renderComment(c, f.key);
+                (c.replies || []).forEach(function(r) {
+                    html += renderComment(r, f.key, true);
+                });
+            });
+            html += '</div>';
+            html += '<div class="el-es-definition-actions">';
+            html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-add-comment-btn" data-field-key="' + f.key + '">+ Add comment</button>';
+            if (review.id && review.status === 'open') {
+                html += '<div class="el-es-verdict-buttons">';
+                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-approved' + (userV === 'approved' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="approved">✓ Looks good</button>';
+                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-revision' + (userV === 'needs_revision' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="needs_revision">Needs revision</button>';
+                html += '</div>';
+            }
+            html += '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+
+        // Overall comment
+        html += '<div class="el-es-definition-overall-comment">';
+        html += '<h4>Overall feedback</h4>';
+        html += '<div class="el-es-definition-comments" data-field-key="overall">';
+        (comments.overall || []).forEach(function(c) {
+            html += renderComment(c, 'overall');
+            (c.replies || []).forEach(function(r) {
+                html += renderComment(r, 'overall', true);
+            });
+        });
+        html += '</div>';
+        html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-add-comment-btn" data-field-key="overall">+ Add comment</button>';
+        html += '</div>';
+
+        // Submit / DM section
+        html += '<div class="el-es-definition-review-actions">';
+        if (review.id && review.status === 'open') {
+            if (isDm) {
+                html += '<div class="el-es-dm-decision-section">';
+                html += '<h4>Make Final Decision</h4>';
+                html += '<textarea class="el-es-dm-note-input" name="dm_note" placeholder="Optional note for the team…" rows="3"></textarea>';
+                html += '<div class="el-es-dm-buttons">';
+                html += '<button type="button" class="el-es-btn el-es-btn-primary el-es-dm-accept-btn" data-review-id="' + review.id + '">Accept</button>';
+                html += '<button type="button" class="el-es-btn el-es-btn-warning el-es-dm-revision-btn" data-review-id="' + review.id + '">Needs Revision</button>';
+                html += '</div></div>';
+            } else {
+                html += '<button type="button" class="el-es-btn el-es-btn-primary el-es-submit-input-btn" disabled>';
+                html += 'Submit My Input';
+                html += '</button>';
+                html += '<p class="el-es-scroll-gate-msg">Scroll through all fields to enable.</p>';
+            }
+        }
+        html += '</div>';
+
+        container.innerHTML = html;
+
+        // Start countdown
+        if (deadlineTs && !deadlinePassed) {
+            startCountdown(container.querySelector('.el-es-definition-countdown'));
+        }
+
+        // Scroll-depth gate for contributors
+        if (!isDm && review.id && review.status === 'open') {
+            setupScrollDepthGate(container);
+        }
+
+        // Bind events
+        bindDefinitionReviewEvents(container, review);
+    }
+
+    function renderComment(c, fieldKey, isReply) {
+        var cls = 'el-es-definition-comment' + (isReply ? ' el-es-comment-reply' : '');
+        var verdict = c.verdict ? '<span class="el-es-comment-verdict el-es-verdict-' + c.verdict + '">' + (c.verdict === 'approved' ? '✓' : '↻') + '</span>' : '';
+        return '<div class="' + cls + '" data-comment-id="' + c.id + '" data-parent-id="' + (c.parent_id || 0) + '">' +
+            '<div class="el-es-comment-meta">' + escapeHtml(c.display_name || 'Unknown') + ' ' + verdict + ' <span class="el-es-comment-date">' + (c.created_at || '') + '</span></div>' +
+            '<div class="el-es-comment-text">' + escapeHtml(c.comment || '').replace(/\n/g, '<br>') + '</div>' +
+            (c.parent_id === 0 ? '<button type="button" class="el-es-btn el-es-btn-ghost el-es-reply-btn" data-field-key="' + fieldKey + '" data-parent-id="' + c.id + '">Reply</button>' : '') +
+            '</div>';
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function startCountdown(el) {
+        if (!el) return;
+        var deadline = parseInt(el.dataset.deadline, 10);
+        if (!deadline) return;
+        function tick() {
+            var now = Math.floor(Date.now() / 1000);
+            var left = deadline - now;
+            var val = el.querySelector('.el-es-countdown-value');
+            if (!val) return;
+            if (left <= 0) {
+                val.textContent = '0:00:00';
+                el.classList.add('el-es-countdown-expired');
+                if (countdownInterval) clearInterval(countdownInterval);
+                return;
+            }
+            var h = Math.floor(left / 3600);
+            var m = Math.floor((left % 3600) / 60);
+            var s = left % 60;
+            val.textContent = h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        }
+        tick();
+        countdownInterval = setInterval(tick, 1000);
+    }
+
+    function setupScrollDepthGate(container) {
+        var blocks = container.querySelectorAll('.el-es-definition-field-block');
+        var btn = container.querySelector('.el-es-submit-input-btn');
+        var msg = container.querySelector('.el-es-scroll-gate-msg');
+        if (!btn || blocks.length === 0) return;
+
+        function checkScroll() {
+            var allSeen = true;
+            blocks.forEach(function(b) {
+                var key = b.dataset.scrollMarker;
+                if (scrollDepthSeen[key]) return;
+                var rect = b.getBoundingClientRect();
+                if (rect.top < window.innerHeight - 50) {
+                    scrollDepthSeen[key] = true;
+                } else {
+                    allSeen = false;
+                }
+            });
+            if (allSeen) {
+                btn.disabled = false;
+                if (msg) msg.style.display = 'none';
+            }
+        }
+        window.addEventListener('scroll', checkScroll, { passive: true });
+        checkScroll();
+    }
+
+    function bindDefinitionReviewEvents(container, review) {
+        if (!review || !review.id) return;
+
+        // Add comment
+        container.addEventListener('click', function(e) {
+            var btn = e.target.closest('.el-es-add-comment-btn');
+            if (!btn) return;
+            e.preventDefault();
+            var fieldKey = btn.dataset.fieldKey;
+            var wrap = btn.closest('.el-es-definition-field-block, .el-es-definition-overall-comment');
+            var existing = wrap && wrap.querySelector('.el-es-add-comment-form');
+            if (existing) {
+                existing.remove();
+                return;
+            }
+            var form = document.createElement('div');
+            form.className = 'el-es-add-comment-form';
+            form.innerHTML = '<textarea rows="2" placeholder="Your comment…"></textarea>' +
+                '<button type="button" class="el-es-btn el-es-btn-primary el-es-post-comment-btn" data-field-key="' + fieldKey + '" data-parent-id="0">Post</button>' +
+                '<button type="button" class="el-es-btn el-es-btn-ghost el-es-cancel-comment-btn">Cancel</button>';
+            btn.parentNode.insertBefore(form, btn);
+            form.querySelector('textarea').focus();
+        });
+
+        // Cancel comment
+        container.addEventListener('click', function(e) {
+            if (!e.target.closest('.el-es-cancel-comment-btn')) return;
+            e.target.closest('.el-es-add-comment-form').remove();
+        });
+
+        // Post comment
+        container.addEventListener('click', function(e) {
+            var btn = e.target.closest('.el-es-post-comment-btn');
+            if (!btn) return;
+            e.preventDefault();
+            var fieldKey = btn.dataset.fieldKey;
+            var parentId = btn.dataset.parentId || '0';
+            var form = btn.closest('.el-es-add-comment-form');
+            var textarea = form && form.querySelector('textarea');
+            var comment = textarea && textarea.value.trim();
+            if (!comment) return;
+            btn.disabled = true;
+            var fd = new FormData();
+            fd.append('action', 'el_core_action');
+            fd.append('el_action', 'es_post_definition_comment');
+            fd.append('nonce', typeof elCore !== 'undefined' ? elCore.nonce : '');
+            fd.append('project_id', projectId);
+            fd.append('review_id', review.id);
+            fd.append('field_key', fieldKey);
+            fd.append('parent_id', parentId);
+            fd.append('comment', comment);
+            fetch(typeof elCore !== 'undefined' ? elCore.ajaxUrl : '', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: fd
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (!res.success) throw new Error(res.data && res.data.message || 'Failed');
+                if (form) form.remove();
+                loadReview();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to post comment');
+                btn.disabled = false;
+            });
+        });
+
+        // Reply
+        container.addEventListener('click', function(e) {
+            var btn = e.target.closest('.el-es-reply-btn');
+            if (!btn) return;
+            e.preventDefault();
+            var fieldKey = btn.dataset.fieldKey;
+            var parentId = btn.dataset.parentId;
+            var commentEl = btn.closest('.el-es-definition-comment');
+            var commentsDiv = commentEl && commentEl.closest('.el-es-definition-comments');
+            var existing = commentsDiv && commentsDiv.querySelector('.el-es-add-comment-form');
+            if (existing) existing.remove();
+            var form = document.createElement('div');
+            form.className = 'el-es-add-comment-form el-es-reply-form';
+            form.innerHTML = '<textarea rows="2" placeholder="Reply…"></textarea>' +
+                '<button type="button" class="el-es-btn el-es-btn-primary el-es-post-comment-btn" data-field-key="' + fieldKey + '" data-parent-id="' + parentId + '">Reply</button>' +
+                '<button type="button" class="el-es-btn el-es-btn-ghost el-es-cancel-comment-btn">Cancel</button>';
+            commentEl.appendChild(form);
+            form.querySelector('textarea').focus();
+        });
+
+        // Verdict buttons
+        container.addEventListener('click', function(e) {
+            var btn = e.target.closest('.el-es-verdict-btn');
+            if (!btn) return;
+            e.preventDefault();
+            var fieldKey = btn.dataset.fieldKey;
+            var verdict = btn.dataset.verdict;
+            if (!fieldKey || !verdict) return;
+            var strip = btn.closest('.el-es-verdict-buttons');
+            strip.querySelectorAll('.el-es-verdict-btn').forEach(function(b) {
+                b.classList.remove('el-es-verdict-active');
+            });
+            btn.classList.add('el-es-verdict-active');
+            ELCore.ajax('es_field_verdict', {
+                project_id: projectId,
+                review_id: review.id,
+                field_key: fieldKey,
+                verdict: verdict
+            }).catch(function(err) {
+                btn.classList.remove('el-es-verdict-active');
+                alert(err.message || 'Failed to save');
+            });
+        });
+
+        // DM decision
+        container.addEventListener('click', function(e) {
+            var acceptBtn = e.target.closest('.el-es-dm-accept-btn');
+            var revBtn = e.target.closest('.el-es-dm-revision-btn');
+            var btn = acceptBtn || revBtn;
+            if (!btn) return;
+            e.preventDefault();
+            var reviewId = btn.dataset.reviewId;
+            var decision = acceptBtn ? 'accepted' : 'needs_revision';
+            var noteEl = container.querySelector('.el-es-dm-note-input');
+            var note = noteEl && noteEl.value ? noteEl.value.trim() : '';
+            btn.disabled = true;
+            var fd = new FormData();
+            fd.append('action', 'el_core_action');
+            fd.append('el_action', 'es_dm_decision');
+            fd.append('nonce', typeof elCore !== 'undefined' ? elCore.nonce : '');
+            fd.append('project_id', projectId);
+            fd.append('review_id', reviewId);
+            fd.append('decision', decision);
+            fd.append('dm_note', note);
+            fetch(typeof elCore !== 'undefined' ? elCore.ajaxUrl : '', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: fd
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (!res.success) throw new Error(res.data && res.data.message || 'Failed');
+                alert(res.data && res.data.message || 'Decision submitted.');
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed');
+                btn.disabled = false;
+            });
+        });
+
+        // Submit My Input (contributors — just reload to show current state)
+        container.addEventListener('click', function(e) {
+            if (!e.target.closest('.el-es-submit-input-btn')) return;
+            e.preventDefault();
+            window.location.reload();
+        });
+    }
+
+    loadReview();
+})();
+
+// ═══════════════════════════════════════════
 // MOOD BOARD — Voting, Lightbox, DM Results
 // ═══════════════════════════════════════════
 

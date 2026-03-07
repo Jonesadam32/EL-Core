@@ -454,7 +454,7 @@ class EL_Admin_UI {
         $type        = $args['type']        ?? 'text';
         $value       = $args['value']       ?? '';
         $placeholder = $args['placeholder'] ?? '';
-        $helper      = $args['helper']      ?? '';
+        $helper      = $args['helper']      ?? $args['help'] ?? '';
         $required    = $args['required']    ?? false;
         $options     = $args['options']     ?? [];
         $class       = $args['class']       ?? '';

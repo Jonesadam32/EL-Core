@@ -263,16 +263,20 @@ function el_shortcode_expand_site_portal( $atts ): string {
 			$html .= '</button>';
 		}
 		
-		// Project Definition card (inline with deliverables/feedback)
-		if ( $definition && $definition->locked_at ) {
-			$html .= '<button type="button" class="el-es-info-card el-es-modal-trigger" data-modal="project-definition">';
+		// Project Definition card (when definition exists — locked opens modal, else scrolls to review section)
+		if ( $definition ) {
+			if ( $definition->locked_at ) {
+				$html .= '<button type="button" class="el-es-info-card el-es-modal-trigger" data-modal="project-definition">';
+			} else {
+				$html .= '<a href="#el-es-definition-review" class="el-es-info-card el-es-definition-scroll-trigger">';
+			}
 			$html .= '<div class="el-es-info-card-icon el-es-info-card-icon-accent">' . el_es_icon( 'clipboard', 24 ) . '</div>';
 			$html .= '<div class="el-es-info-card-content">';
 			$html .= '<div class="el-es-info-card-title">' . esc_html__( 'Project Definition', 'el-core' ) . '</div>';
 			$html .= '<div class="el-es-info-card-desc">' . esc_html__( 'What we\'re building', 'el-core' ) . '</div>';
 			$html .= '</div>';
 			$html .= '<div class="el-es-info-card-arrow">' . el_es_icon( 'chevron-right' ) . '</div>';
-			$html .= '</button>';
+			$html .= ( $definition->locked_at ? '</button>' : '</a>' );
 		}
 		
 		$html .= '</div>'; // end stage cards
@@ -329,7 +333,102 @@ function el_shortcode_expand_site_portal( $atts ): string {
 	
 	$html .= '<div class="el-es-global-sections">';
 	
-	// Project Definition Modal
+	// Project Definition — consensus review or locked display
+	$def_review_status = $definition && isset( $definition->review_status ) ? $definition->review_status : '';
+	$def_reviews       = $definition ? $module->get_definition_reviews( $project_id ) : [];
+	$last_closed       = null;
+	foreach ( array_reverse( $def_reviews ) as $dr ) {
+		if ( $dr->status === 'closed' ) {
+			$last_closed = $dr;
+			break;
+		}
+	}
+
+	if ( $definition ) {
+		// Pending review: full consensus UI (JS loads and renders)
+		if ( $def_review_status === 'pending_review' ) {
+			$html .= '<div class="el-es-global-section el-es-definition-review-section" id="el-es-definition-review" data-project-id="' . esc_attr( $project_id ) . '">';
+			$html .= '<h3 class="el-es-section-title">';
+			$html .= el_es_icon( 'clipboard' );
+			$html .= esc_html__( 'Project Definition — Review', 'el-core' );
+			$html .= '</h3>';
+			$html .= '<div class="el-es-definition-review-loading">' . esc_html__( 'Loading…', 'el-core' ) . '</div>';
+			$html .= '</div>';
+		}
+
+		// Approved (DM approved, not yet locked): approved banner + definition
+		if ( $def_review_status === 'approved' ) {
+			$html .= '<div class="el-es-global-section el-es-definition-review-section" id="el-es-definition-review">';
+			$html .= '<h3 class="el-es-section-title">';
+			$html .= el_es_icon( 'clipboard' );
+			$html .= esc_html__( 'Project Definition', 'el-core' );
+			$html .= '</h3>';
+			$html .= '<div class="el-es-review-approved-banner">';
+			$html .= el_es_icon( 'check-circle', 20 );
+			$html .= '<strong>' . esc_html__( 'Definition approved!', 'el-core' ) . '</strong> ';
+			$html .= esc_html__( 'The agency can now lock it and proceed.', 'el-core' );
+			$html .= '</div>';
+			$html .= '<div class="el-es-definition-grid">';
+			if ( ! empty( $definition->site_description ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Site Description', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->site_description ) . '</div></div>';
+			}
+			if ( ! empty( $definition->primary_goal ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Primary Goal', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->primary_goal ) . '</div></div>';
+			}
+			if ( ! empty( $definition->secondary_goals ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Secondary Goals', 'el-core' ) . '</div><div class="el-es-definition-value">' . nl2br( esc_html( $definition->secondary_goals ) ) . '</div></div>';
+			}
+			if ( ! empty( $definition->target_customers ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Target Customers', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->target_customers ) . '</div></div>';
+			}
+			if ( ! empty( $definition->user_types ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'User Types', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->user_types ) . '</div></div>';
+			}
+			if ( ! empty( $definition->site_type ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Site Type', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->site_type ) . '</div></div>';
+			}
+			$html .= '</div></div>';
+		}
+
+		// Needs revision: banner with DM note + definition
+		if ( $def_review_status === 'needs_revision' ) {
+			$dm_note = $last_closed && ! empty( $last_closed->dm_note ) ? $last_closed->dm_note : '';
+			$html .= '<div class="el-es-global-section el-es-definition-review-section" id="el-es-definition-review">';
+			$html .= '<h3 class="el-es-section-title">';
+			$html .= el_es_icon( 'clipboard' );
+			$html .= esc_html__( 'Project Definition', 'el-core' );
+			$html .= '</h3>';
+			$html .= '<div class="el-es-review-needs-revision-banner">';
+			$html .= el_es_icon( 'edit', 20 );
+			$html .= '<strong>' . esc_html__( 'Needs revision', 'el-core' ) . '</strong>';
+			if ( $dm_note ) {
+				$html .= '<p class="el-es-dm-note">' . nl2br( esc_html( $dm_note ) ) . '</p>';
+			}
+			$html .= '</div>';
+			$html .= '<div class="el-es-definition-grid">';
+			if ( ! empty( $definition->site_description ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Site Description', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->site_description ) . '</div></div>';
+			}
+			if ( ! empty( $definition->primary_goal ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Primary Goal', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->primary_goal ) . '</div></div>';
+			}
+			if ( ! empty( $definition->secondary_goals ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Secondary Goals', 'el-core' ) . '</div><div class="el-es-definition-value">' . nl2br( esc_html( $definition->secondary_goals ) ) . '</div></div>';
+			}
+			if ( ! empty( $definition->target_customers ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Target Customers', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->target_customers ) . '</div></div>';
+			}
+			if ( ! empty( $definition->user_types ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'User Types', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->user_types ) . '</div></div>';
+			}
+			if ( ! empty( $definition->site_type ) ) {
+				$html .= '<div class="el-es-definition-card"><div class="el-es-definition-label">' . esc_html__( 'Site Type', 'el-core' ) . '</div><div class="el-es-definition-value">' . esc_html( $definition->site_type ) . '</div></div>';
+			}
+			$html .= '</div></div>';
+		}
+	}
+
+	// Project Definition Modal (locked — read-only)
 	if ( $definition && $definition->locked_at ) {
 		$html .= '<div class="el-es-modal" id="project-definition" aria-hidden="true">';
 		$html .= '<div class="el-es-modal-overlay" data-close-modal="project-definition"></div>';

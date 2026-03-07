@@ -1,5 +1,7 @@
-# Release ZIPs (don't store in Git - they're redundant with tagged versions)
+# Release ZIPs (don't store in Git - rebuild with build-zip.ps1)
 releases/
+el-core-releases/
+old-versions/
 
 # OS files
 .DS_Store
