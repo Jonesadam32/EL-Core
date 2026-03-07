@@ -603,10 +603,10 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ---
 
-## PHASE 6C — CLIENT DASHBOARD (v1.27.x) ✅ BUILT — TESTING IN PROGRESS
+## PHASE 6C — CLIENT DASHBOARD (v1.27.x) ✅ BUILT — TESTING PAUSED
 
 > Universal client home base. Lives in EL Core (not a module) so all future modules can plug into it.
-> **Current state:** v1.27.3 deployed on staging. Testing completed through 3F. 3G/3H surfaced 5 bugs/improvements — fix these as v1.28.0 before continuing.
+> **Current state:** v1.28.0 built, ready to upload to staging. Testing is PAUSED — do NOT resume until v1.29.0 (admin detail redesign) is built and deployed first.
 
 ### What is built and working (tested through 3F):
 - [x] `[el_client_dashboard]` shortcode — project cards, CTA buttons, invoice section, attention banner
@@ -619,19 +619,30 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] Stakeholders tab warns when user has no contact record linked
 - [x] Menu Visibility settings page (EL Core → Menus) — per-item Always/Logged-in/Client rules
 
-### v1.28.0 — Fix these 5 issues before resuming testing (see NEXT-SESSION-PROMPT-v1.28.0.md for full detail):
-- [x] **Issue 4** (quick): After clicking verdict button, must refresh to add a comment — call `loadReview()` after verdict AJAX success (`expand-site.js`)
-- [x] **Issue 3** (quick): Projects with `needs_revision` or `approved` definition status not appearing in "Needs Attention" list — extend query in `project-list.php`
-- [x] **Issue 2** (quick): No banner prompts admin to lock definition after client approval — add amber action banner to Discovery tab in `project-detail.php`
-- [x] **Issue 5** (larger): Admin project detail page UX redesign — add stage progress stepper, stage status card, auto-activate relevant tab for current stage (`project-detail.php`)
-- [x] **Issue 1** (DB migration): Definition revision history — snapshot per review round, version diff in admin, "Updated" badge in portal (`class-expand-site-module.php`, DB schema v9)
-- [x] Bump to v1.28.0, build ZIP, deploy, resume testing from 3G
+### v1.28.0 — All fixes built ✅
+- [x] **Issue 4**: After clicking verdict button, must refresh to add a comment — fixed
+- [x] **Issue 3**: Projects with `needs_revision` or `approved` status not in Needs Attention list — fixed
+- [x] **Issue 2**: No banner prompting admin to lock after client approval — fixed
+- [x] **Issue 5**: Admin project detail — stage stepper, status card, smart tab activation — built
+- [x] **Issue 1**: Definition version history with snapshots and field diffs (DB migration v9) — built
+- [x] v1.28.0 built, committed, pushed
 
-### Testing resume point (after v1.28.0 deployed):
+### v1.29.0 — Admin project detail page redesign (DO THIS BEFORE RESUMING TESTING)
+> Full plan in `NEXT-SESSION-PROMPT-v1.29.0.md`. Build order below.
+- [ ] Update `STAGES` constant: Qualification, Discovery, Proposal, Visual Identity, Wireframes, Final Design, Build, Delivery
+- [ ] Update `STAGE_DEADLINE_DAYS` to match new stage order
+- [ ] Replace stepper CSS in `enqueue_admin_assets()` with phase bar CSS (pill buttons, connecting line)
+- [ ] Restructure `project-detail.php`: utility tabs (Overview, Stakeholders, Stage History) above phase bar (8 phases)
+- [ ] Build Phase 1 — Qualification panel: intake form using `project_goal` + call status toggle
+- [ ] Move existing tab content into correct phase panels (Discovery→phase-2, Proposal→phase-3, Branding→phase-4, Pages→phase-5+6, Deliverables→phase-7, Feedback→phase-8)
+- [ ] Update tab ID references in `expand-site-admin.js`
+- [ ] Bump to v1.29.0, update CHANGELOG, build ZIP, commit, push
+- [ ] Write `NEXT-SESSION-PROMPT-v1.30.0.md`
+
+### Testing resume point (after v1.29.0 deployed — use `V1.28.0-TESTING-GUIDE.md`):
 - [ ] **3G — DM Final Decision**: test Accept and Needs Revision from the DM portal view
 - [ ] **3H — Post-decision states (admin)**: check admin badges and button states after each decision
-- [ ] **Part 4 — Regression check**: project list, all tabs, locked definition view, mood board, proposal, invoices
-- [ ] Update testing guide to cover v1.27.x + v1.28.x features
+- [ ] **Part 4 — Regression check**: project list, all phase panels, locked definition view, mood board, proposal, invoices
 
 ---
 
