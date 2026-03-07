@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** February 24, 2026
+> **Last Updated:** March 7, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.27.0 — Client Dashboard `[el_client_dashboard]` built + portal DM detection fix. Testing found 4 bugs. **Next:** Fix all 4 bugs as v1.27.1 — see CURSOR-TODO.md Phase 6C bugfix section.
+> **Current Plugin Version:** 1.27.1 — All 4 v1.27.0 bugs fixed. ZIP built and pushed to GitHub. **Next:** Upload `el-core-v1.27.1.zip` from Downloads to WordPress staging, then re-run testing guide sections 2D, 3B, 3C, 3D, 3E from `V1.27.0-TESTING-GUIDE.md`.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

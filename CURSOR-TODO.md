@@ -623,11 +623,11 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 > Found during testing of v1.27.0. Fix all 4, build v1.27.1, redeploy.
 
-- [ ] **Fix 1 — "View Project" opens wrong project**: Portal authorization check at line 74 of `expand-site-portal.php` only calls `is_stakeholder()`, not `is_decision_maker()`. DM designated via `decision_maker_id` fails auth and portal falls back to auto-detect, opening a different project. Fix: add `|| $module->is_decision_maker( $project_id )` to the auth check.
-- [ ] **Fix 2 — Project Definition consensus UI not rendering**: In the portal, the `pending_review` block outputs a loading div but the JS (`es_get_definition_review` AJAX call) never fires or fails silently. No countdown timer, no fields, no verdict buttons appear. Debug: check browser console for JS errors, check that `ELCore.ajax` is defined on the portal page, check that `el_expand_site_portal` JS is enqueued, verify `es_get_definition_review` AJAX action is registered with `nopriv` hook.
-- [ ] **Fix 3 — "View as" in Clients contact list needs to be real "Log in as"**: Currently the button only passes a `?el_view_as=` query param for invoice preview — it does not actually switch the WP session. Replace with a proper "Log in as" button that uses `wp_set_auth_cookie()` to switch the admin's session to the client user. Store the original admin user ID in a session/transient so "Switch back" works.
-- [ ] **Fix 4 — "Switch back to admin" button missing from WP toolbar**: When logged in as a client (after using "Log in as"), there is no way to switch back without logging out. Add a red "Switch back to [Admin Name]" button to the WP admin toolbar that restores the original admin session.
-- [ ] Build v1.27.1, update CHANGELOG, run `build-zip.ps1`, upload to staging, re-run test checklist sections 2D, 3B, 3C onward
+- [x] **Fix 1 — "View Project" opens wrong project**: Portal authorization check at line 74 of `expand-site-portal.php` only calls `is_stakeholder()`, not `is_decision_maker()`. DM designated via `decision_maker_id` fails auth and portal falls back to auto-detect, opening a different project. Fix: add `|| $module->is_decision_maker( $project_id )` to the auth check.
+- [x] **Fix 2 — Project Definition consensus UI not rendering**: In the portal, the `pending_review` block outputs a loading div but the JS (`es_get_definition_review` AJAX call) never fires or fails silently. No countdown timer, no fields, no verdict buttons appear. Root cause: JS was reading `data.definition` etc. from the EL_AJAX_Handler::success() envelope without unwrapping `resp.data` first. Fixed in `expand-site.js` `loadReview()`.
+- [x] **Fix 3 — "View as" in Clients contact list needs to be real "Log in as"**: Replaced the "View As" link in `client-profile.php` with a proper "Log in as" button using `switch_to_user` nonce URL that calls `wp_set_auth_cookie()`. Admin ID stored in user meta.
+- [x] **Fix 4 — "Switch back to admin" button missing from WP toolbar**: Added `add_switch_back_admin_bar_button()` hooked to `admin_bar_menu` and `handle_switch_back_user()` hooked to `admin_init` in `class-expand-site-module.php`. Red button visible on both frontend and backend.
+- [x] Build v1.27.1, update CHANGELOG, run `build-zip.ps1`, push to GitHub — **DONE** ✅
 
 ---
 
