@@ -60,6 +60,7 @@ class EL_Core {
         require_once $includes . 'class-ai-client.php';
         require_once $includes . 'class-organizations.php';
         require_once $includes . 'class-canvas-page.php';
+        require_once $includes . 'shortcodes/client-dashboard.php';
     }
 
     /**
@@ -103,6 +104,9 @@ class EL_Core {
 
         // 9. Canvas Page — AI-generated page system
         EL_Canvas_Page::instance();
+
+        // 10. Core shortcodes — available on any page regardless of active modules
+        add_action( 'init', 'el_register_client_dashboard_shortcode' );
 
         // Hook into WordPress admin
         if ( is_admin() ) {

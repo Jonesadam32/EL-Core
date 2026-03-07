@@ -6,6 +6,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.27.0] — 2026-02-24
+### Added
+- **`[el_client_dashboard]` shortcode** — universal client home base in EL Core (not module-specific)
+  - Auto-detects the user's organization(s) via `el_contacts.user_id`
+  - Shows all Expand Site projects the user is a stakeholder on, with stage progress pip, status badge, role badge (Decision Maker / Contributor), and outstanding invoice balance per project
+  - Context-aware CTA button per project: "Review Definition" (pending_review), "Review Proposal" (sent proposal), or "View Project"
+  - Attention banner at top when action items exist (pending definitions, sent proposals, overdue invoices)
+  - Invoices section (only rendered when invoicing module active): total outstanding balance callout + full invoice table with View links
+  - Access guards: not logged in, no org linked, no projects — all handled with clear messaging
+  - Contributor footer note explaining DM-only actions
+  - Module-aware: checks `el_core_module_active()` before querying invoicing tables
+  - Shortcode registered in `class-el-core.php` boot sequence (step 10, after Canvas Page)
+  - New file: `el-core/includes/shortcodes/client-dashboard.php`
+
+---
+
 ## [1.26.0] — 2026-03-06
 ### Added
 - **Expand Site (v1.22.0)** — Definition Consensus Review System UI
