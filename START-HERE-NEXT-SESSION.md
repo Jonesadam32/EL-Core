@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 7, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.28.0 — Built and ready to upload to staging. All 5 issues fixed (verdict comment bug, needs-attention list, lock prompt banner, admin detail UX redesign, definition version history). Resume testing from 3G after uploading.
+> **Current Plugin Version:** v1.28.0 — Built and ready to upload to staging. **Next session:** Admin project detail page redesign (v1.29.0) — phase bar replaces flat tabs, 8 phases with new names, utility tabs separated. See `NEXT-SESSION-PROMPT-v1.29.0.md` for full details. Do NOT resume testing until v1.29.0 is built and deployed.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
