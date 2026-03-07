@@ -1,7 +1,5 @@
-# Release ZIPs (don't store in Git - rebuild with build-zip.ps1)
-releases/
-el-core-releases/
-old-versions/
+# Release ZIPs are committed to Git so all versions are available in GitHub
+# old-versions/, releases/, el-core-releases/ are intentionally NOT ignored
 
 # OS files
 .DS_Store
