@@ -55,6 +55,19 @@ function el_shortcode_expand_site_portal( $atts ): string {
 		} else {
 			$project = $projects[0];
 		}
+
+		// Third fallback: user is the designated decision_maker_id on a project
+		if ( ! $project ) {
+			global $wpdb;
+			$projects_table = $wpdb->prefix . 'el_es_projects';
+			$dm_project_id  = $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$projects_table} WHERE decision_maker_id = %d ORDER BY created_at DESC LIMIT 1",
+				$user_id
+			) );
+			if ( $dm_project_id ) {
+				$project = $module->get_project( (int) $dm_project_id );
+			}
+		}
 	} else {
 		$project = $module->get_project( $project_id );
 		// Verify user is authorized to view this project

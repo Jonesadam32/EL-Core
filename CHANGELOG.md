@@ -20,6 +20,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   - Shortcode registered in `class-el-core.php` boot sequence (step 10, after Canvas Page)
   - New file: `el-core/includes/shortcodes/client-dashboard.php`
 
+### Fixed
+- **Portal auto-detection missing Decision Maker** (`expand-site-portal.php`): when no `project_id` is passed, the portal now checks `el_es_projects.decision_maker_id` as a third fallback after `client_user_id` and `el_es_stakeholders`. Previously, users designated as Decision Maker via the project form but not explicitly added to `el_es_stakeholders` would see "No project found" when logging into the portal.
+
 ---
 
 ## [1.26.0] — 2026-03-06
