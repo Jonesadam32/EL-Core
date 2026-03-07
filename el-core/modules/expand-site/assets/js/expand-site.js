@@ -360,8 +360,11 @@
             var fieldComments = comments[f.key] || [];
             var userV = userVerdicts[f.key] || '';
             html += '<div class="el-es-definition-field-block" data-field-key="' + f.key + '" data-scroll-marker="' + f.key + '">';
-            html += '<div class="el-es-definition-field-value">' + escapeHtml(val).replace(/\n/g, '<br>') + '</div>';
             html += '<div class="el-es-definition-field-label">' + escapeHtml(f.label) + '</div>';
+            html += '<div class="el-es-definition-field-value" data-current-value="' + escapeHtml(val) + '">' + escapeHtml(val).replace(/\n/g, '<br>') + '</div>';
+            if (review.id && review.status === 'open') {
+                html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-edit-field-btn" data-field-key="' + f.key + '">✏ Edit</button>';
+            }
             html += '<div class="el-es-definition-comments" data-field-key="' + f.key + '">';
             fieldComments.forEach(function(c) {
                 html += renderComment(c, f.key);
@@ -587,6 +590,77 @@
                 '<button type="button" class="el-es-btn el-es-btn-ghost el-es-cancel-comment-btn">Cancel</button>';
             commentEl.appendChild(form);
             form.querySelector('textarea').focus();
+        });
+
+        // Edit field value
+        container.addEventListener('click', function(e) {
+            var btn = e.target.closest('.el-es-edit-field-btn');
+            if (!btn) return;
+            e.preventDefault();
+            var fieldKey = btn.dataset.fieldKey;
+            var block = btn.closest('.el-es-definition-field-block');
+            if (!block) return;
+            var valueEl = block.querySelector('.el-es-definition-field-value');
+            if (!valueEl) return;
+            if (block.querySelector('.el-es-edit-field-form')) return; // already open
+            var currentVal = valueEl.dataset.currentValue || valueEl.textContent;
+            var form = document.createElement('div');
+            form.className = 'el-es-edit-field-form';
+            form.innerHTML = '<textarea rows="4">' + escapeHtml(currentVal) + '</textarea>' +
+                '<div class="el-es-edit-field-actions">' +
+                '<button type="button" class="el-es-btn el-es-btn-primary el-es-save-field-btn" data-field-key="' + fieldKey + '">Save</button>' +
+                '<button type="button" class="el-es-btn el-es-btn-ghost el-es-cancel-edit-btn">Cancel</button>' +
+                '</div>';
+            block.insertBefore(form, btn.nextSibling);
+            form.querySelector('textarea').focus();
+            btn.style.display = 'none';
+        });
+
+        // Cancel edit
+        container.addEventListener('click', function(e) {
+            if (!e.target.closest('.el-es-cancel-edit-btn')) return;
+            var form = e.target.closest('.el-es-edit-field-form');
+            if (!form) return;
+            var block = form.closest('.el-es-definition-field-block');
+            var editBtn = block && block.querySelector('.el-es-edit-field-btn');
+            if (editBtn) editBtn.style.display = '';
+            form.remove();
+        });
+
+        // Save field edit
+        container.addEventListener('click', function(e) {
+            var btn = e.target.closest('.el-es-save-field-btn');
+            if (!btn) return;
+            e.preventDefault();
+            var fieldKey = btn.dataset.fieldKey;
+            var form = btn.closest('.el-es-edit-field-form');
+            var textarea = form && form.querySelector('textarea');
+            var newVal = textarea && textarea.value.trim();
+            if (!newVal) return;
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+            var fd = new FormData();
+            fd.append('action', 'el_core_action');
+            fd.append('el_action', 'es_client_edit_definition_field');
+            fd.append('nonce', typeof elCore !== 'undefined' ? elCore.nonce : '');
+            fd.append('project_id', projectId);
+            fd.append('field_key', fieldKey);
+            fd.append('value', newVal);
+            fetch(typeof elCore !== 'undefined' ? elCore.ajaxUrl : '', {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: fd
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (!res.success) throw new Error(res.data && res.data.message || 'Failed');
+                loadReview();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to save');
+                btn.disabled = false;
+                btn.textContent = 'Save';
+            });
         });
 
         // Verdict buttons

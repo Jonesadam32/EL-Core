@@ -153,11 +153,13 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_post_definition_comment',  [ $this, 'handle_post_definition_comment' ] );
         add_action( 'el_core_ajax_es_field_verdict',            [ $this, 'handle_field_verdict' ] );
         add_action( 'el_core_ajax_es_dm_decision',              [ $this, 'handle_dm_decision' ] );
+        add_action( 'el_core_ajax_es_client_edit_definition_field', [ $this, 'handle_client_edit_definition_field' ] );
         // Guest (portal) access for stakeholders
         add_action( 'el_core_ajax_nopriv_es_get_definition_review',   [ $this, 'handle_get_definition_review' ] );
         add_action( 'el_core_ajax_nopriv_es_post_definition_comment', [ $this, 'handle_post_definition_comment' ] );
         add_action( 'el_core_ajax_nopriv_es_field_verdict',           [ $this, 'handle_field_verdict' ] );
         add_action( 'el_core_ajax_nopriv_es_dm_decision',             [ $this, 'handle_dm_decision' ] );
+        add_action( 'el_core_ajax_nopriv_es_client_edit_definition_field', [ $this, 'handle_client_edit_definition_field' ] );
         
         // Proposals
         add_action( 'el_core_ajax_es_create_proposal',       [ $this, 'handle_create_proposal' ] );
@@ -1942,7 +1944,66 @@ class EL_Expand_Site_Module {
     }
 
     /**
-     * AJAX: Post a comment (or reply) on a definition field.
+     * AJAX: Allow a stakeholder/DM to edit a single definition field value during pending_review.
+     */
+    public function handle_client_edit_definition_field( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'You must be logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $field_key  = sanitize_key( $data['field_key'] ?? '' );
+
+        $allowed_fields = [ 'site_description', 'primary_goal', 'secondary_goals', 'target_customers', 'user_types', 'site_type' ];
+        if ( ! $project_id || ! in_array( $field_key, $allowed_fields, true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid request.', 'el-core' ) );
+            return;
+        }
+
+        if ( ! $this->can_contribute( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $definition = $this->get_project_definition( $project_id );
+        if ( ! $definition ) {
+            EL_AJAX_Handler::error( __( 'No definition found.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( ( $definition->review_status ?? '' ) !== 'pending_review' ) {
+            EL_AJAX_Handler::error( __( 'Definition is not currently in review.', 'el-core' ), 403 );
+            return;
+        }
+
+        if ( $definition->locked_at ) {
+            EL_AJAX_Handler::error( __( 'Definition is locked.', 'el-core' ), 403 );
+            return;
+        }
+
+        $new_value = $field_key === 'site_type'
+            ? substr( sanitize_text_field( wp_unslash( $_POST['value'] ?? '' ) ), 0, 100 )
+            : sanitize_textarea_field( wp_unslash( $_POST['value'] ?? '' ) );
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_project_definition';
+        $result = $wpdb->update(
+            $table,
+            [ $field_key => $new_value, 'updated_at' => current_time( 'mysql' ) ],
+            [ 'project_id' => $project_id ],
+            [ '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( [ 'value' => $new_value ], __( 'Field updated.', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to update field.', 'el-core' ) );
+        }
+    }
+
+    /**
      */
     public function handle_post_definition_comment( array $data ): void {
         if ( ! is_user_logged_in() ) {

@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.27.2] — 2026-03-07
+### Fixed
+- **"View Project" still opened wrong project from dashboard** (`expand-site-portal.php`): the portal shortcode reads `project_id` from shortcode attributes only — it was ignoring `?project_id=X` in the URL. Added a `$_GET['project_id']` fallback so dashboard CTA links route to the correct project.
+
+### Added
+- **Back to Dashboard button on portal** (`expand-site-portal.php`, `expand-site.css`): a "← Back to Dashboard" link now appears above the portal header whenever a `[el_client_dashboard]` page exists on the site. Always visible — not just when arriving from the dashboard.
+- **Definition field editing in review UI** (`expand-site.js`, `class-expand-site-module.php`, `expand-site.css`): stakeholders and DMs can now click "✏ Edit" on any definition field during `pending_review` to directly update the value — not just leave comments. New AJAX action `es_client_edit_definition_field` validates that the review is open and the definition is not locked.
+- **Stakeholder contact-linkage warning** (`project-detail.php`): the Stakeholders tab now shows an amber warning under any stakeholder who is not linked to a contact record in EL Core → Clients, with a clear note explaining they won't see the Client Dashboard until added.
+- **Clearer dashboard "no account" message** (`client-dashboard.php`): the "No client account linked" message now explicitly tells the user their project manager needs to add them as a contact inside their organization.
+- **Menu Visibility settings page** (`class-el-core.php`, `admin/views/settings-menu.php`): new **EL Core → Menus** admin page lets admins set per-item visibility for all registered WordPress nav menus — three options per item: Always (everyone), Logged-in only, or Clients only (users linked to a client org). Stored in `wp_options` as `el_core_menu_visibility`. No CSS class knowledge required.
+
+---
+
 ## [1.27.1] — 2026-03-07
 ### Fixed
 - **Portal "View Project" opens wrong project** (`expand-site-portal.php`): when `?project_id=X` is passed in the URL, the authorization check only called `is_stakeholder()` which does not cover users set as Decision Maker via the `decision_maker_id` field. The check now also calls `is_decision_maker()`, so DMs can correctly access any project they are designated on via a direct URL link.

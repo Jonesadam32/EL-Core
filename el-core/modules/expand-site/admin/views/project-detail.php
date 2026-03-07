@@ -601,6 +601,17 @@ foreach ( $stakeholders as $sh ) {
     $user = get_userdata( $sh->user_id );
     if ( ! $user ) continue;
 
+    // Check if this user is linked to a contact record (required for Client Dashboard to show projects)
+    $has_contact_record = false;
+    $contacts_table = $wpdb->prefix . 'el_contacts';
+    $ct_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$contacts_table}'" );
+    if ( $ct_exists ) {
+        $has_contact_record = (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$contacts_table} WHERE user_id = %d",
+            $sh->user_id
+        ) );
+    }
+
     $role_badge = EL_Admin_UI::badge( [
         'label'   => $sh->role === 'decision_maker' ? __( 'Decision Maker', 'el-core' ) : __( 'Contributor', 'el-core' ),
         'variant' => $sh->role === 'decision_maker' ? 'success' : 'info',
@@ -666,7 +677,8 @@ foreach ( $stakeholders as $sh ) {
     }
 
     $stakeholder_rows[] = [
-        'user'   => '<strong>' . esc_html( $user->display_name ) . '</strong><br><small>' . esc_html( $user->user_email ) . '</small>',
+        'user'   => '<strong>' . esc_html( $user->display_name ) . '</strong><br><small>' . esc_html( $user->user_email ) . '</small>'
+            . ( ! $has_contact_record ? '<br><span style="color:#d97706;font-size:0.75rem;">⚠ Not linked to a contact — won\'t see Client Dashboard. Add them as a contact in EL Core → Clients.</span>' : '' ),
         'role'   => $role_badge,
         'added'  => date_i18n( 'M j, Y', strtotime( $sh->added_at ) ),
         '__actions' => $actions,

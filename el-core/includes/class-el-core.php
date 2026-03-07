@@ -108,10 +108,58 @@ class EL_Core {
         // 10. Core shortcodes — available on any page regardless of active modules
         add_action( 'init', 'el_register_client_dashboard_shortcode' );
 
+        // 11. Nav menu: hide items with class 'el-client-only' from non-clients
+        add_filter( 'wp_nav_menu_objects', [ $this, 'filter_client_nav_items' ], 10, 2 );
+
         // Hook into WordPress admin
         if ( is_admin() ) {
             $this->init_admin();
         }
+    }
+
+    /**
+     * Filter nav menu items based on visibility rules stored in el_core_menu_visibility.
+     *
+     * Rules per item ID:
+     *   'always'    (default) — shown to everyone
+     *   'logged_in' — hidden from guests, shown to any logged-in user
+     *   'client'    — shown only to logged-in users linked to a client org via el_contacts
+     *
+     * To configure: EL Core → Menus in the WordPress admin.
+     */
+    public function filter_client_nav_items( array $items, object $args ): array {
+        $rules = get_option( 'el_core_menu_visibility', [] );
+        if ( empty( $rules ) ) {
+            return $items; // nothing restricted — skip all checks
+        }
+
+        $logged_in = is_user_logged_in();
+
+        // Only resolve client status if actually needed
+        static $is_client = null;
+        if ( $is_client === null && $logged_in && in_array( 'client', $rules, true ) ) {
+            $is_client = false;
+            global $wpdb;
+            $table = $wpdb->prefix . 'el_contacts';
+            $exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" );
+            if ( $exists ) {
+                $count = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$table} WHERE user_id = %d AND organization_id IS NOT NULL",
+                    get_current_user_id()
+                ) );
+                $is_client = $count > 0;
+            }
+        }
+
+        return array_values( array_filter( $items, function( $item ) use ( $rules, $logged_in, $is_client ) {
+            $rule = $rules[ (int) $item->ID ] ?? 'always';
+
+            if ( $rule === 'always' ) return true;
+            if ( $rule === 'logged_in' ) return $logged_in;
+            if ( $rule === 'client' ) return $is_client === true;
+
+            return true;
+        } ) );
     }
 
     /**
@@ -120,6 +168,38 @@ class EL_Core {
     private function init_admin(): void {
         add_action( 'admin_menu', [ $this, 'register_admin_menu' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
+        add_action( 'wp_ajax_el_save_menu_visibility', [ $this, 'handle_save_menu_visibility' ] );
+    }
+
+    /**
+     * AJAX: Save menu visibility rules.
+     * Called from the Menu Visibility admin page form submission.
+     */
+    public function handle_save_menu_visibility(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => __( 'Permission denied.', 'el-core' ) ], 403 );
+        }
+
+        if ( ! check_ajax_referer( 'el_save_menu_visibility', 'el_menu_nonce', false ) ) {
+            wp_send_json_error( [ 'message' => __( 'Security check failed.', 'el-core' ) ], 403 );
+        }
+
+        $raw   = $_POST['visibility'] ?? [];
+        $rules = [];
+        $allowed = [ 'always', 'logged_in', 'client' ];
+
+        if ( is_array( $raw ) ) {
+            foreach ( $raw as $item_id => $visibility ) {
+                $item_id    = (int) $item_id;
+                $visibility = sanitize_key( $visibility );
+                if ( $item_id > 0 && in_array( $visibility, $allowed, true ) && $visibility !== 'always' ) {
+                    $rules[ $item_id ] = $visibility; // only store non-default values
+                }
+            }
+        }
+
+        update_option( 'el_core_menu_visibility', $rules );
+        wp_send_json_success( [ 'message' => __( 'Saved.', 'el-core' ) ] );
     }
 
     /**
@@ -144,6 +224,7 @@ class EL_Core {
         add_submenu_page( 'el-core', 'Brand Settings', 'Brand', 'manage_options', 'el-core-brand', [ $this, 'render_brand_page' ] );
         add_submenu_page( 'el-core', 'Module Manager', 'Modules', 'manage_options', 'el-core-modules', [ $this, 'render_modules_page' ] );
         add_submenu_page( 'el-core', 'Role Manager', 'Roles', 'manage_options', 'el-core-roles', [ $this, 'render_roles_page' ] );
+        add_submenu_page( 'el-core', 'Menu Visibility', 'Menus', 'manage_options', 'el-core-menus', [ $this, 'render_menu_page' ] );
     }
 
     /**
@@ -194,6 +275,10 @@ class EL_Core {
 
     public function render_modules_page(): void {
         include EL_CORE_DIR . 'admin/views/settings-modules.php';
+    }
+
+    public function render_menu_page(): void {
+        include EL_CORE_DIR . 'admin/views/settings-menu.php';
     }
 
     public function render_roles_page(): void {

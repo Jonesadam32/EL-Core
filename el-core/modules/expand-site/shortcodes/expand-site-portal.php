@@ -18,6 +18,11 @@ function el_shortcode_expand_site_portal( $atts ): string {
 
 	$project_id = absint( $atts['project_id'] );
 
+	// Also accept project_id from URL query string (e.g. ?project_id=X from the client dashboard)
+	if ( ! $project_id && ! empty( $_GET['project_id'] ) ) {
+		$project_id = absint( $_GET['project_id'] );
+	}
+
 	if ( ! is_user_logged_in() ) {
 		return '<div class="el-component el-es-portal">'
 			. '<div class="el-notice el-notice-warning">'
@@ -96,11 +101,33 @@ function el_shortcode_expand_site_portal( $atts ): string {
 	$is_stakeholder    = $module->is_stakeholder( $project_id );
 	$can_contribute    = $module->can_contribute( $project_id );
 
+	// Find the dashboard page URL for the back button
+	$dashboard_page_url = null;
+	global $wpdb;
+	$_dash_like = '%[el_client_dashboard%';
+	$_dash_page = $wpdb->get_row( $wpdb->prepare(
+		"SELECT ID FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type = 'page' AND post_content LIKE %s LIMIT 1",
+		$_dash_like
+	) );
+	if ( $_dash_page ) {
+		$dashboard_page_url = get_permalink( $_dash_page->ID );
+	}
+
 	// ═══════════════════════════════════════════
 	// PORTAL HEADER
 	// ═══════════════════════════════════════════
 
 	$html = '<div class="el-component el-es-portal" data-project-id="' . esc_attr( $project_id ) . '" data-current-stage="' . esc_attr( $current_stage ) . '">';
+
+	// Back to dashboard link (always shown when dashboard page exists)
+	if ( $dashboard_page_url ) {
+		$html .= '<div class="el-es-back-to-dashboard">';
+		$html .= '<a href="' . esc_url( $dashboard_page_url ) . '" class="el-es-back-link">';
+		$html .= el_es_icon( 'arrow-left', 16 );
+		$html .= esc_html__( 'Back to Dashboard', 'el-core' );
+		$html .= '</a>';
+		$html .= '</div>';
+	}
 
 	$html .= '<div class="el-es-portal-header">';
 	$html .= '<div class="el-es-header-content">';
