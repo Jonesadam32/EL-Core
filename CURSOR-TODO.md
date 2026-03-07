@@ -15,19 +15,17 @@
 
 ---
 
-## NEW COMPUTER SETUP (March 6, 2026)
+## SWITCHING COMPUTERS (March 6, 2026)
 
-**To restore on a new machine:**
+**When moving to another machine (repo already exists there):**
 
-1. **Clone from GitHub:** `git clone https://github.com/YOUR_USERNAME/EL-Core.git` (or your repo URL)
-2. **Open in Cursor** — open the cloned folder as workspace
-3. **Read first:** `START-HERE-NEXT-SESSION.md` and `CURSOR-TODO.md`
-4. **Build ZIP:** From repo root, run `.\build-zip.ps1` (PowerShell). Creates:
+1. **Pull latest:** `git pull origin main`
+2. **Open in Cursor** — open the repo folder as workspace
+3. **Build ZIP if needed:** From repo root, run `.\build-zip.ps1` (PowerShell). Creates:
    - `releases/el-core-v1.26.0.zip` — upload to WordPress
    - `old-versions/v1.26.0/` — versioned backup
    - `%USERPROFILE%\Downloads\el-core-v1.26.0.zip` — copy in Downloads
-5. **Deploy:** Upload the ZIP via WordPress Admin → Plugins → Add New → Upload Plugin
-6. **Update paths** in this file if your repo lives elsewhere (e.g. `D:\Projects\EL-Core`)
+4. **Deploy:** Upload the ZIP via WordPress Admin → Plugins → Add New → Upload Plugin
 
 **Current state:** v1.26.0 built. Definition Consensus Review System UI complete. Ready for deploy and end-to-end test.
 

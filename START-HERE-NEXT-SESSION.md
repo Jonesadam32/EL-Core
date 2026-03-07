@@ -7,7 +7,7 @@
 > **Updated By:** Cursor
 > **Current Plugin Version:** 1.26.0 — Definition Consensus Review System (v1.22.0) UI complete ✅. Admin Discovery tab: status badge, Send for Review, comments panel, verdict summary, Lock override. Client portal: full consensus UI (countdown, per-field comments/verdicts, scroll-depth gate, DM decision). **Next:** Deploy v1.26.0, test end-to-end; then Phase 6B or Brand Palette Voting (v1.23.0).
 >
-> **NEW COMPUTER:** Repo backed up to GitHub. Clone, run `.\build-zip.ps1`, upload ZIP. See CURSOR-TODO.md "NEW COMPUTER SETUP" section.
+> **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
 ---
 
