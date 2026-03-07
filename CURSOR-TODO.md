@@ -4,11 +4,11 @@
 > Read this at the start of every session. Work through tasks in order. Check off completed items with [x].
 > Push to GitHub after every session so this stays current.
 >
-> **Last Updated:** March 6, 2026
+> **Last Updated:** February 24, 2026
 > **Plugin Version:** v1.26.0 (Definition Consensus Review UI complete)
-> **Next Build:** Deploy v1.26.0, test definition review end-to-end
+> **Next Build:** v1.27.0 — Client Dashboard shortcode `[el_client_dashboard]`
 > **Deployed Version:** v1.19.2 on staging
-> **Local Repo:** `C:\Users\jones\Documents\Github\EL-Core` (update path on new computer)
+> **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
 > **Deploy:** Upload `el-core-vX.X.X.zip` from `releases/` or `%USERPROFILE%\Downloads` via WordPress Admin → Plugins → Add New → Upload Plugin
@@ -600,6 +600,73 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 - [x] Build `[el_revenue_dashboard]` shortcode (charts, breakdowns); CSV export handler
 - [ ] **Checkpoint:** Dashboard accurate, CSV exports correctly
+
+---
+
+## PHASE 6C — CLIENT DASHBOARD (v1.27.0) ← NEXT BUILD
+
+> Universal client home base. Lives in EL Core (not a module) so all future modules can plug into it.
+> A logged-in client lands here, sees all their org's projects and invoices, and gets a clear CTA for whatever needs their attention.
+>
+> **Prerequisite:** v1.26.0 deployed and tested.
+> **Data model:** el_contacts → organization_id → el_es_projects + el_inv_invoices (all links already exist).
+> **No new DB tables needed.**
+
+### Architecture
+
+- New file: `el-core/includes/shortcodes/client-dashboard.php`
+- Registered in `el-core/el-core.php` boot sequence (same pattern as Canvas pages)
+- Server-side render only (no new AJAX for v1)
+- Inline CSS via `wp_head` — no external CSS file
+
+### Checklist
+
+**Query layer:**
+- [ ] Look up org IDs from `el_contacts` where `user_id = current user`
+- [ ] Load all `el_es_projects` where `organization_id IN (orgs)` AND user is in `el_es_stakeholders`
+- [ ] Load all `el_inv_invoices` where `organization_id IN (orgs)` AND `status != draft` (only if invoicing module active via `el_core_module_active('invoicing')`)
+- [ ] Group invoices by `project_id` so each project card can show its outstanding balance
+
+**Action banner:**
+- [ ] Detect pending_review definitions (`el_es_project_definition.review_status = 'pending_review'`)
+- [ ] Detect sent proposals (`el_es_proposals.status = 'sent'`)
+- [ ] Detect overdue invoices (`el_inv_invoices.status = 'overdue'`)
+- [ ] Render amber attention banner at top if any items found: "You have X items that need your attention"
+
+**Project cards:**
+- [ ] One card per project the user is a stakeholder on
+- [ ] Module type badge (Website Development / Partnership / Training — Coming Soon for inactive modules)
+- [ ] Current stage indicator (stage number + stage name for Expand Site projects)
+- [ ] Status badge (Active / On Hold / Complete)
+- [ ] Outstanding invoice balance for that project (if any, pulled from grouped invoices query)
+- [ ] Role badge: Decision Maker vs Contributor
+- [ ] Context-aware CTA button:
+  - "Review Definition" if `review_status = pending_review`
+  - "Review Proposal" if proposal `status = sent`
+  - "View Project" otherwise → links to `[el_expand_site_portal]` page with `?project_id=X`
+
+**Invoices section:**
+- [ ] Only rendered if invoicing module is active
+- [ ] Total outstanding balance callout if balance > $0
+- [ ] Table: Invoice #, Project name, Date, Amount, Status badge, Balance Due, View link
+- [ ] View link goes to existing `[el_invoice_view]` shortcode page
+
+**Access & edge cases:**
+- [ ] Not logged in → login prompt
+- [ ] No org linked → "No client account is linked to your user. Contact your project manager."
+- [ ] No projects yet → friendly empty state with org name
+- [ ] Contributor footer note: "Some actions are only available to the Decision Maker on your team"
+
+**Finish:**
+- [ ] Register shortcode in `el-core/el-core.php`
+- [ ] Bump to v1.27.0, update CHANGELOG
+- [ ] Run `build-zip.ps1`, upload to staging, test with a real client user
+
+### What is NOT in v1.27.0 (deferred)
+- Admin "View As" for the dashboard (add in v1.27.1)
+- Training module section (no module exists yet)
+- Expand Partners portal section (no module yet)
+- Notifications / activity feed (Phase 10)
 
 ---
 

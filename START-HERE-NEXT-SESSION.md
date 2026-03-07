@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 6, 2026
+> **Last Updated:** February 24, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.26.0 — Definition Consensus Review System (v1.22.0) UI complete ✅. Admin Discovery tab: status badge, Send for Review, comments panel, verdict summary, Lock override. Client portal: full consensus UI (countdown, per-field comments/verdicts, scroll-depth gate, DM decision). **Next:** Deploy v1.26.0, test end-to-end; then Phase 6B or Brand Palette Voting (v1.23.0).
+> **Current Plugin Version:** 1.26.0 — Definition Consensus Review System UI complete ✅. **Next:** Build v1.27.0 — `[el_client_dashboard]` universal client home base (Phase 6C in CURSOR-TODO.md). Deploy v1.26.0 first, then build the dashboard.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
