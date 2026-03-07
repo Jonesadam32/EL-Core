@@ -6,9 +6,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.27.1] — 2026-02-24
+## [1.27.1] — 2026-03-07
 ### Fixed
 - **Portal "View Project" opens wrong project** (`expand-site-portal.php`): when `?project_id=X` is passed in the URL, the authorization check only called `is_stakeholder()` which does not cover users set as Decision Maker via the `decision_maker_id` field. The check now also calls `is_decision_maker()`, so DMs can correctly access any project they are designated on via a direct URL link.
+- **Project Definition consensus UI not rendering in portal** (`expand-site.js`): the `loadReview()` AJAX response was being passed directly to `renderReviewUI()` without unwrapping the `EL_AJAX_Handler::success()` envelope (`{ message, data }`). All fields (`definition`, `review`, `comments`, `verdicts`, etc.) were `undefined`, so nothing rendered. Fixed by unwrapping `resp.data` before calling `renderReviewUI()`.
+- **"View As" in Clients contact list replaced with real "Log in as"** (`client-profile.php`): the button previously only appended `?el_view_as=` to the invoices URL — it was a preview mode, not a real session switch. Now generates a proper `switch_to_user` nonce URL that calls `wp_set_auth_cookie()` and switches the admin into the client's session, with the original admin ID stored in user meta for switch-back.
+- **"Switch back to admin" button added to WP toolbar** (`class-expand-site-module.php`): after using "Log in as" to enter a client session, a red "Switch back to [Admin Name]" button now appears in the WordPress admin bar (visible on both frontend and backend). Clicking it calls a new `switch_back_user` handler that restores the original admin session and clears the stored meta.
 
 ---
 

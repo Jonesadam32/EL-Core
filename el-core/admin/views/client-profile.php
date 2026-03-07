@@ -131,10 +131,14 @@ if ( empty( $contacts ) ) {
         $portal = $c->user_id ? EL_Admin_UI::badge( [ 'label' => 'Portal Access', 'variant' => 'success' ] ) : '—';
 
         $actions = '';
-        if ( ! empty( $c->user_id ) ) {
-            $view_as_url = el_core_get_client_portal_view_as_url( (int) $c->user_id );
-            $actions .= '<a href="' . esc_url( $view_as_url ) . '" target="_blank" rel="noopener" class="el-btn el-btn-ghost">'
-                . '<span class="dashicons dashicons-visibility"></span>' . esc_html__( 'View As', 'el-core' )
+        if ( ! empty( $c->user_id ) && current_user_can( 'manage_options' ) ) {
+            $login_as_url = add_query_arg( [
+                'action'   => 'switch_to_user',
+                'user_id'  => $c->user_id,
+                '_wpnonce' => wp_create_nonce( 'switch_to_user_' . $c->user_id ),
+            ], admin_url( 'admin.php' ) );
+            $actions .= '<a href="' . esc_url( $login_as_url ) . '" class="el-btn el-btn-ghost">'
+                . '<span class="dashicons dashicons-admin-users"></span>' . esc_html__( 'Log in as', 'el-core' )
                 . '</a> ';
         }
         $actions .= EL_Admin_UI::btn( [

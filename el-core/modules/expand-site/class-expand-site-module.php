@@ -188,6 +188,8 @@ class EL_Expand_Site_Module {
 
         // User switching
         add_action( 'admin_init', [ $this, 'handle_switch_to_user' ] );
+        add_action( 'admin_init', [ $this, 'handle_switch_back_user' ] );
+        add_action( 'admin_bar_menu', [ $this, 'add_switch_back_admin_bar_button' ], 100 );
 
         // Register admin menu at priority 20 (after core at priority 10)
         add_action( 'admin_menu', [ $this, 'register_admin_pages' ], 20 );
@@ -3087,5 +3089,80 @@ class EL_Expand_Site_Module {
         // Redirect to home page so they see the site as this user
         wp_redirect( home_url( '/' ) );
         exit;
+    }
+
+    /**
+     * Handle the switch-back-to-admin request.
+     * Triggered by ?action=switch_back_user&_wpnonce=... on any admin page.
+     */
+    public function handle_switch_back_user(): void {
+        if ( ! isset( $_GET['action'] ) || $_GET['action'] !== 'switch_back_user' ) {
+            return;
+        }
+
+        $nonce = sanitize_text_field( $_GET['_wpnonce'] ?? '' );
+        if ( ! wp_verify_nonce( $nonce, 'switch_back_user' ) ) {
+            wp_die( __( 'Invalid request.', 'el-core' ) );
+        }
+
+        $current_user_id   = get_current_user_id();
+        $original_admin_id = (int) get_user_meta( $current_user_id, '_switched_from_user', true );
+
+        if ( ! $original_admin_id ) {
+            wp_die( __( 'No original session found.', 'el-core' ) );
+        }
+
+        $admin_user = get_user_by( 'id', $original_admin_id );
+        if ( ! $admin_user ) {
+            wp_die( __( 'Original admin user not found.', 'el-core' ) );
+        }
+
+        // Clean up meta
+        delete_user_meta( $current_user_id, '_switched_from_user' );
+        delete_user_meta( $original_admin_id, '_switched_to_user' );
+
+        // Switch back to the admin
+        wp_clear_auth_cookie();
+        wp_set_current_user( $original_admin_id );
+        wp_set_auth_cookie( $original_admin_id );
+
+        wp_redirect( admin_url( 'admin.php?page=el-core-clients' ) );
+        exit;
+    }
+
+    /**
+     * Add a red "Switch back to [Admin]" button to the WP admin bar
+     * whenever the current session was initiated via "Log in as".
+     */
+    public function add_switch_back_admin_bar_button( \WP_Admin_Bar $wp_admin_bar ): void {
+        $current_user_id   = get_current_user_id();
+        $original_admin_id = (int) get_user_meta( $current_user_id, '_switched_from_user', true );
+
+        if ( ! $original_admin_id ) {
+            return;
+        }
+
+        $admin_user = get_user_by( 'id', $original_admin_id );
+        if ( ! $admin_user ) {
+            return;
+        }
+
+        $switch_back_url = add_query_arg( [
+            'action'   => 'switch_back_user',
+            '_wpnonce' => wp_create_nonce( 'switch_back_user' ),
+        ], admin_url( 'admin.php' ) );
+
+        $wp_admin_bar->add_node( [
+            'id'    => 'el-switch-back',
+            'title' => '<span style="color:#fff;background:#dc2626;padding:2px 10px;border-radius:4px;font-weight:600;">'
+                . sprintf(
+                    /* translators: %s: admin display name */
+                    esc_html__( 'Switch back to %s', 'el-core' ),
+                    esc_html( $admin_user->display_name )
+                )
+                . '</span>',
+            'href'  => esc_url( $switch_back_url ),
+            'meta'  => [ 'title' => __( 'Return to your admin account', 'el-core' ) ],
+        ] );
     }
 }

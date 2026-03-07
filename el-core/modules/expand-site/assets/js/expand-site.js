@@ -317,7 +317,9 @@
         if (loading) loading.textContent = 'Loading…';
 
         ELCore.ajax('es_get_definition_review', { project_id: projectId })
-            .then(function(data) {
+            .then(function(resp) {
+                // EL_AJAX_Handler::success() wraps payload in { message, data }
+                var data = (resp && resp.data !== undefined) ? resp.data : resp;
                 renderReviewUI(data);
                 if (loading) loading.remove();
             })
