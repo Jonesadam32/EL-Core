@@ -5,7 +5,7 @@
 >
 > **Last Updated:** February 24, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.26.0 — Definition Consensus Review System UI complete ✅. **Next:** Build v1.27.0 — `[el_client_dashboard]` universal client home base (Phase 6C in CURSOR-TODO.md). Deploy v1.26.0 first, then build the dashboard.
+> **Current Plugin Version:** 1.27.0 — Client Dashboard `[el_client_dashboard]` built + portal DM detection fix. Testing found 4 bugs. **Next:** Fix all 4 bugs as v1.27.1 — see CURSOR-TODO.md Phase 6C bugfix section.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

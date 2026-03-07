@@ -5,9 +5,9 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** February 24, 2026
-> **Plugin Version:** v1.26.0 (Definition Consensus Review UI complete)
-> **Next Build:** v1.27.0 — Client Dashboard shortcode `[el_client_dashboard]`
-> **Deployed Version:** v1.19.2 on staging
+> **Plugin Version:** v1.27.0 deployed on staging — testing found 4 bugs, fixes pending as v1.27.1
+> **Next Build:** v1.27.1 — fix all 4 bugs found in testing (see Phase 6C bugfix section below)
+> **Deployed Version:** v1.27.0 on staging
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
@@ -619,9 +619,19 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - Server-side render only (no new AJAX for v1)
 - Inline CSS via `wp_head` — no external CSS file
 
-### Checklist
+### Phase 6C bugfix checklist — v1.27.1 ← DO THIS FIRST
 
-**Query layer:**
+> Found during testing of v1.27.0. Fix all 4, build v1.27.1, redeploy.
+
+- [ ] **Fix 1 — "View Project" opens wrong project**: Portal authorization check at line 74 of `expand-site-portal.php` only calls `is_stakeholder()`, not `is_decision_maker()`. DM designated via `decision_maker_id` fails auth and portal falls back to auto-detect, opening a different project. Fix: add `|| $module->is_decision_maker( $project_id )` to the auth check.
+- [ ] **Fix 2 — Project Definition consensus UI not rendering**: In the portal, the `pending_review` block outputs a loading div but the JS (`es_get_definition_review` AJAX call) never fires or fails silently. No countdown timer, no fields, no verdict buttons appear. Debug: check browser console for JS errors, check that `ELCore.ajax` is defined on the portal page, check that `el_expand_site_portal` JS is enqueued, verify `es_get_definition_review` AJAX action is registered with `nopriv` hook.
+- [ ] **Fix 3 — "View as" in Clients contact list needs to be real "Log in as"**: Currently the button only passes a `?el_view_as=` query param for invoice preview — it does not actually switch the WP session. Replace with a proper "Log in as" button that uses `wp_set_auth_cookie()` to switch the admin's session to the client user. Store the original admin user ID in a session/transient so "Switch back" works.
+- [ ] **Fix 4 — "Switch back to admin" button missing from WP toolbar**: When logged in as a client (after using "Log in as"), there is no way to switch back without logging out. Add a red "Switch back to [Admin Name]" button to the WP admin toolbar that restores the original admin session.
+- [ ] Build v1.27.1, update CHANGELOG, run `build-zip.ps1`, upload to staging, re-run test checklist sections 2D, 3B, 3C onward
+
+---
+
+
 - [ ] Look up org IDs from `el_contacts` where `user_id = current user`
 - [ ] Load all `el_es_projects` where `organization_id IN (orgs)` AND user is in `el_es_stakeholders`
 - [ ] Load all `el_inv_invoices` where `organization_id IN (orgs)` AND `status != draft` (only if invoicing module active via `el_core_module_active('invoicing')`)

@@ -71,7 +71,7 @@ function el_shortcode_expand_site_portal( $atts ): string {
 	} else {
 		$project = $module->get_project( $project_id );
 		// Verify user is authorized to view this project
-		if ( $project && ! $module->is_stakeholder( $project_id ) && ! el_core_can( 'manage_expand_site' ) ) {
+		if ( $project && ! $module->is_stakeholder( $project_id ) && ! $module->is_decision_maker( $project_id ) && ! el_core_can( 'manage_expand_site' ) ) {
 			$project = null;
 		}
 	}

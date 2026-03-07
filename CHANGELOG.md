@@ -6,6 +6,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.27.1] — 2026-02-24
+### Fixed
+- **Portal "View Project" opens wrong project** (`expand-site-portal.php`): when `?project_id=X` is passed in the URL, the authorization check only called `is_stakeholder()` which does not cover users set as Decision Maker via the `decision_maker_id` field. The check now also calls `is_decision_maker()`, so DMs can correctly access any project they are designated on via a direct URL link.
+
+---
+
 ## [1.27.0] — 2026-02-24
 ### Added
 - **`[el_client_dashboard]` shortcode** — universal client home base in EL Core (not module-specific)
