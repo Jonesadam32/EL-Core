@@ -606,7 +606,7 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 ## PHASE 6C — CLIENT DASHBOARD (v1.27.x) ✅ BUILT — TESTING IN PROGRESS
 
 > Universal client home base. Lives in EL Core (not a module) so all future modules can plug into it.
-> **Current state:** v1.27.3 deployed on staging. Testing completed through 3F. Resume at 3G.
+> **Current state:** v1.27.3 deployed on staging. Testing completed through 3F. 3G/3H surfaced 5 bugs/improvements — fix these as v1.28.0 before continuing.
 
 ### What is built and working (tested through 3F):
 - [x] `[el_client_dashboard]` shortcode — project cards, CTA buttons, invoice section, attention banner
@@ -619,12 +619,19 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] Stakeholders tab warns when user has no contact record linked
 - [x] Menu Visibility settings page (EL Core → Menus) — per-item Always/Logged-in/Client rules
 
-### Testing resume point — v1.27.3:
+### v1.28.0 — Fix these 5 issues before resuming testing (see NEXT-SESSION-PROMPT-v1.28.0.md for full detail):
+- [ ] **Issue 4** (quick): After clicking verdict button, must refresh to add a comment — call `loadReview()` after verdict AJAX success (`expand-site.js`)
+- [ ] **Issue 3** (quick): Projects with `needs_revision` or `approved` definition status not appearing in "Needs Attention" list — extend query in `project-list.php`
+- [ ] **Issue 2** (quick): No banner prompts admin to lock definition after client approval — add amber action banner to Discovery tab in `project-detail.php`
+- [ ] **Issue 5** (larger): Admin project detail page UX redesign — add stage progress stepper, stage status card, auto-activate relevant tab for current stage (`project-detail.php`)
+- [ ] **Issue 1** (DB migration): Definition revision history — snapshot per review round, version diff in admin, "Updated" badge in portal (`class-expand-site-module.php`, DB schema v9)
+- [ ] Bump to v1.28.0, build ZIP, deploy, resume testing from 3G
+
+### Testing resume point (after v1.28.0 deployed):
 - [ ] **3G — DM Final Decision**: test Accept and Needs Revision from the DM portal view
 - [ ] **3H — Post-decision states (admin)**: check admin badges and button states after each decision
 - [ ] **Part 4 — Regression check**: project list, all tabs, locked definition view, mood board, proposal, invoices
-- [ ] Fix any bugs found in 3G/3H/Part 4, build next version, redeploy
-- [ ] Update testing guide to cover v1.27.x features (field editing, back button, menu visibility)
+- [ ] Update testing guide to cover v1.27.x + v1.28.x features
 
 ---
 
