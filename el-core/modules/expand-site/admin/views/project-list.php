@@ -110,18 +110,36 @@ $html .= EL_Admin_UI::filter_bar( [
     'hidden' => [ 'page' => 'el-core-projects' ],
 ] );
 
-// Separate projects needing attention (flagged or deadline warning)
+// Batch-fetch definition review statuses for all projects
+global $wpdb;
+$def_statuses = [];
+if ( ! empty( $projects ) ) {
+    $project_ids = array_map( fn( $p ) => (int) $p->id, $projects );
+    $placeholders = implode( ',', array_fill( 0, count( $project_ids ), '%d' ) );
+    $def_rows = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT project_id, review_status FROM {$wpdb->prefix}el_es_project_definition WHERE project_id IN ($placeholders)",
+            ...$project_ids
+        )
+    );
+    foreach ( $def_rows as $row ) {
+        $def_statuses[ (int) $row->project_id ] = $row->review_status;
+    }
+}
+
+// Separate projects needing attention (flagged, deadline warning, or definition action required)
 $needs_attention = [];
 $regular_projects = [];
 
 foreach ( $projects as $p ) {
     $needs_attention_flag = false;
-    
+    $def_review_status    = $def_statuses[ (int) $p->id ] ?? '';
+
     // Check if flagged
     if ( $p->flagged_at ) {
         $needs_attention_flag = true;
     }
-    
+
     // Check if deadline is approaching (within warning days)
     if ( $p->deadline && ! $p->flagged_at ) {
         $deadline_time = strtotime( $p->deadline );
@@ -130,7 +148,15 @@ foreach ( $projects as $p ) {
             $needs_attention_flag = true;
         }
     }
-    
+
+    // Check definition status: admin needs to act on approved or needs_revision
+    if ( in_array( $def_review_status, [ 'approved', 'needs_revision' ], true ) ) {
+        $needs_attention_flag = true;
+    }
+
+    // Attach for use in row rendering
+    $p->_def_review_status = $def_review_status;
+
     if ( $needs_attention_flag ) {
         $needs_attention[] = $p;
     } else {
@@ -159,7 +185,24 @@ if ( ! empty( $needs_attention ) ) {
             ] );
             $status_badges .= ' ';
         }
-        
+
+        // Definition review status badge (action required)
+        if ( isset( $p->_def_review_status ) ) {
+            if ( $p->_def_review_status === 'approved' ) {
+                $status_badges .= EL_Admin_UI::badge( [
+                    'label'   => __( 'Lock Required', 'el-core' ),
+                    'variant' => 'warning',
+                ] );
+                $status_badges .= ' ';
+            } elseif ( $p->_def_review_status === 'needs_revision' ) {
+                $status_badges .= EL_Admin_UI::badge( [
+                    'label'   => __( 'Needs Revision', 'el-core' ),
+                    'variant' => 'warning',
+                ] );
+                $status_badges .= ' ';
+            }
+        }
+
         // Deadline warning/overdue badge
         if ( $p->deadline ) {
             $deadline_time = strtotime( $p->deadline );

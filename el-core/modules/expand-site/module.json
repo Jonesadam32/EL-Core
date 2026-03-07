@@ -240,7 +240,8 @@
                 "dm_decision": "VARCHAR(20) DEFAULT ''",
                 "dm_note": "TEXT",
                 "dm_decided_at": "DATETIME NULL",
-                "dm_decided_by": "BIGINT UNSIGNED DEFAULT 0"
+                "dm_decided_by": "BIGINT UNSIGNED DEFAULT 0",
+                "snapshot": "LONGTEXT NULL"
             },
             "el_es_definition_comments": {
                 "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
@@ -292,6 +293,9 @@
                 "ALTER TABLE el_es_project_definition ADD COLUMN review_status VARCHAR(20) DEFAULT 'draft' AFTER site_type",
                 "CREATE TABLE IF NOT EXISTS el_es_definition_reviews (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, round TINYINT UNSIGNED DEFAULT 1, sent_by BIGINT UNSIGNED NOT NULL, sent_at DATETIME DEFAULT CURRENT_TIMESTAMP, deadline DATETIME NULL, reminder_sent_at DATETIME NULL, status VARCHAR(20) DEFAULT 'open', dm_decision VARCHAR(20) DEFAULT '' COMMENT 'accepted|needs_revision', dm_note TEXT, dm_decided_at DATETIME NULL, dm_decided_by BIGINT UNSIGNED DEFAULT 0, KEY project_id (project_id))",
                 "CREATE TABLE IF NOT EXISTS el_es_definition_comments (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, review_id BIGINT UNSIGNED NOT NULL, project_id BIGINT UNSIGNED NOT NULL, field_key VARCHAR(50) NOT NULL COMMENT 'site_description|primary_goal|etc|overall', parent_id BIGINT UNSIGNED DEFAULT 0 COMMENT '0=top-level thread reply=parent id', user_id BIGINT UNSIGNED NOT NULL, comment TEXT NOT NULL, verdict VARCHAR(20) DEFAULT '' COMMENT 'approved|needs_revision', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, KEY review_id (review_id), KEY field_key (field_key), KEY parent_id (parent_id))"
+            ],
+            "9": [
+                "ALTER TABLE el_es_definition_reviews ADD COLUMN snapshot LONGTEXT NULL"
             ],
             "7": [
                 "ALTER TABLE el_es_project_definition MODIFY COLUMN site_type VARCHAR(100) DEFAULT ''"

@@ -743,7 +743,7 @@
     }
 
     function handleLockDefinition(e) {
-        const btn = e.target.closest('#lock-definition-btn');
+        const btn = e.target.closest('#lock-definition-btn, #lock-definition-banner-btn');
         if (!btn) return;
 
         e.preventDefault();

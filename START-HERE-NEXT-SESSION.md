@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 7, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.27.3 — All built and on staging. Testing through 3F complete. **Next session:** Fix 5 issues found in 3G/3H (admin project detail UX redesign, verdict comment bug, needs-attention list, lock prompt banner, definition version history). See `NEXT-SESSION-PROMPT-v1.28.0.md` for full details.
+> **Current Plugin Version:** v1.28.0 — Built and ready to upload to staging. All 5 issues fixed (verdict comment bug, needs-attention list, lock prompt banner, admin detail UX redesign, definition version history). Resume testing from 3G after uploading.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -199,7 +199,8 @@
 | v1.27.0 | Client Dashboard `[el_client_dashboard]` shortcode + portal DM detection fix | Built ✅ |
 | v1.27.1 | Fix 4 bugs: portal auth, consensus UI blank, Log in as, Switch back to admin toolbar | Built ✅ |
 | v1.27.2 | Fix portal ?project_id routing, Back to Dashboard button, field editing in review, org-contact warning, Menu Visibility settings page | Built ✅ |
-| v1.27.3 | Hotfix: critical error from `object` type hint in `filter_client_nav_items` + missing `global $wpdb` in project-detail | Built ✅ — **CURRENT** |
+| v1.27.3 | Hotfix: critical error from `object` type hint in `filter_client_nav_items` + missing `global $wpdb` in project-detail | Built ✅ |
+| v1.28.0 | Admin UX + Bug Fixes: verdict comment bug, needs-attention list, lock prompt banner, stage stepper + status card, definition version history (DB migration v9) | Built ✅ — **CURRENT** |
 
 ---
 

@@ -320,6 +320,109 @@ class EL_Expand_Site_Module {
             'nonce'      => wp_create_nonce( 'el_core_nonce' ),
             'projectUrl' => admin_url( 'admin.php?page=el-core-projects&project=PROJECT_ID' ),
         ] );
+
+        // Stage stepper + status card styles
+        wp_add_inline_style( 'el-expand-site-admin', '
+            .el-es-stage-stepper {
+                display: flex;
+                align-items: flex-start;
+                gap: 0;
+                overflow-x: auto;
+                padding-bottom: 4px;
+            }
+            .el-es-stepper-step {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                flex: 1;
+                min-width: 80px;
+                position: relative;
+            }
+            .el-es-stepper-circle {
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 13px;
+                font-weight: 700;
+                z-index: 1;
+                position: relative;
+                background: #e5e7eb;
+                color: #6b7280;
+                border: 2px solid #d1d5db;
+                transition: all .2s;
+            }
+            .el-es-stepper-complete .el-es-stepper-circle {
+                background: #059669;
+                color: #fff;
+                border-color: #059669;
+            }
+            .el-es-stepper-current .el-es-stepper-circle {
+                background: #4f46e5;
+                color: #fff;
+                border-color: #4f46e5;
+                box-shadow: 0 0 0 4px rgba(79,70,229,.18);
+            }
+            .el-es-stepper-circle .dashicons {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
+            }
+            .el-es-stepper-label {
+                font-size: 11px;
+                text-align: center;
+                margin-top: 6px;
+                color: #9ca3af;
+                line-height: 1.3;
+                max-width: 72px;
+            }
+            .el-es-stepper-complete .el-es-stepper-label {
+                color: #059669;
+            }
+            .el-es-stepper-current .el-es-stepper-label {
+                color: #4f46e5;
+                font-weight: 600;
+            }
+            .el-es-stepper-connector {
+                position: absolute;
+                top: 17px;
+                left: 50%;
+                right: -50%;
+                height: 2px;
+                background: #e5e7eb;
+                z-index: 0;
+            }
+            .el-es-stepper-complete .el-es-stepper-connector {
+                background: #059669;
+            }
+            .el-es-stage-status-card {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .el-es-status-item {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                font-size: 13px;
+            }
+            .el-es-status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                margin-top: 4px;
+                flex-shrink: 0;
+            }
+            .el-es-status-text {
+                color: #374151;
+                line-height: 1.5;
+            }
+            .el-es-status-dm-note .el-es-status-text {
+                font-style: italic;
+            }
+        ' );
     }
 
     // ═══════════════════════════════════════════
@@ -1764,6 +1867,26 @@ class EL_Expand_Site_Module {
     }
 
     /**
+     * Build a field-by-field diff between two review snapshots.
+     * Returns array keyed by field_key, each value has 'old' and 'new'.
+     * Only includes fields that actually changed.
+     */
+    public function diff_definition_snapshots( string $snapshot_old, string $snapshot_new ): array {
+        $old = json_decode( $snapshot_old, true ) ?: [];
+        $new = json_decode( $snapshot_new, true ) ?: [];
+        $changed = [];
+        $all_keys = array_unique( array_merge( array_keys( $old ), array_keys( $new ) ) );
+        foreach ( $all_keys as $key ) {
+            $old_val = trim( $old[ $key ] ?? '' );
+            $new_val = trim( $new[ $key ] ?? '' );
+            if ( $old_val !== $new_val ) {
+                $changed[ $key ] = [ 'old' => $old_val, 'new' => $new_val ];
+            }
+        }
+        return $changed;
+    }
+
+    /**
      * Get all top-level comments for a review, with their replies nested.
      * Returns array keyed by field_key, each value is array of comment objects with ->replies.
      */
@@ -1860,6 +1983,17 @@ class EL_Expand_Site_Module {
 
         // Create new review
         $deadline_dt = $deadline ? date( 'Y-m-d 23:59:59', strtotime( $deadline ) ) : null;
+
+        // Capture snapshot of current definition fields
+        $snapshot = wp_json_encode( [
+            'site_description'  => $definition->site_description ?? '',
+            'primary_goal'      => $definition->primary_goal ?? '',
+            'secondary_goals'   => $definition->secondary_goals ?? '',
+            'target_customers'  => $definition->target_customers ?? '',
+            'user_types'        => $definition->user_types ?? '',
+            'site_type'         => $definition->site_type ?? '',
+        ] );
+
         $wpdb->insert( $reviews_table, [
             'project_id' => $project_id,
             'round'      => $round,
@@ -1867,6 +2001,7 @@ class EL_Expand_Site_Module {
             'sent_at'    => current_time( 'mysql' ),
             'deadline'   => $deadline_dt,
             'status'     => 'open',
+            'snapshot'   => $snapshot,
         ] );
         $review_id = $wpdb->insert_id;
 
@@ -1902,6 +2037,20 @@ class EL_Expand_Site_Module {
         $review   = $this->get_active_definition_review( $project_id );
         $comments = $review ? $this->get_definition_comments( (int) $review->id ) : [];
         $verdicts = $review ? $this->get_definition_verdicts( (int) $review->id ) : [];
+
+        // Get previous round snapshot for "Updated since last round" badges
+        $prev_snapshot = null;
+        if ( $review && (int) $review->round > 1 ) {
+            global $wpdb;
+            $rt = $wpdb->prefix . 'el_es_definition_reviews';
+            $prev_round = $wpdb->get_row( $wpdb->prepare(
+                "SELECT snapshot FROM {$rt} WHERE project_id = %d AND round = %d",
+                $project_id, (int) $review->round - 1
+            ) );
+            if ( $prev_round && ! empty( $prev_round->snapshot ) ) {
+                $prev_snapshot = json_decode( $prev_round->snapshot, true );
+            }
+        }
 
         // Deadline info
         $deadline_ts      = $review && $review->deadline ? strtotime( $review->deadline ) : null;
@@ -1940,6 +2089,7 @@ class EL_Expand_Site_Module {
             'deadline_ts'     => $deadline_ts,
             'deadline_passed' => $deadline_passed,
             'is_dm'           => $this->is_decision_maker( $project_id ),
+            'prev_snapshot'   => $prev_snapshot,
         ] );
     }
 

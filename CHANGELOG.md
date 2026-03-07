@@ -6,7 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.27.3] — 2026-03-07
+## [1.28.0] — 2026-03-07
+### Fixed
+- **Issue 4 — Verdict button breaks comment toggle** (`expand-site.js`): after clicking a Looks Good / Needs Revision verdict, the "+ Add comment" form stopped working until a full page reload. Fixed by calling `loadReview()` after a successful verdict AJAX call so the full review UI is re-rendered with fresh state.
+
+### Added
+- **Issue 3 — Needs-attention project list** (`project-list.php`): projects where the definition status is `approved` (client approved — lock required) or `needs_revision` (admin needs to revise and re-send) now appear in the "Projects Needing Attention" section with appropriate badge labels.
+- **Issue 2 — Lock prompt banner after client approval** (`project-detail.php`): when `review_status = approved`, a prominent amber action banner appears at the top of the Discovery tab with a "Lock Definition" button directly embedded — prompting the admin to take the next required action.
+- **Issue 5 — Admin project detail UX redesign** (`project-detail.php`, `class-expand-site-module.php`):
+  - Added 8-stage horizontal stepper showing all pipeline stages with complete/current/upcoming states
+  - Added "Stage Status" card below the stepper showing definition review status, active review deadline, and DM decision notes
+  - Tab auto-activation: the most relevant tab for the current stage is automatically active when the page loads (Discovery for stages 1–2, Proposals for stage 3, Branding for stage 4, Pages for stages 5–6, Feedback for stage 7, Deliverables for stage 8)
+- **Issue 1 — Definition revision history** (`class-expand-site-module.php`, `module.json`, `project-detail.php`, `expand-site.js`, `expand-site.css`):
+  - DB migration 9: adds `snapshot LONGTEXT NULL` column to `el_es_definition_reviews`
+  - When a review round is sent, a JSON snapshot of all definition fields is stored
+  - "Version History" collapsible section in the Discovery tab admin view shows each round with field-by-field diffs, deadlines, and DM decisions
+  - Portal review UI shows an "Updated" badge on fields that changed since the previous round (compares current values against the previous round's snapshot)
+
+
 ### Fixed
 - **Critical error on portal page** (`class-el-core.php`): the `filter_client_nav_items` method used an `object` type hint for the `$args` parameter of `wp_nav_menu_objects`. WordPress can pass a non-object in some configurations, causing a `TypeError` fatal that crashed every frontend page. Removed the strict type hint.
 - **Missing `global $wpdb`** in Stakeholders tab (`project-detail.php`): the contact-linkage check added in v1.27.2 used `$wpdb` without declaring it global, which would cause a notice/fatal when the Stakeholders tab rendered in admin.

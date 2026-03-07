@@ -337,6 +337,7 @@
         var deadlineTs = data.deadline_ts;
         var deadlinePassed = data.deadline_passed;
         var isDm = data.is_dm;
+        var prevSnapshot = data.prev_snapshot || null;
 
         var html = '';
 
@@ -359,8 +360,14 @@
             if (!val) return;
             var fieldComments = comments[f.key] || [];
             var userV = userVerdicts[f.key] || '';
+            var isUpdated = prevSnapshot && prevSnapshot[f.key] !== undefined &&
+                            prevSnapshot[f.key].trim() !== val.trim();
             html += '<div class="el-es-definition-field-block" data-field-key="' + f.key + '" data-scroll-marker="' + f.key + '">';
-            html += '<div class="el-es-definition-field-label">' + escapeHtml(f.label) + '</div>';
+            html += '<div class="el-es-definition-field-label">' + escapeHtml(f.label);
+            if (isUpdated) {
+                html += ' <span class="el-es-updated-badge">Updated</span>';
+            }
+            html += '</div>';
             html += '<div class="el-es-definition-field-value" data-current-value="' + escapeHtml(val) + '">' + escapeHtml(val).replace(/\n/g, '<br>') + '</div>';
             if (review.id && review.status === 'open') {
                 html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-edit-field-btn" data-field-key="' + f.key + '">✏ Edit</button>';
@@ -681,6 +688,8 @@
                 review_id: review.id,
                 field_key: fieldKey,
                 verdict: verdict
+            }).then(function() {
+                loadReview();
             }).catch(function(err) {
                 btn.classList.remove('el-es-verdict-active');
                 alert(err.message || 'Failed to save');

@@ -5,9 +5,9 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 7, 2026
-> **Plugin Version:** v1.27.3 — current deployed version on staging
-> **Next Build:** v1.28.0 — resume testing from 3G (DM Final Decision) and fix anything found. See Phase 6C testing section below.
-> **Deployed Version:** v1.27.3 on staging (upload `el-core-v1.27.3.zip` from Downloads first if not yet done)
+> **Plugin Version:** v1.28.0 — built, ready to upload to staging
+> **Next Build:** v1.28.x (if bugs found in testing) or v1.29.0
+> **Deployed Version:** v1.27.3 on staging (upload `el-core-v1.28.0.zip` from Downloads or releases/)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
@@ -620,12 +620,12 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] Menu Visibility settings page (EL Core → Menus) — per-item Always/Logged-in/Client rules
 
 ### v1.28.0 — Fix these 5 issues before resuming testing (see NEXT-SESSION-PROMPT-v1.28.0.md for full detail):
-- [ ] **Issue 4** (quick): After clicking verdict button, must refresh to add a comment — call `loadReview()` after verdict AJAX success (`expand-site.js`)
-- [ ] **Issue 3** (quick): Projects with `needs_revision` or `approved` definition status not appearing in "Needs Attention" list — extend query in `project-list.php`
-- [ ] **Issue 2** (quick): No banner prompts admin to lock definition after client approval — add amber action banner to Discovery tab in `project-detail.php`
-- [ ] **Issue 5** (larger): Admin project detail page UX redesign — add stage progress stepper, stage status card, auto-activate relevant tab for current stage (`project-detail.php`)
-- [ ] **Issue 1** (DB migration): Definition revision history — snapshot per review round, version diff in admin, "Updated" badge in portal (`class-expand-site-module.php`, DB schema v9)
-- [ ] Bump to v1.28.0, build ZIP, deploy, resume testing from 3G
+- [x] **Issue 4** (quick): After clicking verdict button, must refresh to add a comment — call `loadReview()` after verdict AJAX success (`expand-site.js`)
+- [x] **Issue 3** (quick): Projects with `needs_revision` or `approved` definition status not appearing in "Needs Attention" list — extend query in `project-list.php`
+- [x] **Issue 2** (quick): No banner prompts admin to lock definition after client approval — add amber action banner to Discovery tab in `project-detail.php`
+- [x] **Issue 5** (larger): Admin project detail page UX redesign — add stage progress stepper, stage status card, auto-activate relevant tab for current stage (`project-detail.php`)
+- [x] **Issue 1** (DB migration): Definition revision history — snapshot per review round, version diff in admin, "Updated" badge in portal (`class-expand-site-module.php`, DB schema v9)
+- [x] Bump to v1.28.0, build ZIP, deploy, resume testing from 3G
 
 ### Testing resume point (after v1.28.0 deployed):
 - [ ] **3G — DM Final Decision**: test Accept and Needs Revision from the DM portal view

@@ -84,19 +84,144 @@ $html .= EL_Admin_UI::stats_grid( [
     ],
 ] );
 
+// ── Stage Progress Stepper ──
+$stepper_html = '<div class="el-es-stage-stepper">';
+foreach ( EL_Expand_Site_Module::STAGES as $stage_num => $stage_info ) {
+    $stage_class = 'el-es-stepper-step';
+    if ( $stage_num < $current_stage ) {
+        $stage_class .= ' el-es-stepper-complete';
+    } elseif ( $stage_num === $current_stage ) {
+        $stage_class .= ' el-es-stepper-current';
+    } else {
+        $stage_class .= ' el-es-stepper-upcoming';
+    }
+    $stepper_html .= '<div class="' . $stage_class . '">';
+    $stepper_html .= '<div class="el-es-stepper-circle">';
+    if ( $stage_num < $current_stage ) {
+        $stepper_html .= '<span class="dashicons dashicons-yes"></span>';
+    } else {
+        $stepper_html .= '<span>' . $stage_num . '</span>';
+    }
+    $stepper_html .= '</div>';
+    $stepper_html .= '<div class="el-es-stepper-label">' . esc_html( $stage_info['name'] ) . '</div>';
+    if ( $stage_num < count( EL_Expand_Site_Module::STAGES ) ) {
+        $stepper_html .= '<div class="el-es-stepper-connector"></div>';
+    }
+    $stepper_html .= '</div>';
+}
+$stepper_html .= '</div>';
+$html .= '<div class="el-card" style="margin-bottom:0;border-radius:8px 8px 0 0;border-bottom:1px solid #e5e7eb;">'
+       . '<div class="el-card__body" style="padding:20px 24px;">' . $stepper_html . '</div></div>';
+
+// ── Current Stage Status Card ──
+$status_card_items = [];
+
+// Definition review status (relevant in early stages)
+if ( $current_stage <= 3 && isset( $definition ) ) {
+    $def_status = ( $definition && $definition->locked_at ) ? 'locked' : ( $definition->review_status ?? 'draft' );
+    $def_status_labels = [
+        'draft'          => __( 'Definition: Draft — not yet sent for review', 'el-core' ),
+        'pending_review' => __( 'Definition: Awaiting client review', 'el-core' ),
+        'approved'       => __( 'Definition: Client approved — lock required', 'el-core' ),
+        'needs_revision' => __( 'Definition: Client requested revisions', 'el-core' ),
+        'locked'         => __( 'Definition: Locked ✓', 'el-core' ),
+    ];
+    $def_status_colors = [
+        'draft'          => '#6b7280',
+        'pending_review' => '#2563eb',
+        'approved'       => '#d97706',
+        'needs_revision' => '#dc2626',
+        'locked'         => '#059669',
+    ];
+    $def_status_label = $def_status_labels[ $def_status ] ?? ucfirst( $def_status );
+    $def_color = $def_status_colors[ $def_status ] ?? '#6b7280';
+    $status_card_items[] = '<div class="el-es-status-item">'
+        . '<span class="el-es-status-dot" style="background:' . $def_color . ';"></span>'
+        . '<span class="el-es-status-text" style="color:' . $def_color . ';font-weight:600;">' . esc_html( $def_status_label ) . '</span>'
+        . '</div>';
+
+    // Active review deadline
+    if ( $active_review && $active_review->deadline && $def_status === 'pending_review' ) {
+        $deadline_ts = strtotime( $active_review->deadline );
+        $now_ts = time();
+        $diff_days = ceil( ( $deadline_ts - $now_ts ) / 86400 );
+        $deadline_str = $diff_days > 0
+            ? sprintf( __( 'Review deadline: %s (%d days remaining)', 'el-core' ), date_i18n( 'M j, Y', $deadline_ts ), $diff_days )
+            : sprintf( __( 'Review deadline: %s (OVERDUE)', 'el-core' ), date_i18n( 'M j, Y', $deadline_ts ) );
+        $status_card_items[] = '<div class="el-es-status-item">'
+            . '<span class="dashicons dashicons-clock" style="font-size:14px;color:#6b7280;"></span>'
+            . '<span class="el-es-status-text">' . esc_html( $deadline_str ) . '</span>'
+            . '</div>';
+    }
+
+    // DM decision note (when needs_revision)
+    if ( $def_status === 'needs_revision' && $active_review && $active_review->dm_note ) {
+        $dm_user = get_userdata( $active_review->dm_decided_by ?? 0 );
+        $dm_name = $dm_user ? $dm_user->display_name : __( 'Decision Maker', 'el-core' );
+        $status_card_items[] = '<div class="el-es-status-item el-es-status-dm-note">'
+            . '<span class="dashicons dashicons-format-chat" style="font-size:14px;color:#dc2626;"></span>'
+            . '<span class="el-es-status-text"><strong>' . esc_html( $dm_name ) . ':</strong> ' . esc_html( $active_review->dm_note ) . '</span>'
+            . '</div>';
+    }
+}
+
+// Project deadline
+if ( $project->deadline ) {
+    $deadline_ts = strtotime( $project->deadline );
+    $now_ts = time();
+    if ( $deadline_ts < $now_ts ) {
+        $days_over = floor( ( $now_ts - $deadline_ts ) / 86400 );
+        $status_card_items[] = '<div class="el-es-status-item">'
+            . '<span class="dashicons dashicons-warning" style="font-size:14px;color:#dc2626;"></span>'
+            . '<span class="el-es-status-text" style="color:#dc2626;">' . sprintf( __( 'Stage deadline overdue by %d day(s) — %s', 'el-core' ), $days_over, date_i18n( 'M j, Y', $deadline_ts ) ) . '</span>'
+            . '</div>';
+    } else {
+        $diff_days = ceil( ( $deadline_ts - $now_ts ) / 86400 );
+        $color = $diff_days <= 2 ? '#d97706' : '#6b7280';
+        $status_card_items[] = '<div class="el-es-status-item">'
+            . '<span class="dashicons dashicons-calendar-alt" style="font-size:14px;color:' . $color . ';"></span>'
+            . '<span class="el-es-status-text" style="color:' . $color . ';">' . sprintf( __( 'Stage deadline: %s (%d days)', 'el-core' ), date_i18n( 'M j, Y', $deadline_ts ), $diff_days ) . '</span>'
+            . '</div>';
+    }
+}
+
+if ( ! empty( $status_card_items ) ) {
+    $status_card_html = '<div class="el-es-stage-status-card">'
+        . implode( '', $status_card_items )
+        . '</div>';
+    $html .= '<div class="el-card" style="margin-bottom:20px;border-radius:0 0 8px 8px;border-top:none;">'
+           . '<div class="el-card__header" style="padding:10px 24px 0;">'
+           . '<h3 class="el-card__title" style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;">' . __( 'Stage Status', 'el-core' ) . '</h3>'
+           . '</div>'
+           . '<div class="el-card__body" style="padding:12px 24px 16px;">' . $status_card_html . '</div></div>';
+}
+
+// ── Determine active tab based on current stage ──
+$stage_tab_map = [
+    1 => 'transcript',  // Stage 1: Qualification — Discovery tab prominent
+    2 => 'transcript',  // Stage 2: Discovery — Definition review prominent
+    3 => 'proposals',   // Stage 3: Scope Lock — Proposals prominent
+    4 => 'branding',    // Stage 4: Visual Identity — Branding prominent
+    5 => 'pages',       // Stage 5: Wireframes — Pages prominent
+    6 => 'pages',       // Stage 6: Build — Pages prominent
+    7 => 'feedback',    // Stage 7: Review — Feedback prominent
+    8 => 'deliverables',// Stage 8: Delivery — Deliverables prominent
+];
+$active_tab = $stage_tab_map[ $current_stage ] ?? 'overview';
+
 // ── Tabs ──
 $html .= EL_Admin_UI::tab_nav( [
     'group' => 'project-tabs',
     'tabs'  => [
-        [ 'id' => 'overview',      'label' => __( 'Overview', 'el-core' ),      'icon' => 'dashboard',      'active' => true ],
-        [ 'id' => 'stakeholders',  'label' => __( 'Stakeholders', 'el-core' ),  'icon' => 'groups',         'badge' => count( $stakeholders ) ],
-        [ 'id' => 'transcript',    'label' => __( 'Discovery', 'el-core' ),     'icon' => 'media-text' ],
-        [ 'id' => 'proposals',     'label' => __( 'Proposals', 'el-core' ),    'icon' => 'media-document', 'badge' => count( $proposals ) ?: null ],
-        [ 'id' => 'stages',        'label' => __( 'Stage History', 'el-core' ), 'icon' => 'backup' ],
-        [ 'id' => 'deliverables',  'label' => __( 'Deliverables', 'el-core' ),  'icon' => 'media-document', 'badge' => count( $deliverables ) ],
-        [ 'id' => 'pages',         'label' => __( 'Pages', 'el-core' ),         'icon' => 'admin-page',     'badge' => count( $pages ) ],
-        [ 'id' => 'feedback',      'label' => __( 'Feedback', 'el-core' ),      'icon' => 'format-chat',    'badge' => $pending_feedback ?: null ],
-        [ 'id' => 'branding',      'label' => __( 'Branding', 'el-core' ),      'icon' => 'art' ],
+        [ 'id' => 'overview',      'label' => __( 'Overview', 'el-core' ),      'icon' => 'dashboard',      'active' => $active_tab === 'overview' ],
+        [ 'id' => 'stakeholders',  'label' => __( 'Stakeholders', 'el-core' ),  'icon' => 'groups',         'badge' => count( $stakeholders ), 'active' => $active_tab === 'stakeholders' ],
+        [ 'id' => 'transcript',    'label' => __( 'Discovery', 'el-core' ),     'icon' => 'media-text',     'active' => $active_tab === 'transcript' ],
+        [ 'id' => 'proposals',     'label' => __( 'Proposals', 'el-core' ),    'icon' => 'media-document', 'badge' => count( $proposals ) ?: null, 'active' => $active_tab === 'proposals' ],
+        [ 'id' => 'stages',        'label' => __( 'Stage History', 'el-core' ), 'icon' => 'backup',         'active' => $active_tab === 'stages' ],
+        [ 'id' => 'deliverables',  'label' => __( 'Deliverables', 'el-core' ),  'icon' => 'media-document', 'badge' => count( $deliverables ), 'active' => $active_tab === 'deliverables' ],
+        [ 'id' => 'pages',         'label' => __( 'Pages', 'el-core' ),         'icon' => 'admin-page',     'badge' => count( $pages ), 'active' => $active_tab === 'pages' ],
+        [ 'id' => 'feedback',      'label' => __( 'Feedback', 'el-core' ),      'icon' => 'format-chat',    'badge' => $pending_feedback ?: null, 'active' => $active_tab === 'feedback' ],
+        [ 'id' => 'branding',      'label' => __( 'Branding', 'el-core' ),      'icon' => 'art',            'active' => $active_tab === 'branding' ],
     ],
 ] );
 
@@ -144,7 +269,7 @@ $html .= EL_Admin_UI::tab_panel( [
     'id'      => 'overview',
     'group'   => 'project-tabs',
     'content' => EL_Admin_UI::card( [ 'title' => __( 'Project Details', 'el-core' ), 'icon' => 'info-outline', 'content' => $overview ] ),
-    'active'  => true,
+    'active'  => $active_tab === 'overview',
 ] );
 
 // ── Tab: Discovery Transcript ──
@@ -182,6 +307,27 @@ $transcript_content .= '</div>';
 
 // Check if definition is locked
 $is_locked = $definition && $definition->locked_at;
+
+// Amber action banner: prompt admin to lock when client has approved
+if ( $effective_status === 'approved' && ! $is_locked ) {
+    $transcript_content .= '<div class="el-es-lock-action-banner" style="background:#fffbeb;border:2px solid #f59e0b;border-radius:8px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">';
+    $transcript_content .= '<span class="dashicons dashicons-warning" style="color:#d97706;font-size:22px;flex-shrink:0;"></span>';
+    $transcript_content .= '<div style="flex:1;min-width:200px;">';
+    $transcript_content .= '<strong style="color:#92400e;">' . __( 'The client has approved the Project Definition.', 'el-core' ) . '</strong>';
+    $transcript_content .= '<p style="margin:4px 0 0;color:#78350f;font-size:13px;">' . __( 'Lock it now to proceed to the next stage.', 'el-core' ) . '</p>';
+    $transcript_content .= '</div>';
+    $transcript_content .= EL_Admin_UI::btn( [
+        'label'   => __( 'Lock Definition', 'el-core' ),
+        'variant' => 'primary',
+        'icon'    => 'lock',
+        'id'      => 'lock-definition-banner-btn',
+        'data'    => [
+            'project-id'    => $project_id,
+            'review-status' => $review_status,
+        ],
+    ] );
+    $transcript_content .= '</div>';
+}
 
 // Send for Review button (when not locked, status is draft or needs_revision)
 $can_send = ! $is_locked && in_array( $effective_status, [ 'draft', 'needs_revision' ], true );
@@ -270,6 +416,89 @@ if ( $active_review && ! empty( $comments ) ) {
         $transcript_content .= '</div>';
     }
     $transcript_content .= '</div></div>';
+}
+
+// Version History collapsible (show when there are 2+ review rounds with snapshots)
+$reviews_with_snapshots = array_filter( $reviews, fn( $r ) => ! empty( $r->snapshot ) );
+if ( count( $reviews_with_snapshots ) >= 2 ) {
+    $history_reviews = array_values( $reviews_with_snapshots );
+    $def_field_labels = [
+        'site_description'  => __( 'Site Description', 'el-core' ),
+        'primary_goal'       => __( 'Primary Goal', 'el-core' ),
+        'secondary_goals'    => __( 'Secondary Goals', 'el-core' ),
+        'target_customers'   => __( 'Target Customers', 'el-core' ),
+        'user_types'         => __( 'User Types', 'el-core' ),
+        'site_type'          => __( 'Site Type', 'el-core' ),
+    ];
+
+    $history_html = '<details class="el-es-version-history-details" style="margin-bottom:20px;">';
+    $history_html .= '<summary style="cursor:pointer;font-weight:600;color:#4f46e5;padding:12px 16px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:6px;list-style:none;display:flex;align-items:center;gap:8px;">';
+    $history_html .= '<span class="dashicons dashicons-backup" style="font-size:16px;"></span>';
+    $history_html .= esc_html__( 'Version History', 'el-core' );
+    $history_html .= ' <span style="font-size:12px;font-weight:400;color:#6b7280;">' . sprintf( __( '(%d rounds)', 'el-core' ), count( $history_reviews ) ) . '</span>';
+    $history_html .= '</summary>';
+    $history_html .= '<div style="border:1px solid #ddd6fe;border-top:none;border-radius:0 0 6px 6px;padding:16px;">';
+
+    foreach ( array_reverse( $history_reviews ) as $i => $rev ) {
+        $rev_index = array_search( $rev, $history_reviews );
+        $prev_rev = $rev_index > 0 ? $history_reviews[ $rev_index - 1 ] : null;
+
+        $sent_by_user = get_userdata( $rev->sent_by );
+        $sent_by_name = $sent_by_user ? $sent_by_user->display_name : __( 'Unknown', 'el-core' );
+
+        $history_html .= '<div class="el-es-version-round" style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f3f4f6;">';
+        $history_html .= '<h4 style="margin:0 0 6px;font-size:14px;color:#111827;">';
+        $history_html .= sprintf( __( 'Round %d', 'el-core' ), (int) $rev->round );
+        $history_html .= ' <span style="font-size:12px;font-weight:400;color:#6b7280;">— ' . sprintf( __( 'Sent by %s on %s', 'el-core' ), esc_html( $sent_by_name ), date_i18n( 'M j, Y g:i A', strtotime( $rev->sent_at ) ) ) . '</span>';
+        $history_html .= '</h4>';
+
+        // DM decision
+        if ( $rev->dm_decision ) {
+            $dm_user = get_userdata( $rev->dm_decided_by );
+            $dm_name = $dm_user ? $dm_user->display_name : __( 'Decision Maker', 'el-core' );
+            $decision_color = $rev->dm_decision === 'accepted' ? '#059669' : '#dc2626';
+            $decision_label = $rev->dm_decision === 'accepted' ? __( 'Accepted', 'el-core' ) : __( 'Needs Revision', 'el-core' );
+            $history_html .= '<p style="font-size:13px;margin:0 0 6px;">';
+            $history_html .= '<strong style="color:' . $decision_color . ';">' . esc_html( $decision_label ) . '</strong>';
+            $history_html .= ' — ' . esc_html( $dm_name );
+            if ( $rev->dm_decided_at ) {
+                $history_html .= ' (' . date_i18n( 'M j, Y', strtotime( $rev->dm_decided_at ) ) . ')';
+            }
+            if ( $rev->dm_note ) {
+                $history_html .= '<br><em style="color:#6b7280;">' . esc_html( $rev->dm_note ) . '</em>';
+            }
+            $history_html .= '</p>';
+        }
+
+        // Field diff vs previous round
+        if ( $prev_rev && ! empty( $prev_rev->snapshot ) ) {
+            $diffs = $module->diff_definition_snapshots( $prev_rev->snapshot, $rev->snapshot );
+            if ( ! empty( $diffs ) ) {
+                $history_html .= '<div style="font-size:12px;color:#6b7280;margin-top:8px;">' . __( 'Changed from previous round:', 'el-core' ) . '</div>';
+                $history_html .= '<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">';
+                foreach ( $diffs as $field_key => $diff ) {
+                    $label = $def_field_labels[ $field_key ] ?? $field_key;
+                    $history_html .= '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:8px 10px;">';
+                    $history_html .= '<strong style="font-size:12px;color:#374151;">' . esc_html( $label ) . '</strong><br>';
+                    if ( $diff['old'] !== '' ) {
+                        $history_html .= '<span style="font-size:12px;color:#dc2626;text-decoration:line-through;">' . esc_html( mb_strimwidth( $diff['old'], 0, 200, '…' ) ) . '</span><br>';
+                    }
+                    $history_html .= '<span style="font-size:12px;color:#059669;">' . esc_html( mb_strimwidth( $diff['new'], 0, 200, '…' ) ) . '</span>';
+                    $history_html .= '</div>';
+                }
+                $history_html .= '</div>';
+            } else {
+                $history_html .= '<p style="font-size:12px;color:#9ca3af;margin:4px 0 0;">' . __( 'No field changes from previous round.', 'el-core' ) . '</p>';
+            }
+        }
+        $history_html .= '</div>';
+    }
+
+    $history_html .= '</div></details>';
+    $transcript_content .= $history_html;
+} elseif ( count( $reviews_with_snapshots ) === 1 ) {
+    // Just one round with a snapshot — show a notice that history will appear after round 2
+    $transcript_content .= '<p style="font-size:12px;color:#9ca3af;margin-bottom:12px;">' . __( 'Version history will appear after a second review round is sent.', 'el-core' ) . '</p>';
 }
 
 if ( $is_locked ) {
@@ -410,6 +639,7 @@ $html .= EL_Admin_UI::tab_panel( [
     'id'      => 'transcript',
     'group'   => 'project-tabs',
     'content' => $transcript_content,
+    'active'  => $active_tab === 'transcript',
 ] );
 
 // ── Tab: Proposals ──
@@ -511,6 +741,7 @@ $html .= EL_Admin_UI::tab_panel( [
             [ 'label' => __( 'New Proposal', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'class' => 'el-es-new-proposal-btn', 'data' => [ 'project-id' => $project_id ] ],
         ],
     ] ),
+    'active'  => $active_tab === 'proposals',
 ] );
 
 // ── Proposal Edit Modal ──
@@ -712,6 +943,7 @@ $html .= EL_Admin_UI::tab_panel( [
             [ 'label' => __( 'Add Stakeholder', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'data' => [ 'modal-open' => 'add-stakeholder-modal' ] ],
         ],
     ] ),
+    'active'  => $active_tab === 'stakeholders',
 ] );
 
 // ── Tab: Stage History ──
@@ -758,6 +990,7 @@ $html .= EL_Admin_UI::tab_panel( [
             'empty' => [ 'icon' => 'backup', 'title' => __( 'No stage history yet', 'el-core' ) ],
         ] ),
     ] ),
+    'active'  => $active_tab === 'stages',
 ] );
 
 // ── Tab: Deliverables ──
@@ -819,6 +1052,7 @@ $html .= EL_Admin_UI::tab_panel( [
             [ 'label' => __( 'Add Deliverable', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'data' => [ 'modal-open' => 'add-deliverable-modal' ] ],
         ],
     ] ),
+    'active'  => $active_tab === 'deliverables',
 ] );
 
 // ── Tab: Pages ──
@@ -869,6 +1103,7 @@ $html .= EL_Admin_UI::tab_panel( [
             [ 'label' => __( 'Add Page', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'data' => [ 'modal-open' => 'add-page-modal' ] ],
         ],
     ] ),
+    'active'  => $active_tab === 'pages',
 ] );
 
 // ── Tab: Feedback ──
@@ -939,6 +1174,7 @@ $html .= EL_Admin_UI::tab_panel( [
             'empty' => [ 'icon' => 'format-chat', 'title' => __( 'No feedback yet', 'el-core' ) ],
         ] ),
     ] ),
+    'active'  => $active_tab === 'feedback',
 ] );
 
 // ═══════════════════════════════════════════
@@ -1251,6 +1487,7 @@ $html .= EL_Admin_UI::tab_panel( [
     'id'      => 'branding',
     'group'   => 'project-tabs',
     'content' => EL_Admin_UI::card( [ 'title' => __( 'Branding Review Management', 'el-core' ), 'icon' => 'art', 'content' => $branding_content ] ),
+    'active'  => $active_tab === 'branding',
 ] );
 
 // ── Modal: Create Review Session ──
