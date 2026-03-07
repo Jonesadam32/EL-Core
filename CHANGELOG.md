@@ -6,7 +6,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.27.2] — 2026-03-07
+## [1.27.3] — 2026-03-07
+### Fixed
+- **Critical error on portal page** (`class-el-core.php`): the `filter_client_nav_items` method used an `object` type hint for the `$args` parameter of `wp_nav_menu_objects`. WordPress can pass a non-object in some configurations, causing a `TypeError` fatal that crashed every frontend page. Removed the strict type hint.
+- **Missing `global $wpdb`** in Stakeholders tab (`project-detail.php`): the contact-linkage check added in v1.27.2 used `$wpdb` without declaring it global, which would cause a notice/fatal when the Stakeholders tab rendered in admin.
 ### Fixed
 - **"View Project" still opened wrong project from dashboard** (`expand-site-portal.php`): the portal shortcode reads `project_id` from shortcode attributes only — it was ignoring `?project_id=X` in the URL. Added a `$_GET['project_id']` fallback so dashboard CTA links route to the correct project.
 

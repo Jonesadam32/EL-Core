@@ -127,7 +127,7 @@ class EL_Core {
      *
      * To configure: EL Core → Menus in the WordPress admin.
      */
-    public function filter_client_nav_items( array $items, object $args ): array {
+    public function filter_client_nav_items( array $items, $args ): array {
         $rules = get_option( 'el_core_menu_visibility', [] );
         if ( empty( $rules ) ) {
             return $items; // nothing restricted — skip all checks

@@ -603,6 +603,7 @@ foreach ( $stakeholders as $sh ) {
 
     // Check if this user is linked to a contact record (required for Client Dashboard to show projects)
     $has_contact_record = false;
+    global $wpdb;
     $contacts_table = $wpdb->prefix . 'el_contacts';
     $ct_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$contacts_table}'" );
     if ( $ct_exists ) {

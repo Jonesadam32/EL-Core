@@ -2004,6 +2004,7 @@ class EL_Expand_Site_Module {
     }
 
     /**
+     * AJAX: Post a comment (or reply) on a definition field.
      */
     public function handle_post_definition_comment( array $data ): void {
         if ( ! is_user_logged_in() ) {
