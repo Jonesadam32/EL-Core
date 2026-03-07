@@ -4,10 +4,10 @@
 > Read this at the start of every session. Work through tasks in order. Check off completed items with [x].
 > Push to GitHub after every session so this stays current.
 >
-> **Last Updated:** February 24, 2026
-> **Plugin Version:** v1.27.0 deployed on staging — testing found 4 bugs, fixes pending as v1.27.1
-> **Next Build:** v1.27.1 — fix all 4 bugs found in testing (see Phase 6C bugfix section below)
-> **Deployed Version:** v1.27.0 on staging
+> **Last Updated:** March 7, 2026
+> **Plugin Version:** v1.27.3 — current deployed version on staging
+> **Next Build:** v1.28.0 — resume testing from 3G (DM Final Decision) and fix anything found. See Phase 6C testing section below.
+> **Deployed Version:** v1.27.3 on staging (upload `el-core-v1.27.3.zip` from Downloads first if not yet done)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
@@ -603,31 +603,28 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ---
 
-## PHASE 6C — CLIENT DASHBOARD (v1.27.0) ← NEXT BUILD
+## PHASE 6C — CLIENT DASHBOARD (v1.27.x) ✅ BUILT — TESTING IN PROGRESS
 
 > Universal client home base. Lives in EL Core (not a module) so all future modules can plug into it.
-> A logged-in client lands here, sees all their org's projects and invoices, and gets a clear CTA for whatever needs their attention.
->
-> **Prerequisite:** v1.26.0 deployed and tested.
-> **Data model:** el_contacts → organization_id → el_es_projects + el_inv_invoices (all links already exist).
-> **No new DB tables needed.**
+> **Current state:** v1.27.3 deployed on staging. Testing completed through 3F. Resume at 3G.
 
-### Architecture
+### What is built and working (tested through 3F):
+- [x] `[el_client_dashboard]` shortcode — project cards, CTA buttons, invoice section, attention banner
+- [x] Portal `?project_id=X` URL routing fixed — "View Project" now opens the correct project
+- [x] Back to Dashboard button on portal (shown whenever dashboard page exists)
+- [x] Definition consensus review UI renders correctly (AJAX envelope unwrap fix)
+- [x] Countdown timer, per-field verdicts, comments, replies all working
+- [x] Log in as / Switch back to admin — fully working via WP toolbar
+- [x] Clients can edit definition field values inline during pending_review
+- [x] Stakeholders tab warns when user has no contact record linked
+- [x] Menu Visibility settings page (EL Core → Menus) — per-item Always/Logged-in/Client rules
 
-- New file: `el-core/includes/shortcodes/client-dashboard.php`
-- Registered in `el-core/el-core.php` boot sequence (same pattern as Canvas pages)
-- Server-side render only (no new AJAX for v1)
-- Inline CSS via `wp_head` — no external CSS file
-
-### Phase 6C bugfix checklist — v1.27.1 ← DO THIS FIRST
-
-> Found during testing of v1.27.0. Fix all 4, build v1.27.1, redeploy.
-
-- [x] **Fix 1 — "View Project" opens wrong project**: Portal authorization check at line 74 of `expand-site-portal.php` only calls `is_stakeholder()`, not `is_decision_maker()`. DM designated via `decision_maker_id` fails auth and portal falls back to auto-detect, opening a different project. Fix: add `|| $module->is_decision_maker( $project_id )` to the auth check.
-- [x] **Fix 2 — Project Definition consensus UI not rendering**: In the portal, the `pending_review` block outputs a loading div but the JS (`es_get_definition_review` AJAX call) never fires or fails silently. No countdown timer, no fields, no verdict buttons appear. Root cause: JS was reading `data.definition` etc. from the EL_AJAX_Handler::success() envelope without unwrapping `resp.data` first. Fixed in `expand-site.js` `loadReview()`.
-- [x] **Fix 3 — "View as" in Clients contact list needs to be real "Log in as"**: Replaced the "View As" link in `client-profile.php` with a proper "Log in as" button using `switch_to_user` nonce URL that calls `wp_set_auth_cookie()`. Admin ID stored in user meta.
-- [x] **Fix 4 — "Switch back to admin" button missing from WP toolbar**: Added `add_switch_back_admin_bar_button()` hooked to `admin_bar_menu` and `handle_switch_back_user()` hooked to `admin_init` in `class-expand-site-module.php`. Red button visible on both frontend and backend.
-- [x] Build v1.27.1, update CHANGELOG, run `build-zip.ps1`, push to GitHub — **DONE** ✅
+### Testing resume point — v1.27.3:
+- [ ] **3G — DM Final Decision**: test Accept and Needs Revision from the DM portal view
+- [ ] **3H — Post-decision states (admin)**: check admin badges and button states after each decision
+- [ ] **Part 4 — Regression check**: project list, all tabs, locked definition view, mood board, proposal, invoices
+- [ ] Fix any bugs found in 3G/3H/Part 4, build next version, redeploy
+- [ ] Update testing guide to cover v1.27.x features (field editing, back button, menu visibility)
 
 ---
 

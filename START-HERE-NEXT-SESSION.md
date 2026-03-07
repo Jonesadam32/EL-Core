@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 7, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** 1.27.1 — All 4 v1.27.0 bugs fixed. ZIP built and pushed to GitHub. **Next:** Upload `el-core-v1.27.1.zip` from Downloads to WordPress staging, then re-run testing guide sections 2D, 3B, 3C, 3D, 3E from `V1.27.0-TESTING-GUIDE.md`.
+> **Current Plugin Version:** 1.27.3 — v1.27.1 bugs fixed + v1.27.2 feature additions + v1.27.3 critical error hotfix. All built and pushed to GitHub. **Next:** Upload `el-core-v1.27.3.zip` from Downloads to WordPress staging, then resume testing from section 3G of `V1.27.0-TESTING-GUIDE.md`.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -196,6 +196,10 @@
 | v1.21.4 | Fix: Remove debug DB error output from handle_save_definition | Uploaded & Tested ✅ |
 | v1.22.0 | Definition Consensus Review System (DB schema v8 + PHP handlers done; UI in progress) | DONE ✅ |
 | v1.26.0 | Definition Consensus Review UI complete (admin + portal + JS + CSS) | Built ✅ |
+| v1.27.0 | Client Dashboard `[el_client_dashboard]` shortcode + portal DM detection fix | Built ✅ |
+| v1.27.1 | Fix 4 bugs: portal auth, consensus UI blank, Log in as, Switch back to admin toolbar | Built ✅ |
+| v1.27.2 | Fix portal ?project_id routing, Back to Dashboard button, field editing in review, org-contact warning, Menu Visibility settings page | Built ✅ |
+| v1.27.3 | Hotfix: critical error from `object` type hint in `filter_client_nav_items` + missing `global $wpdb` in project-detail | Built ✅ — **CURRENT** |
 
 ---
 
