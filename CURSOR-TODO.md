@@ -665,6 +665,113 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ---
 
+## v1.31.0 — User Journey Phase (Phase 4)
+
+> **Full spec:** `SPEC-USER-JOURNEY-PHASE.md` — read before starting.
+> **Prerequisite:** v1.30.3 uploaded and tested on staging.
+> **What this is:** New Phase 4 inserted between Proposal and Visual Identity. Stakeholders describe how each user type moves through the site via guided questions; AI generates a structured workflow; admin refines with a second AI pass; full consensus review; admin locks. Phase 5 (Visual Identity) is hard-gated until all journeys are locked.
+
+### Step 1 — DB migration + pipeline update
+
+- [ ] Add 3 new tables to `module.json` under a new DB migration version (9 → 10):
+  - `el_es_user_journeys` — one row per user type per project (see spec for full schema)
+  - `el_es_journey_reviews` — one row per review round per journey
+  - `el_es_journey_comments` — threaded per-step comments with verdicts
+- [ ] Update `STAGES` constant in `class-expand-site-module.php`:
+  - Insert `4 => [ 'name' => 'User Journey', 'slug' => 'user-journey', 'has_client_gate' => true ]`
+  - Shift Visual Identity → Delivery to phases 5–9
+- [ ] Update `STAGE_DEADLINE_DAYS`: add `4 => 7` for User Journey; shift existing entries 4–8 to 5–9
+- [ ] Audit `project-detail.php` and `expand-site-admin.js` for hardcoded phase numbers 4–8 that now need to be 5–9
+- [ ] Deploy, verify 3 tables created, verify existing projects and phase bar still work
+- [ ] **Checkpoint:** Tables exist in DB, phase bar shows 9 phases, no regressions ✅
+
+### Step 2 — Phase initialization logic
+
+- [ ] In the stage-advance handler (when advancing to stage 4): read `el_es_project_definition.user_types` for the project
+- [ ] Parse user type names and insert one row per type into `el_es_user_journeys` with `status = 'pending_assignment'` and `added_by = NULL`
+- [ ] If `user_types` is empty, insert one row with `user_type = 'General User'` as a fallback
+- [ ] AJAX handler `es_add_user_type` — admin adds a user type not in the original list (modal with text input)
+- [ ] **Checkpoint:** Advance a test project to phase 4, verify journey rows created matching user types ✅
+
+### Step 3 — Admin Phase 4 panel (static states first)
+
+- [ ] Add Phase 4 panel to `project-detail.php` with panel header (progress badge, "X of Y locked", "Add User Type" button)
+- [ ] Render collapsed journey card list (user type name, assigned stakeholder, status badge, expand toggle)
+- [ ] `pending_assignment` state: stakeholder assignment dropdown + "Assign" button
+- [ ] `awaiting_input` state: read-only assignment display + waiting message + "Reassign" link
+- [ ] `ai_generated` state: Q&A display, AI output display (summary, steps, implied pages, open questions), admin notes textarea, "Refine with AI" button
+- [ ] `admin_refined` state: refined workflow display + "Send for Review" button with deadline date picker
+- [ ] `in_review` state: active review info, comments panel, DM verdict status, "Reset to Review" button
+- [ ] `approved` state: approval banner + "Lock Journey" button
+- [ ] `locked` state: read-only locked workflow display
+- [ ] **Checkpoint:** All admin panel states render correctly with test data ✅
+
+### Step 4 — Admin AJAX handlers
+
+- [ ] `es_assign_journey` — saves `assigned_to`, advances status to `awaiting_input`
+- [ ] `es_reset_journey_review` — cancels active review round, resets status to `admin_refined`
+- [ ] `es_lock_journey` — sets `locked_at`, `locked_by`, status to `locked`
+- [ ] `es_send_journey_review` — creates `el_es_journey_reviews` row, sets deadline, status → `in_review`
+- [ ] **Checkpoint:** Assign, reset, lock, send-for-review all work from admin panel ✅
+
+### Step 5 — AI Round 1 (auto-fires on submission)
+
+- [ ] AJAX handler `es_submit_journey_answers` — saves `guided_answers` JSON, calls AI with project context + user type + 5 Q&A pairs
+- [ ] AI prompt produces JSON: `{summary, steps[], implied_pages[], open_questions[]}` (see spec for exact shape and example)
+- [ ] Parse AI response, save to `ai_workflow`, advance status to `ai_generated`
+- [ ] Return workflow data to portal JS for immediate display
+- [ ] **Checkpoint:** Submit 5 answers in portal, verify `ai_workflow` populated and status = `ai_generated` ✅
+
+### Step 6 — AI Round 2 (admin-triggered refinement)
+
+- [ ] AJAX handler `es_refine_journey` — saves `admin_notes`, calls AI with Round 1 context + existing `ai_workflow` + admin notes
+- [ ] AI prompt produces refined JSON (same shape, more detail, fewer open questions)
+- [ ] Save to `admin_workflow`, advance status to `admin_refined`
+- [ ] Admin can run multiple times — each run overwrites `admin_workflow` only; `ai_workflow` never overwritten
+- [ ] **Checkpoint:** Enter admin notes, click "Refine with AI", verify `admin_workflow` updated ✅
+
+### Step 7 — Mermaid diagram rendering
+
+- [ ] Load Mermaid JS from CDN, conditionally enqueued when project is in phase 4+
+- [ ] JS helper function: converts `steps[]` JSON array to Mermaid `flowchart TD` syntax (nodes for steps, diamonds for branches, labeled edges for yes/no paths)
+- [ ] Render diagram in admin panel (admin_refined state and later)
+- [ ] Render diagram in portal (in_review, approved, locked states)
+- [ ] **Checkpoint:** Diagram renders correctly from sample workflow JSON with at least one branch ✅
+
+### Step 8 — Portal Phase 4 panel
+
+- [ ] Phase 4 panel in `expand-site-portal.php` with intro text and all user type cards
+- [ ] All cards visible to all stakeholders at all times
+- [ ] Per-state rendering per viewer (see spec): pending_assignment, awaiting_input (assigned vs not), ai_generated/admin_refined, in_review, approved/locked
+- [ ] 5-question form with inline example text for assigned stakeholder
+- [ ] Scroll-depth gate on "Submit My Input" button (disabled until scrolled past all questions)
+- [ ] DM assign/reassign control on cards in pending_assignment and awaiting_input states
+- [ ] **Checkpoint:** All portal states render correctly for DM, Contributor (assigned), and Contributor (not assigned) ✅
+
+### Step 9 — Portal AJAX handlers (consensus review)
+
+- [ ] `es_get_journey_review` — returns journey data + active review + comments + verdicts for portal rendering
+- [ ] `es_post_journey_comment` — post a comment or reply anchored to a step_key
+- [ ] `es_journey_step_verdict` — upsert verdict per step (approved / needs_revision); same pattern as `handle_field_verdict`
+- [ ] `es_dm_journey_decision` — DM submits final decision; on Needs Revision: review stays open, DM banner rendered; on Accept: status → approved
+- [ ] All handlers have `nopriv` variants registered
+- [ ] **Checkpoint:** Full consensus round: comment, verdict, DM approve — status reaches `approved` ✅
+
+### Step 10 — Pipeline gate + CSS
+
+- [ ] Disable "Advance to Visual Identity" button when any journey for the project has `status != 'locked'`; show count of remaining unlocked journeys
+- [ ] Enable button only when all journey rows for project are `status = 'locked'`
+- [ ] All new CSS classes added to `expand-site.css` with `el-es-` prefix:
+  - Journey card states (status badge colors, locked state, in-progress state)
+  - 5-question form layout (question + example line + textarea)
+  - Mermaid diagram container (border, padding, scroll on overflow)
+  - Consensus UI for journeys (step comment threads, verdict buttons)
+  - DM decision section styling
+- [ ] Bump to v1.31.0, update CHANGELOG, build ZIP, commit, push
+- [ ] **Checkpoint:** Full end-to-end test — phase 4 initialization → input → AI → admin refine → diagram → consensus → lock → phase 5 unlocks ✅
+
+---
+
 
 - [ ] Look up org IDs from `el_contacts` where `user_id = current user`
 - [ ] Load all `el_es_projects` where `organization_id IN (orgs)` AND user is in `el_es_stakeholders`

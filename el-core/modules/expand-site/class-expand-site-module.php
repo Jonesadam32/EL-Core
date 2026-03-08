@@ -1985,18 +1985,25 @@ class EL_Expand_Site_Module {
         global $wpdb;
         $table = $wpdb->prefix . 'el_es_definition_comments';
         $rows  = $wpdb->get_results( $wpdb->prepare(
-            "SELECT field_key, verdict, COUNT(DISTINCT user_id) as cnt FROM {$table}
-             WHERE review_id = %d AND parent_id = 0 AND verdict != '' AND verdict IS NOT NULL
-             GROUP BY field_key, verdict",
+            "SELECT c.field_key, c.verdict, c.created_at, u.display_name
+             FROM {$table} c
+             LEFT JOIN {$wpdb->users} u ON u.ID = c.user_id
+             WHERE c.review_id = %d AND c.parent_id = 0 AND c.verdict != '' AND c.verdict IS NOT NULL
+             ORDER BY c.created_at ASC",
             $review_id
         ) ) ?: [];
         $out = [];
         foreach ( $rows as $r ) {
             if ( ! isset( $out[ $r->field_key ] ) ) {
-                $out[ $r->field_key ] = [ 'approved' => 0, 'needs_revision' => 0, 'total' => 0 ];
+                $out[ $r->field_key ] = [ 'approved' => 0, 'needs_revision' => 0, 'total' => 0, 'users' => [] ];
             }
-            $out[ $r->field_key ][ $r->verdict ] = (int) $r->cnt;
-            $out[ $r->field_key ]['total'] += (int) $r->cnt;
+            $out[ $r->field_key ][ $r->verdict ]++;
+            $out[ $r->field_key ]['total']++;
+            $out[ $r->field_key ]['users'][] = [
+                'name'    => $r->display_name ?: 'Unknown',
+                'verdict' => $r->verdict,
+                'date'    => $r->created_at,
+            ];
         }
         return $out;
     }

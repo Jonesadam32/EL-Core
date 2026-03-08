@@ -6,6 +6,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.30.4] — 2026-03-08
+### Fixed
+- **Per-user verdict indicators not showing** (`class-expand-site-module.php`, `expand-site.js`, `expand-site.css`): `get_definition_verdicts()` now returns per-user rows (name, verdict, created_at) in addition to aggregate counts. Portal JS renders a compact pill badge per voter below the verdict buttons, showing name + ✓/⚑ icon + timestamp. Green pill for approved, amber pill for needs revision. Visible to all stakeholders so the team can see at a glance who has weighed in on each field.
+
+---
+
 ## [1.30.3] — 2026-03-08
 ### Fixed
 - **Verdict active state not persisting after loadReview()** (`expand-site.js`): Added module-level `localVerdicts` object that caches verdict selections client-side. On each click, the verdict is written to `localVerdicts` immediately. On each `loadReview()` re-render, server `user_verdicts` are merged in, and `localVerdicts` is used for button active-state rendering — so the highlighted button stays green/amber even if the server response is delayed or returns empty.

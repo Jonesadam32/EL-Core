@@ -407,6 +407,17 @@
                 html += '<button type="button" class="el-es-verdict-btn el-es-verdict-revision' + (userV === 'needs_revision' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="needs_revision">⚑ Flag for changes</button>';
                 html += '</div>';
         }
+        // Per-user verdict indicators — show who voted and what they chose
+        var fieldVerdictUsers = (verdicts[f.key] && verdicts[f.key].users) ? verdicts[f.key].users : [];
+        if (fieldVerdictUsers.length > 0) {
+            html += '<div class="el-es-verdict-indicators">';
+            fieldVerdictUsers.forEach(function(v) {
+                var icon = v.verdict === 'approved' ? '✓' : '⚑';
+                var cls  = v.verdict === 'approved' ? 'el-es-vi-approved' : 'el-es-vi-revision';
+                html += '<span class="el-es-verdict-indicator ' + cls + '">' + icon + ' ' + escapeHtml(v.name) + ' <span class="el-es-vi-date">' + escapeHtml(v.date) + '</span></span>';
+            });
+            html += '</div>';
+        }
             html += '</div>';
             html += '</div>';
         });

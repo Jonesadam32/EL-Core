@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.30.3 — Built and ready to upload to staging. **Next session:** PLANNING — User Journey phase (Phase 5). Read `NEXT-SESSION-PROMPT-v1.31.0-PLANNING.md` before starting anything.
+> **Current Plugin Version:** v1.30.3 — Built and ready to upload to staging. **Next session:** BUILD — User Journey phase (Phase 4, v1.31.0). Read `SPEC-USER-JOURNEY-PHASE.md` before starting anything. Planning is complete.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -129,13 +129,12 @@
 
 ## WHAT'S NEXT AFTER v1.22.0
 
-**Step 4 — Brand Palette Voting in portal (v1.23.0)**
-- Admin triggers AI logo analysis from project detail Branding tab → generates 3 palettes
-- Palettes appear in portal as 3 cards (swatches, fonts, rationale)
-- Stakeholders vote: Prefer / Neutral / Don't Prefer
-- DM: "Lock Brand Colors" → saves selection to `el_core_brand`, locks palette section
-
-**Step 6 — Wireframe Annotation (Phase 2H — separate session, do not build yet)**
+**Step 4 — User Journey Phase (v1.31.0)**
+- Full spec: **`SPEC-USER-JOURNEY-PHASE.md`** (repo root) — read before starting
+- New Phase 4 inserted between Proposal and Visual Identity — 9-phase pipeline
+- Stakeholders fill 5 guided questions per user type → AI generates structured workflow → admin refines with second AI pass → full consensus review → admin locks
+- Phase 5 (Visual Identity) hard-gated until all journeys locked
+- Build order: DB migration (v10) → STAGES update → phase init logic → admin panel → AI handlers → portal panel → consensus → pipeline gate
 
 **Invoicing module** (Phase 6A — Step 6 done ✅)
 - Full build spec: **`docs/cursor-handoff-invoicing-module.md`** (canonical copy in repo)
@@ -206,6 +205,7 @@
 | v1.30.1 | Bug fixes: qualification form AJAX save, HTTP 400 WAF block on role change, double checkmark verdict display, stacked event listeners (comment/reply need refresh) | Built ✅ |
 | v1.30.2 | Bug fixes: phase bar tab auto-activation, verdict checkmark display, verdict button rename (Approve Field/Flag for changes), Client contacts Role column, definition editable in approved state, draft-state helper notice | Built ✅ |
 | v1.30.3 | Fix verdict active state not persisting after loadReview() (localVerdicts cache); tighten verdict button height | Built ✅ — **CURRENT** |
+| v1.31.0 | User Journey Phase (Phase 4) — 9-phase pipeline, guided questions, AI workflow, consensus review | **PLANNED** — spec in `SPEC-USER-JOURNEY-PHASE.md` |
 
 ---
 
@@ -215,7 +215,7 @@ When you open a new chat, paste one of these:
 
 **Expand Site workstream** (shortcodes, CSS, JS, module features):
 ```
-Read @START-HERE-NEXT-SESSION.md. I'm working on the Expand Site workstream.
+Read @START-HERE-NEXT-SESSION.md and @SPEC-USER-JOURNEY-PHASE.md. I'm working on the Expand Site workstream — next build is v1.31.0 (User Journey Phase).
 ```
 
 **Core workstream** (Canvas, Admin UI, infrastructure):
