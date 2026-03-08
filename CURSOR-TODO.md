@@ -5,9 +5,9 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 8, 2026
-> **Plugin Version:** v1.30.1 — built, ready to upload to staging
+> **Plugin Version:** v1.30.2 — built, ready to upload to staging
 > **Next Build:** v1.30.x (if bugs found in testing) or v1.31.0
-> **Deployed Version:** v1.29.0 on staging (upload `el-core-v1.30.1.zip` from Downloads or releases/)
+> **Deployed Version:** v1.29.0 on staging (upload `el-core-v1.30.2.zip` from Downloads or releases/)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
@@ -649,7 +649,13 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] CSS: `.el-es-dm-revision-banner` and `.el-es-stage-intro-banner` styles added
 - [x] Bump to v1.30.0, update CHANGELOG, START-HERE, CURSOR-TODO, build ZIP, commit, push
 
-### Testing resume point (after v1.30.0 deployed — use `V1.30.0-TESTING-GUIDE.md`):
+### v1.30.2 — Bug fix pass ✅ COMPLETE
+- [x] Issue 1: Phase bar tab auto-activation on page load after Advance Stage (admin.js initTabsOnLoad)
+- [x] Issue 2: Verdict checkmark display — `get_definition_verdicts` now uses DISTINCT user_id; `get_definition_comments` explicitly excludes verdict-only rows
+- [x] Issue 3: Per-field verdict buttons renamed: "✓ Approve Field" / "⚑ Flag for changes" + help text added
+- [x] Issue 4: Client contacts table gets "Project Role" column showing DM/Contributor badge + project name
+- [x] Issue 5: Informational notice in Phase 2 when definition is in approved state (confirms fields are editable)
+- [x] Issue 6: Draft-state helper notice below definition form explaining Reset to Draft button appearance
 - [ ] **DM "Needs Revision" flow**: DM clicks Needs Revision → review stays open, DM banner appears, fields editable
 - [ ] **DM "Accept" flow**: DM clicks Accept → review closes, admin sees "Client Approved" badge and amber lock banner
 - [ ] **Admin "Reset to Draft"**: admin clicks Reset to Draft → review cancelled, back to draft, Send button reappears

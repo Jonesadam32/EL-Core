@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.30.1 — Built and ready to upload to staging. **Next session:** Upload v1.30.1 and test using `V1.30.1-TESTING-GUIDE.md` (single project, start to finish). See `NEXT-SESSION-PROMPT-v1.31.0.md`.
+> **Current Plugin Version:** v1.30.2 — Built and ready to upload to staging. **Next session:** Upload v1.30.2 and test using `V1.30.2-TESTING-GUIDE.md` (single project, start to finish).
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -203,7 +203,8 @@
 | v1.28.0 | Admin UX + Bug Fixes: verdict comment bug, needs-attention list, lock prompt banner, stage stepper + status card, definition version history (DB migration v9) | Built ✅ |
 | v1.29.0 | Admin project detail redesign: phase bar replaces stepper, utility tabs (Overview/Stakeholders/Stage History) + 8 phase panels, new stage names (Proposal, Final Design, Delivery) | Built ✅ |
 | v1.30.0 | Definition Consensus Review fix: Needs Revision keeps review open + DM banner + Reset to Draft escape hatch; Qualification stage message in portal | Built ✅ |
-| v1.30.1 | Bug fixes: qualification form AJAX save, HTTP 400 WAF block on role change, double checkmark verdict display, stacked event listeners (comment/reply need refresh) | Built ✅ — **CURRENT** |
+| v1.30.1 | Bug fixes: qualification form AJAX save, HTTP 400 WAF block on role change, double checkmark verdict display, stacked event listeners (comment/reply need refresh) | Built ✅ |
+| v1.30.2 | Bug fixes: phase bar tab auto-activation, verdict checkmark display, verdict button rename (Approve Field/Flag for changes), Client contacts Role column, definition editable in approved state, draft-state helper notice | Built ✅ — **CURRENT** |
 
 ---
 

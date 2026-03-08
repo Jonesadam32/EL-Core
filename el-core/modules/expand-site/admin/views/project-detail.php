@@ -550,7 +550,7 @@ if ( $active_review && ! empty( $comments ) ) {
             $p2 .= '<div class="el-es-comment-meta">' . esc_html( $c->display_name ?? 'Unknown' );
             if ( $c->verdict ) {
                 $p2 .= ' <span class="el-es-comment-verdict el-es-verdict-' . esc_attr( $c->verdict ) . '">'
-                     . ( $c->verdict === 'approved' ? '✓ Looks good' : 'Needs revision' )
+                     . ( $c->verdict === 'approved' ? '✓ Approved Field' : '⚑ Flagged for changes' )
                      . '</span>';
             }
             $p2 .= ' <span class="el-es-comment-date">' . esc_html( date_i18n( 'M j, g:i A', strtotime( $c->created_at ) ) ) . '</span></div>';
@@ -561,7 +561,7 @@ if ( $active_review && ! empty( $comments ) ) {
                 $p2 .= '<div class="el-es-comment-meta">' . esc_html( $r->display_name ?? 'Unknown' );
                 if ( ! empty( $r->verdict ) ) {
                     $p2 .= ' <span class="el-es-comment-verdict el-es-verdict-' . esc_attr( $r->verdict ) . '">'
-                         . ( $r->verdict === 'approved' ? '✓ Looks good' : 'Needs revision' )
+                         . ( $r->verdict === 'approved' ? '✓ Approved Field' : '⚑ Flagged for changes' )
                          . '</span>';
                 }
                 $p2 .= ' <span class="el-es-comment-date">' . esc_html( date_i18n( 'M j, g:i A', strtotime( $r->created_at ) ) ) . '</span></div>';
@@ -692,6 +692,22 @@ if ( ! $is_locked ) {
         ) . '</span>';
     }
     $p2 .= '</div></div></div>';
+}
+
+// Issue 6: Draft-state helper notice
+if ( $effective_status === 'draft' && ! $is_locked ) {
+    $p2 .= EL_Admin_UI::notice( [
+        'message' => __( 'This definition is in draft. Fill in the fields and click <strong>Send to Client for Review</strong> when ready. The <strong>Reset to Draft</strong> button appears only after you\'ve sent a review to the client.', 'el-core' ),
+        'type'    => 'info',
+    ] );
+}
+
+// Issue 5: Approved-state editing notice
+if ( $effective_status === 'approved' && ! $is_locked ) {
+    $p2 .= EL_Admin_UI::notice( [
+        'message' => __( 'The client has approved this definition. You can still make final edits below before locking. Saving now uses the admin Save Definition handler.', 'el-core' ),
+        'type'    => 'info',
+    ] );
 }
 
 // Definition form

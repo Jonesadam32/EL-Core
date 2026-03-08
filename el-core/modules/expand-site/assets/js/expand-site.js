@@ -394,12 +394,14 @@
             html += '</div>';
             html += '<div class="el-es-definition-actions">';
             html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-add-comment-btn" data-field-key="' + f.key + '">+ Add comment</button>';
-            if (review.id && review.status === 'open') {
+        // Verdict buttons — render active state based on userVerdicts from server
+        if (review.id && review.status === 'open') {
                 html += '<div class="el-es-verdict-buttons">';
-                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-approved' + (userV === 'approved' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="approved">✓ Looks good</button>';
-                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-revision' + (userV === 'needs_revision' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="needs_revision">Needs revision</button>';
+                html += '<p class="el-es-verdict-help">Use these to flag individual fields for the team\'s attention. The Decision Maker makes the overall final decision below.</p>';
+                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-approved' + (userV === 'approved' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="approved">✓ Approve Field</button>';
+                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-revision' + (userV === 'needs_revision' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="needs_revision">⚑ Flag for changes</button>';
                 html += '</div>';
-            }
+        }
             html += '</div>';
             html += '</div>';
         });

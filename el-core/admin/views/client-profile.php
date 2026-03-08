@@ -113,7 +113,7 @@ if ( empty( $contacts ) ) {
                    . __( 'No contacts yet. Add the first contact to get started.', 'el-core' )
                    . '</p>';
 } else {
-    $contact_rows = [];
+        $contact_rows = [];
     foreach ( $contacts as $c ) {
         $name_html = '<strong>' . esc_html( $c->first_name . ' ' . $c->last_name ) . '</strong>';
         if ( $c->is_primary ) {
@@ -129,6 +129,33 @@ if ( empty( $contacts ) ) {
         }
 
         $portal = $c->user_id ? EL_Admin_UI::badge( [ 'label' => 'Portal Access', 'variant' => 'success' ] ) : '—';
+
+        // Look up stakeholder role for this contact across active Expand Site projects
+        $role_html = '—';
+        if ( $c->user_id ) {
+            global $wpdb;
+            $sh_table  = $wpdb->prefix . 'el_es_stakeholders';
+            $sh_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$sh_table}'" );
+            if ( $sh_exists ) {
+                $sh_rows = $wpdb->get_results( $wpdb->prepare(
+                    "SELECT s.role, p.name FROM {$sh_table} s
+                     JOIN {$wpdb->prefix}el_es_projects p ON p.id = s.project_id
+                     WHERE s.user_id = %d
+                     ORDER BY s.id DESC",
+                    $c->user_id
+                ) ) ?: [];
+                if ( ! empty( $sh_rows ) ) {
+                    $role_parts = [];
+                    foreach ( $sh_rows as $sh ) {
+                        $role_label = $sh->role === 'decision_maker' ? 'Decision Maker' : 'Contributor';
+                        $role_variant = $sh->role === 'decision_maker' ? 'success' : 'info';
+                        $role_parts[] = EL_Admin_UI::badge( [ 'label' => $role_label, 'variant' => $role_variant ] )
+                            . '<br><small style="color:#6b7280;">' . esc_html( $sh->name ) . '</small>';
+                    }
+                    $role_html = implode( '<br>', $role_parts );
+                }
+            }
+        }
 
         $actions = '';
         if ( ! empty( $c->user_id ) && current_user_can( 'manage_options' ) ) {
@@ -160,6 +187,7 @@ if ( empty( $contacts ) ) {
             'name'       => $name_html,
             'contact'    => $contact_info,
             'portal'     => $portal,
+            'role'       => $role_html,
             '__actions'  => $actions,
         ];
     }
@@ -169,6 +197,7 @@ if ( empty( $contacts ) ) {
             [ 'key' => 'name',    'label' => __( 'Name / Title', 'el-core' ) ],
             [ 'key' => 'contact', 'label' => __( 'Contact', 'el-core' ) ],
             [ 'key' => 'portal',  'label' => __( 'Portal', 'el-core' ) ],
+            [ 'key' => 'role',    'label' => __( 'Project Role', 'el-core' ) ],
         ],
         'rows' => $contact_rows,
     ] );

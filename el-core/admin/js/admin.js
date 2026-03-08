@@ -322,9 +322,28 @@ const elAdmin = ( function() {
     // INIT
     // -------------------------------------------------------------------------
 
+    /**
+     * On page load, find any visible tab panel and mark its corresponding button as active.
+     * This handles page reloads where PHP has already set the correct active panel
+     * (e.g. after Advance Stage, the new current phase panel is rendered visible by PHP).
+     */
+    function initTabsOnLoad() {
+        document.querySelectorAll( '.el-tab-content[data-group]' ).forEach( function( panel ) {
+            if ( panel.style.display === 'none' ) return;
+            var group = panel.dataset.group;
+            var tabId = panel.dataset.tab;
+            if ( ! group || ! tabId ) return;
+            var btn = document.querySelector( '.el-tab-btn[data-group="' + group + '"][data-tab="' + tabId + '"]' );
+            if ( btn && ! btn.classList.contains( 'active' ) ) {
+                btn.classList.add( 'active' );
+            }
+        } );
+    }
+
     document.addEventListener( 'DOMContentLoaded', function() {
         initFilters();
         initBrandPage();
+        initTabsOnLoad();
     } );
 
     // -------------------------------------------------------------------------

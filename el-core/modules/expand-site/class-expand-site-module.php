@@ -1954,6 +1954,7 @@ class EL_Expand_Site_Module {
             "SELECT c.*, u.display_name, u.user_email FROM {$table} c
              LEFT JOIN {$wpdb->users} u ON u.ID = c.user_id
              WHERE c.review_id = %d AND (c.comment != '' OR c.parent_id != 0)
+             AND NOT (c.comment = '' AND c.parent_id = 0 AND c.verdict != '')
              ORDER BY c.created_at ASC",
             $review_id
         ) ) ?: [];
@@ -1977,14 +1978,15 @@ class EL_Expand_Site_Module {
 
     /**
      * Get per-field verdict tallies for a review.
+     * Only counts dedicated verdict rows (comment='' or any, verdict!='' and parent_id=0).
      * Returns array keyed by field_key => ['approved'=>n, 'needs_revision'=>n, 'total'=>n]
      */
     public function get_definition_verdicts( int $review_id ): array {
         global $wpdb;
         $table = $wpdb->prefix . 'el_es_definition_comments';
         $rows  = $wpdb->get_results( $wpdb->prepare(
-            "SELECT field_key, verdict, COUNT(*) as cnt FROM {$table}
-             WHERE review_id = %d AND parent_id = 0 AND verdict != ''
+            "SELECT field_key, verdict, COUNT(DISTINCT user_id) as cnt FROM {$table}
+             WHERE review_id = %d AND parent_id = 0 AND verdict != '' AND verdict IS NOT NULL
              GROUP BY field_key, verdict",
             $review_id
         ) ) ?: [];

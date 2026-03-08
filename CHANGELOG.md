@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.30.2] — 2026-03-08
+### Fixed
+- **Issue 1 — Phase bar pill doesn't highlight after Advance Stage** (`admin.js`): Added `initTabsOnLoad()` on DOMContentLoaded. Finds any visible `.el-tab-content` and adds `active` CSS class to its matching `.el-tab-btn`, so the correct phase pill is visually highlighted on every page load without requiring a manual click.
+- **Issue 2 — Verdict checkmark / count inconsistency** (`class-expand-site-module.php`): `get_definition_verdicts` now uses `COUNT(DISTINCT user_id)` to prevent double-counting if any edge-case duplicate rows exist. Added explicit `AND NOT (comment='' AND parent_id=0 AND verdict!='')` guard to `get_definition_comments` to ensure verdict-only rows are always excluded from comment display.
+- **Issue 3 — Per-field verdict button labels clarified** (`expand-site.js`, `project-detail.php`): Renamed "✓ Looks good" → "✓ Approve Field" and "Needs revision" → "⚑ Flag for changes". Added help text above the buttons: "Use these to flag individual fields for the team's attention. The Decision Maker makes the overall final decision below." Admin-side verdict badge labels updated to match ("✓ Approved Field", "⚑ Flagged for changes").
+- **Issue 4 — Stakeholder role missing from Clients contact table** (`admin/views/client-profile.php`): Added "Project Role" column to the Contacts table. For each contact with a WP user, queries `el_es_stakeholders` for their role across all linked projects. Shows Decision Maker / Contributor badge with the project name below, or "—" if no project role exists.
+- **Issue 5 — Admin cannot edit definition in approved state** (`project-detail.php`): Added informational notice in Phase 2 when `$effective_status === 'approved'` and not yet locked, confirming fields are editable before locking. The definition form already used `readonly` only when locked; this makes the editable state explicit.
+- **Issue 6 — "Reset to Draft" confusion in draft state** (`project-detail.php`): Added admin notice below the definition form when `$effective_status === 'draft'` explaining: "This definition is in draft. Fill in the fields and click 'Send to Client for Review' when ready. The Reset to Draft button appears only after you've sent a review to the client."
+
+---
+
 ## [1.30.1] — 2026-03-08
 ### Fixed
 - **Qualification intake form** (`expand-site-admin.js`, `class-expand-site-module.php`): form was doing a full page submit to blank white page. Added `handleSaveQualification` JS AJAX handler and `handle_save_qualification` PHP handler (`es_save_qualification` action). Button now shows "Saved ✓" inline on success — no page reload.
