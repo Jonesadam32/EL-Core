@@ -185,7 +185,7 @@ foreach ( $stakeholders as $sh ) {
     $dm_count         = count( array_filter( $stakeholders, fn( $s ) => $s->role === 'decision_maker' ) );
     $stakeholder_count = count( $stakeholders );
 
-    $new_role  = $sh->role === 'decision_maker' ? 'contributor' : 'decision_maker';
+    $new_role  = $sh->role === 'decision_maker' ? 'c' : 'dm';
     $btn_label = $sh->role === 'decision_maker' ? __( 'Make Contributor', 'el-core' ) : __( 'Make Decision Maker', 'el-core' );
     $is_only_dm = ( $sh->role === 'decision_maker' && $dm_count === 1 );
 
@@ -1250,7 +1250,7 @@ if ( $org_id && isset( $core ) && $core->organizations ) {
         $org_contacts_html .= '<p style="font-weight:600;margin:0 0 8px;font-size:13px;color:#374151;">' . __( 'Contacts from this organization:', 'el-core' ) . '</p>';
         $org_contacts_html .= '<div style="display:flex;flex-direction:column;gap:6px;">';
         foreach ( $available_contacts as $oc ) {
-            $role_default = $oc->is_primary ? 'decision_maker' : 'contributor';
+            $role_default = $oc->is_primary ? 'dm' : 'c';
             $badge        = $oc->is_primary
                 ? ' <span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:9px;font-weight:600;">Primary</span>'
                 : '';
@@ -1301,8 +1301,8 @@ $stakeholder_form .= EL_Admin_UI::form_row( [
     'label'   => __( 'Role', 'el-core' ),
     'type'    => 'select',
     'options' => [
-        'contributor'    => __( 'Contributor (can provide input)', 'el-core' ),
-        'decision_maker' => __( 'Decision Maker (can approve/lock)', 'el-core' ),
+        'c'  => __( 'Contributor (can provide input)', 'el-core' ),
+        'dm' => __( 'Decision Maker (can approve/lock)', 'el-core' ),
     ],
 ] );
 $stakeholder_form .= '<div class="el-form-row">';

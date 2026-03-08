@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.30.1] — 2026-03-08
+### Fixed
+- **Qualification intake form** (`expand-site-admin.js`, `class-expand-site-module.php`): form was doing a full page submit to blank white page. Added `handleSaveQualification` JS AJAX handler and `handle_save_qualification` PHP handler (`es_save_qualification` action). Button now shows "Saved ✓" inline on success — no page reload.
+- **HTTP 400 on "Make Decision Maker"** (`project-detail.php`, `class-expand-site-module.php`): Rocket.net WAF was blocking POST requests containing `decision_maker` in the body. Fixed by using abbreviated role codes: `dm` = Decision Maker, `c` = Contributor. Both `handle_add_stakeholder` and `handle_change_stakeholder_role` now map these codes to full role names. Select options and `data-new-role` attribute updated accordingly.
+- **Double checkmark verdict display** (`class-expand-site-module.php`): `get_definition_comments` was returning all rows including verdict-only rows (empty comment, non-empty verdict). These were rendered as visible comment blocks, causing the "duplicate checkmark" appearance. Fixed by excluding rows with `comment = ''` from the comments query.
+- **Comments/replies require page refresh after editing or voting** (`expand-site.js`): `bindDefinitionReviewEvents` was being called on `container` (the outer element) each time `loadReview()` ran, stacking up duplicate event listeners. Fixed by creating a fresh inner `<div>` node on each render and appending it to the container — old listeners are discarded when the old node is replaced.
+
+---
+
 ## [1.30.0] — 2026-03-08
 ### Changed
 - **Definition Consensus Review — corrected "Needs Revision" flow** (`class-expand-site-module.php`, `expand-site.js`, `expand-site-portal.php`, `expand-site-admin.js`, `expand-site.css`):

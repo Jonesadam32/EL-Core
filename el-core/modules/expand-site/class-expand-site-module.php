@@ -144,6 +144,7 @@ class EL_Expand_Site_Module {
         
         // Discovery transcript and definition
         add_action( 'el_core_ajax_es_process_transcript',       [ $this, 'handle_process_transcript' ] );
+        add_action( 'el_core_ajax_es_save_qualification',        [ $this, 'handle_save_qualification' ] );
         add_action( 'el_core_ajax_es_save_definition',          [ $this, 'handle_save_definition' ] );
         add_action( 'el_core_ajax_es_lock_definition',          [ $this, 'handle_lock_definition' ] );
 
@@ -1301,7 +1302,15 @@ class EL_Expand_Site_Module {
 
         $project_id = absint( $data['project_id'] ?? 0 );
         $user_id    = absint( $data['user_id'] ?? 0 );
-        $role       = sanitize_text_field( $data['role'] ?? 'contributor' );
+        $raw_role   = sanitize_text_field( $data['role'] ?? 'contributor' );
+        // Map abbreviated role codes (avoids WAF blocks on 'decision_maker' in POST body)
+        $role_map = [
+            'dm'           => 'decision_maker',
+            'c'            => 'contributor',
+            'decision_maker' => 'decision_maker',
+            'contributor'    => 'contributor',
+        ];
+        $role = $role_map[ $raw_role ] ?? 'contributor';
 
         if ( ! $project_id ) {
             EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
@@ -1421,7 +1430,16 @@ class EL_Expand_Site_Module {
         }
 
         $stakeholder_id = absint( $data['stakeholder_id'] ?? 0 );
-        $new_role       = sanitize_text_field( $data['new_role'] ?? '' );
+        $raw_role       = sanitize_text_field( $data['new_role'] ?? '' );
+
+        // Map abbreviated role codes to full role names (avoids WAF blocks on 'decision_maker' in POST body)
+        $role_map = [
+            'dm'           => 'decision_maker',
+            'c'            => 'contributor',
+            'decision_maker' => 'decision_maker',
+            'contributor'    => 'contributor',
+        ];
+        $new_role = $role_map[ $raw_role ] ?? '';
 
         if ( ! $stakeholder_id || ! $new_role ) {
             EL_AJAX_Handler::error( __( 'Invalid parameters.', 'el-core' ) );
@@ -1630,7 +1648,44 @@ class EL_Expand_Site_Module {
     // ═══════════════════════════════════════════
     // DISCOVERY TRANSCRIPT & PROJECT DEFINITION
     // ═══════════════════════════════════════════
-    
+
+    /**
+     * Save Phase 1 Qualification intake fields (project_goal, deadline/call date, notes).
+     */
+    public function handle_save_qualification( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Project ID required.', 'el-core' ) );
+            return;
+        }
+
+        $project_goal = sanitize_textarea_field( wp_unslash( $_POST['project_goal'] ?? '' ) );
+        $deadline_raw = sanitize_text_field( $data['deadline'] ?? '' );
+        $deadline     = $deadline_raw ? date( 'Y-m-d H:i:s', strtotime( $deadline_raw ) ) : null;
+        $notes        = sanitize_textarea_field( wp_unslash( $_POST['notes'] ?? '' ) );
+
+        $update = [
+            'project_goal' => $project_goal,
+            'notes'        => $notes,
+        ];
+        if ( $deadline ) {
+            $update['deadline'] = $deadline;
+        }
+
+        $result = $this->core->database->update( 'el_es_projects', $update, [ 'id' => $project_id ] );
+
+        if ( $result !== false ) {
+            EL_AJAX_Handler::success( [], __( 'Qualification intake saved.', 'el-core' ) );
+        } else {
+            EL_AJAX_Handler::error( __( 'Failed to save.', 'el-core' ) );
+        }
+    }
+
     public function handle_process_transcript( array $data ): void {
         if ( ! el_core_can( 'manage_expand_site' ) ) {
             EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
@@ -1898,7 +1953,8 @@ class EL_Expand_Site_Module {
         $rows  = $wpdb->get_results( $wpdb->prepare(
             "SELECT c.*, u.display_name, u.user_email FROM {$table} c
              LEFT JOIN {$wpdb->users} u ON u.ID = c.user_id
-             WHERE c.review_id = %d ORDER BY c.created_at ASC",
+             WHERE c.review_id = %d AND (c.comment != '' OR c.parent_id != 0)
+             ORDER BY c.created_at ASC",
             $review_id
         ) ) ?: [];
 

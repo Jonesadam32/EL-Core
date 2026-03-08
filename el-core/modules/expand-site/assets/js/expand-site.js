@@ -441,18 +441,25 @@
 
         container.innerHTML = html;
 
+        // Wrap content in a fresh node so event listeners can be discarded on next reload
+        var inner = document.createElement('div');
+        inner.className = 'el-es-definition-review-inner';
+        inner.innerHTML = html;
+        container.innerHTML = '';
+        container.appendChild(inner);
+
         // Start countdown
         if (deadlineTs && !deadlinePassed) {
-            startCountdown(container.querySelector('.el-es-definition-countdown'));
+            startCountdown(inner.querySelector('.el-es-definition-countdown'));
         }
 
         // Scroll-depth gate for contributors
         if (!isDm && review.id && review.status === 'open') {
-            setupScrollDepthGate(container);
+            setupScrollDepthGate(inner);
         }
 
-        // Bind events
-        bindDefinitionReviewEvents(container, review);
+        // Bind events on the fresh inner node (discarded on next loadReview)
+        bindDefinitionReviewEvents(inner, review);
     }
 
     function renderComment(c, fieldKey, isReply) {

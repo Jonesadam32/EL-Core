@@ -38,6 +38,7 @@
         
         // Discovery transcript processing
         document.addEventListener('click', handleProcessTranscript);
+        document.addEventListener('submit', handleSaveQualification);
         document.addEventListener('submit', handleSaveDefinition);
         document.addEventListener('submit', handleSendDefinitionReview);
         document.addEventListener('click', handleLockDefinition);
@@ -551,6 +552,51 @@
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    }
+
+    // ═══════════════════════════════════════════
+    // QUALIFICATION INTAKE
+    // ═══════════════════════════════════════════
+
+    function handleSaveQualification(e) {
+        const form = e.target.closest('#qualification-form');
+        if (!form) return;
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn?.textContent || 'Save';
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving…';
+        }
+
+        const fd = new FormData(form);
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'es_save_qualification');
+        fd.append('nonce', elExpandSiteAdmin.nonce);
+
+        fetch(elExpandSiteAdmin.ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: fd
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (!result.success) throw new Error(result.data?.message || 'Save failed');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Saved ✓';
+                setTimeout(() => { submitBtn.textContent = originalText; }, 2000);
+            }
+        })
+        .catch(err => {
+            alert(err.message || 'Failed to save qualification intake.');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        });
     }
 
     // ═══════════════════════════════════════════
