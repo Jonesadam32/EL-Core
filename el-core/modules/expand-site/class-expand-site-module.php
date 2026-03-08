@@ -321,106 +321,107 @@ class EL_Expand_Site_Module {
             'projectUrl' => admin_url( 'admin.php?page=el-core-projects&project=PROJECT_ID' ),
         ] );
 
-        // Stage stepper + status card styles
+        // Phase bar styles (replaces old stepper)
         wp_add_inline_style( 'el-expand-site-admin', '
-            .el-es-stage-stepper {
+            /* ── Utility tab group ── */
+            .el-es-utility-tabs {
+                margin-bottom: 0;
+                border-bottom: none;
+            }
+            .el-es-utility-tabs .el-tab-btn {
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+
+            /* ── Phase bar wrapper ── */
+            .el-es-phase-bar-wrap {
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-top: none;
+                border-radius: 0 0 8px 8px;
+                padding: 16px 20px 12px;
+                margin-bottom: 20px;
+            }
+            .el-es-phase-bar-label {
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                color: #9ca3af;
+                margin-bottom: 10px;
+            }
+            .el-es-phase-bar {
                 display: flex;
-                align-items: flex-start;
+                align-items: center;
                 gap: 0;
                 overflow-x: auto;
-                padding-bottom: 4px;
+                padding-bottom: 2px;
             }
-            .el-es-stepper-step {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                flex: 1;
-                min-width: 80px;
+            .el-es-phase-pill {
                 position: relative;
-            }
-            .el-es-stepper-circle {
-                width: 34px;
-                height: 34px;
-                border-radius: 50%;
                 display: flex;
                 align-items: center;
-                justify-content: center;
-                font-size: 13px;
-                font-weight: 700;
-                z-index: 1;
-                position: relative;
-                background: #e5e7eb;
+                gap: 5px;
+                padding: 6px 14px 6px 20px;
+                font-size: 12px;
+                font-weight: 500;
+                border: 1.5px solid #d1d5db;
+                background: #f9fafb;
                 color: #6b7280;
-                border: 2px solid #d1d5db;
-                transition: all .2s;
-            }
-            .el-es-stepper-complete .el-es-stepper-circle {
-                background: #059669;
-                color: #fff;
-                border-color: #059669;
-            }
-            .el-es-stepper-current .el-es-stepper-circle {
-                background: #4f46e5;
-                color: #fff;
-                border-color: #4f46e5;
-                box-shadow: 0 0 0 4px rgba(79,70,229,.18);
-            }
-            .el-es-stepper-circle .dashicons {
-                font-size: 16px;
-                width: 16px;
-                height: 16px;
-            }
-            .el-es-stepper-label {
-                font-size: 11px;
-                text-align: center;
-                margin-top: 6px;
-                color: #9ca3af;
+                cursor: pointer;
+                white-space: nowrap;
+                transition: all .15s;
+                border-radius: 0;
+                margin-left: -1px;
                 line-height: 1.3;
-                max-width: 72px;
+                text-align: left;
             }
-            .el-es-stepper-complete .el-es-stepper-label {
-                color: #059669;
+            .el-es-phase-pill:first-child {
+                border-radius: 6px 0 0 6px;
+                padding-left: 14px;
+                margin-left: 0;
             }
-            .el-es-stepper-current .el-es-stepper-label {
-                color: #4f46e5;
-                font-weight: 600;
+            .el-es-phase-pill:last-child {
+                border-radius: 0 6px 6px 0;
             }
-            .el-es-stepper-connector {
-                position: absolute;
-                top: 17px;
-                left: 50%;
-                right: -50%;
-                height: 2px;
-                background: #e5e7eb;
-                z-index: 0;
+            .el-es-phase-pill .el-es-phase-num {
+                font-size: 10px;
+                font-weight: 700;
+                opacity: .6;
+                min-width: 14px;
             }
-            .el-es-stepper-complete .el-es-stepper-connector {
-                background: #059669;
-            }
-            .el-es-stage-status-card {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-            }
-            .el-es-status-item {
-                display: flex;
-                align-items: flex-start;
-                gap: 8px;
-                font-size: 13px;
-            }
-            .el-es-status-dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                margin-top: 4px;
-                flex-shrink: 0;
-            }
-            .el-es-status-text {
+            .el-es-phase-pill:hover {
+                background: #f3f4f6;
+                border-color: #9ca3af;
                 color: #374151;
-                line-height: 1.5;
+                z-index: 1;
             }
-            .el-es-status-dm-note .el-es-status-text {
-                font-style: italic;
+            .el-es-phase-pill.el-es-phase-complete {
+                background: #ecfdf5;
+                border-color: #6ee7b7;
+                color: #065f46;
+            }
+            .el-es-phase-pill.el-es-phase-complete .dashicons {
+                color: #059669;
+                font-size: 13px;
+                width: 13px;
+                height: 13px;
+            }
+            .el-es-phase-pill.el-es-phase-current {
+                background: #4f46e5;
+                border-color: #4f46e5;
+                color: #fff;
+                font-weight: 600;
+                z-index: 1;
+                box-shadow: 0 1px 6px rgba(79,70,229,.35);
+            }
+            .el-es-phase-pill.el-es-phase-current .el-es-phase-num {
+                opacity: .7;
+            }
+            .el-es-phase-pill.el-tab-btn[data-tab].active,
+            .el-es-phase-pill[aria-selected="true"] {
+                outline: 2px solid #4f46e5;
+                outline-offset: 2px;
             }
         ' );
     }
@@ -436,11 +437,11 @@ class EL_Expand_Site_Module {
     public const STAGES = [
         1 => [ 'name' => 'Qualification',   'slug' => 'qualification',   'has_client_gate' => true ],
         2 => [ 'name' => 'Discovery',       'slug' => 'discovery',       'has_client_gate' => true ],
-        3 => [ 'name' => 'Scope Lock',      'slug' => 'scope-lock',      'has_client_gate' => true ],
+        3 => [ 'name' => 'Proposal',        'slug' => 'proposal',        'has_client_gate' => true ],
         4 => [ 'name' => 'Visual Identity', 'slug' => 'visual-identity', 'has_client_gate' => true ],
         5 => [ 'name' => 'Wireframes',      'slug' => 'wireframes',      'has_client_gate' => true ],
-        6 => [ 'name' => 'Build',           'slug' => 'build',           'has_client_gate' => false ],
-        7 => [ 'name' => 'Review',          'slug' => 'review',          'has_client_gate' => true ],
+        6 => [ 'name' => 'Final Design',    'slug' => 'final-design',    'has_client_gate' => true ],
+        7 => [ 'name' => 'Build',           'slug' => 'build',           'has_client_gate' => false ],
         8 => [ 'name' => 'Delivery',        'slug' => 'delivery',        'has_client_gate' => true ],
     ];
 
@@ -451,12 +452,12 @@ class EL_Expand_Site_Module {
     public const STAGE_DEADLINE_DAYS = [
         1 => 3,   // Qualification: 3 days
         2 => 7,   // Discovery: 7 days
-        3 => 5,   // Scope Lock: 5 days
+        3 => 5,   // Proposal: 5 days
         4 => 10,  // Visual Identity: 10 days
         5 => 10,  // Wireframes: 10 days
-        6 => 14,  // Build: 14 days
-        7 => 7,   // Review: 7 days
-        8 => 3,   // Delivery: 3 days
+        6 => 10,  // Final Design: 10 days
+        7 => 14,  // Build: 14 days
+        8 => 7,   // Delivery: 7 days
     ];
 
     /**

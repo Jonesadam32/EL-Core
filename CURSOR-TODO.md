@@ -4,10 +4,10 @@
 > Read this at the start of every session. Work through tasks in order. Check off completed items with [x].
 > Push to GitHub after every session so this stays current.
 >
-> **Last Updated:** March 7, 2026
-> **Plugin Version:** v1.28.0 — built, ready to upload to staging
-> **Next Build:** v1.28.x (if bugs found in testing) or v1.29.0
-> **Deployed Version:** v1.27.3 on staging (upload `el-core-v1.28.0.zip` from Downloads or releases/)
+> **Last Updated:** March 8, 2026
+> **Plugin Version:** v1.29.0 — built, ready to upload to staging
+> **Next Build:** v1.29.x (if bugs found in testing) or v1.30.0
+> **Deployed Version:** v1.28.0 on staging (upload `el-core-v1.29.0.zip` from Downloads or releases/)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
@@ -627,17 +627,15 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] **Issue 1**: Definition version history with snapshots and field diffs (DB migration v9) — built
 - [x] v1.28.0 built, committed, pushed
 
-### v1.29.0 — Admin project detail page redesign (DO THIS BEFORE RESUMING TESTING)
-> Full plan in `NEXT-SESSION-PROMPT-v1.29.0.md`. Build order below.
-- [ ] Update `STAGES` constant: Qualification, Discovery, Proposal, Visual Identity, Wireframes, Final Design, Build, Delivery
-- [ ] Update `STAGE_DEADLINE_DAYS` to match new stage order
-- [ ] Replace stepper CSS in `enqueue_admin_assets()` with phase bar CSS (pill buttons, connecting line)
-- [ ] Restructure `project-detail.php`: utility tabs (Overview, Stakeholders, Stage History) above phase bar (8 phases)
-- [ ] Build Phase 1 — Qualification panel: intake form using `project_goal` + call status toggle
-- [ ] Move existing tab content into correct phase panels (Discovery→phase-2, Proposal→phase-3, Branding→phase-4, Pages→phase-5+6, Deliverables→phase-7, Feedback→phase-8)
-- [ ] Update tab ID references in `expand-site-admin.js`
-- [ ] Bump to v1.29.0, update CHANGELOG, build ZIP, commit, push
-- [ ] Write `NEXT-SESSION-PROMPT-v1.30.0.md`
+### v1.29.0 — Admin project detail page redesign ✅ COMPLETE
+- [x] Update `STAGES` constant: Qualification, Discovery, Proposal, Visual Identity, Wireframes, Final Design, Build, Delivery
+- [x] Update `STAGE_DEADLINE_DAYS` to match new stage order
+- [x] Replace stepper CSS in `enqueue_admin_assets()` with phase bar CSS (pill buttons, connecting line)
+- [x] Restructure `project-detail.php`: utility tabs (Overview, Stakeholders, Stage History) above phase bar (8 phases)
+- [x] Build Phase 1 — Qualification panel: intake form using `project_goal` + call status toggle
+- [x] Move existing tab content into correct phase panels (Discovery→phase-2, Proposal→phase-3, Branding→phase-4, Pages→phase-5+6, Deliverables→phase-7, Feedback→phase-8)
+- [x] Update tab ID references in `expand-site-admin.js` (no changes needed — JS uses element IDs, not tab group IDs)
+- [x] Bump to v1.29.0, update CHANGELOG, build ZIP, commit, push
 
 ### Testing resume point (after v1.29.0 deployed — use `V1.28.0-TESTING-GUIDE.md`):
 - [ ] **3G — DM Final Decision**: test Accept and Needs Revision from the DM portal view

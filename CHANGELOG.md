@@ -6,6 +6,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.29.0] — 2026-03-08
+### Changed
+- **Admin project detail page — major redesign** (`project-detail.php`, `class-expand-site-module.php`):
+  - Replaced flat 9-tab layout with a two-layer structure: utility tabs on top, phase bar below
+  - **Layer 1 — Utility tabs**: Overview, Stakeholders, Stage History — always accessible, not phase-specific
+  - **Layer 2 — Phase bar**: 8 horizontally clickable pill buttons with visual states (complete = green, current = indigo, upcoming = gray); defaults to current phase on load
+  - Old stage stepper (circles) removed entirely; old Stage Status card removed
+  - **Phase 1 — Qualification** (new content): intake form with Project Goal, Discovery Call Date, Call Completed toggle, Internal Notes
+  - **Phase 2 — Discovery**: all former "transcript" tab content verbatim
+  - **Phase 3 — Proposal**: all former "proposals" tab content verbatim (renamed from "Scope Lock")
+  - **Phase 4 — Visual Identity**: all former "branding" tab content verbatim
+  - **Phase 5 — Wireframes**: pages table labelled as wireframe pages
+  - **Phase 6 — Final Design** (new phase, placeholder): same pages list + notice that content-entry tools are coming
+  - **Phase 7 — Build**: all former "deliverables" tab content verbatim
+  - **Phase 8 — Delivery**: all former "feedback" tab content verbatim + deliverables summary notice
+- **STAGES constant updated** (`class-expand-site-module.php`): "Scope Lock" → "Proposal"; "Build" shifts to 7; "Review" + "Delivery" merged into "Delivery" at 8; "Final Design" inserted as stage 6
+- **STAGE_DEADLINE_DAYS updated** to match new 8-stage order (Final Design: 10 days, Delivery: 7 days)
+- **Phase bar CSS** replaces stepper CSS in `enqueue_admin_assets()`
+
+---
+
 ## [1.28.0] — 2026-03-07
 ### Fixed
 - **Issue 4 — Verdict button breaks comment toggle** (`expand-site.js`): after clicking a Looks Good / Needs Revision verdict, the "+ Add comment" form stopped working until a full page reload. Fixed by calling `loadReview()` after a successful verdict AJAX call so the full review UI is re-rendered with fresh state.

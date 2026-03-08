@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 7, 2026
+> **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.28.0 — Built and ready to upload to staging. **Next session:** Admin project detail page redesign (v1.29.0) — phase bar replaces flat tabs, 8 phases with new names, utility tabs separated. See `NEXT-SESSION-PROMPT-v1.29.0.md` for full details. Do NOT resume testing until v1.29.0 is built and deployed.
+> **Current Plugin Version:** v1.29.0 — Built and ready to upload to staging. **Next session:** Resume testing (V1.28.0-TESTING-GUIDE.md — pick up at 3G DM Final Decision) OR begin v1.30.0 portal alignment to new phase names. See `NEXT-SESSION-PROMPT-v1.30.0.md`.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -200,7 +200,8 @@
 | v1.27.1 | Fix 4 bugs: portal auth, consensus UI blank, Log in as, Switch back to admin toolbar | Built ✅ |
 | v1.27.2 | Fix portal ?project_id routing, Back to Dashboard button, field editing in review, org-contact warning, Menu Visibility settings page | Built ✅ |
 | v1.27.3 | Hotfix: critical error from `object` type hint in `filter_client_nav_items` + missing `global $wpdb` in project-detail | Built ✅ |
-| v1.28.0 | Admin UX + Bug Fixes: verdict comment bug, needs-attention list, lock prompt banner, stage stepper + status card, definition version history (DB migration v9) | Built ✅ — **CURRENT** |
+| v1.28.0 | Admin UX + Bug Fixes: verdict comment bug, needs-attention list, lock prompt banner, stage stepper + status card, definition version history (DB migration v9) | Built ✅ |
+| v1.29.0 | Admin project detail redesign: phase bar replaces stepper, utility tabs (Overview/Stakeholders/Stage History) + 8 phase panels, new stage names (Proposal, Final Design, Delivery) | Built ✅ — **CURRENT** |
 
 ---
 
