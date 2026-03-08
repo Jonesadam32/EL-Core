@@ -353,6 +353,18 @@
             html += '</div>';
         }
 
+        // DM "Needs Revision" banner — shown while review is still open after DM posted note
+        if (review.dm_decision === 'needs_revision' && review.status === 'open') {
+            html += '<div class="el-es-dm-revision-banner">';
+            html += '<strong>Decision Maker requested changes:</strong> ';
+            if (review.dm_note) {
+                html += '<span class="el-es-dm-revision-note">' + escapeHtml(review.dm_note).replace(/\n/g, '<br>') + '</span>';
+            } else {
+                html += '<span class="el-es-dm-revision-note">Please review and update the fields below, then the Decision Maker will re-evaluate.</span>';
+            }
+            html += '</div>';
+        }
+
         // Per-field layout
         html += '<div class="el-es-definition-review-fields">';
         DEF_FIELDS.forEach(function(f) {
@@ -724,8 +736,13 @@
             .then(function(r) { return r.json(); })
             .then(function(res) {
                 if (!res.success) throw new Error(res.data && res.data.message || 'Failed');
-                alert(res.data && res.data.message || 'Decision submitted.');
-                window.location.reload();
+                if (decision === 'needs_revision') {
+                    // Keep review open — reload the review UI to show DM banner
+                    loadReview();
+                } else {
+                    // Accepted — full page reload to show the approved state
+                    window.location.reload();
+                }
             })
             .catch(function(err) {
                 alert(err.message || 'Failed');

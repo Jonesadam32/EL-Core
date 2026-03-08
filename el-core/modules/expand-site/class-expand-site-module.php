@@ -153,6 +153,7 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_post_definition_comment',  [ $this, 'handle_post_definition_comment' ] );
         add_action( 'el_core_ajax_es_field_verdict',            [ $this, 'handle_field_verdict' ] );
         add_action( 'el_core_ajax_es_dm_decision',              [ $this, 'handle_dm_decision' ] );
+        add_action( 'el_core_ajax_es_reset_definition',         [ $this, 'handle_reset_definition' ] );
         add_action( 'el_core_ajax_es_client_edit_definition_field', [ $this, 'handle_client_edit_definition_field' ] );
         // Guest (portal) access for stakeholders
         add_action( 'el_core_ajax_nopriv_es_get_definition_review',   [ $this, 'handle_get_definition_review' ] );
@@ -2292,7 +2293,8 @@ class EL_Expand_Site_Module {
      * AJAX: Decision Maker submits final decision on the review.
      * Verdict: accepted | needs_revision
      * If accepted → definition status → approved (admin can then lock).
-     * If needs_revision → review closed, admin edits and re-sends.
+     * If needs_revision → review stays open; DM note stored as banner context, contributors keep editing.
+     * If accepted → review closed, definition status set to approved.
      */
     public function handle_dm_decision( array $data ): void {
         if ( ! is_user_logged_in() ) {
@@ -2324,27 +2326,77 @@ class EL_Expand_Site_Module {
 
         $now = current_time( 'mysql' );
 
-        // Close the review with DM decision
+        if ( $decision === 'accepted' ) {
+            // Close the review and mark definition as approved
+            $wpdb->update( $reviews_table, [
+                'status'        => 'closed',
+                'dm_decision'   => 'accepted',
+                'dm_note'       => $note,
+                'dm_decided_at' => $now,
+                'dm_decided_by' => get_current_user_id(),
+            ], [ 'id' => $review_id ] );
+
+            $this->core->database->update( 'el_es_project_definition', [
+                'review_status' => 'approved',
+                'updated_at'    => $now,
+            ], [ 'project_id' => $project_id ] );
+
+            EL_AJAX_Handler::success(
+                [ 'new_status' => 'approved', 'decision' => 'accepted' ],
+                __( 'Definition approved! The admin can now lock it and proceed.', 'el-core' )
+            );
+
+        } else {
+            // needs_revision: keep review open, record the DM note on the review row
+            $wpdb->update( $reviews_table, [
+                'dm_decision'   => 'needs_revision',
+                'dm_note'       => $note,
+                'dm_decided_at' => $now,
+                'dm_decided_by' => get_current_user_id(),
+            ], [ 'id' => $review_id ] );
+
+            // Definition stays pending_review so the consensus UI remains active
+            EL_AJAX_Handler::success(
+                [ 'new_status' => 'pending_review', 'decision' => 'needs_revision', 'dm_note' => $note ],
+                __( 'Your note has been posted. The team can continue editing.', 'el-core' )
+            );
+        }
+    }
+
+    /**
+     * Admin escape hatch: cancel active review and reset definition to draft.
+     */
+    public function handle_reset_definition( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Insufficient permissions.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Missing project ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $reviews_table = $wpdb->prefix . 'el_es_definition_reviews';
+        $now = current_time( 'mysql' );
+
+        // Close any open review rounds for this project
         $wpdb->update( $reviews_table, [
             'status'        => 'closed',
-            'dm_decision'   => $decision,
-            'dm_note'       => $note,
+            'dm_decision'   => 'reset',
             'dm_decided_at' => $now,
             'dm_decided_by' => get_current_user_id(),
-        ], [ 'id' => $review_id ] );
+        ], [ 'project_id' => $project_id, 'status' => 'open' ] );
 
-        // Update definition review_status
-        $new_status = $decision === 'accepted' ? 'approved' : 'needs_revision';
+        // Return definition to draft
         $this->core->database->update( 'el_es_project_definition', [
-            'review_status' => $new_status,
+            'review_status' => 'draft',
             'updated_at'    => $now,
         ], [ 'project_id' => $project_id ] );
 
-        $message = $decision === 'accepted'
-            ? __( 'Definition approved! The admin can now lock it and proceed.', 'el-core' )
-            : __( 'Sent back for revision. The admin will update and re-send.', 'el-core' );
-
-        EL_AJAX_Handler::success( [ 'new_status' => $new_status ], $message );
+        EL_AJAX_Handler::success( [], __( 'Definition reset to draft. You can now edit and re-send.', 'el-core' ) );
     }
 
     /**

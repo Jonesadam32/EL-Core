@@ -335,6 +335,26 @@
     animation: fadeIn 0.3s ease;
 }
 
+/* Qualification stage intro banner */
+.el-es-stage-intro-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    color: #1e40af;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+}
+
+.el-es-stage-intro-banner svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -1055,6 +1075,26 @@
 .el-es-review-needs-revision-banner .el-es-dm-note {
     margin: 0.5rem 0 0 0;
     font-size: 0.9375rem;
+}
+
+/* DM revision banner shown inside the JS-rendered consensus review UI */
+.el-es-dm-revision-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 1rem 1.25rem;
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    color: #92400e;
+    font-size: 0.9375rem;
+}
+
+.el-es-dm-revision-note {
+    display: block;
+    margin-top: 0.25rem;
+    line-height: 1.5;
 }
 
 /* Admin: definition comments panel */

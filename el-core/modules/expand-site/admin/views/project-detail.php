@@ -441,14 +441,12 @@ $status_labels   = [
     'draft'          => __( 'Draft', 'el-core' ),
     'pending_review' => __( 'Sent for Review', 'el-core' ),
     'approved'       => __( 'Client Approved', 'el-core' ),
-    'needs_revision' => __( 'Needs Revision', 'el-core' ),
     'locked'         => __( 'Locked', 'el-core' ),
 ];
 $status_variants = [
     'draft'          => 'default',
     'pending_review' => 'info',
     'approved'       => 'success',
-    'needs_revision' => 'warning',
     'locked'         => 'success',
 ];
 $effective_status = $is_locked ? 'locked' : $review_status;
@@ -481,8 +479,8 @@ if ( $effective_status === 'approved' && ! $is_locked ) {
     $p2 .= '</div>';
 }
 
-// Send for Review button
-$can_send = ! $is_locked && in_array( $effective_status, [ 'draft', 'needs_revision' ], true );
+// Send for Review button (only from draft; once sent, admin waits or uses Reset to Draft)
+$can_send = ! $is_locked && $effective_status === 'draft';
 if ( $can_send ) {
     $p2 .= '<div class="el-es-definition-actions-row" style="margin-bottom:16px;">';
     $p2 .= EL_Admin_UI::btn( [
@@ -491,6 +489,19 @@ if ( $can_send ) {
         'icon'    => 'email',
         'id'      => 'send-definition-review-btn',
         'data'    => [ 'project-id' => $project_id, 'modal-open' => 'send-definition-review-modal' ],
+    ] );
+    $p2 .= '</div>';
+}
+
+// Reset to Draft escape hatch (shown when review is pending, before DM accepts)
+if ( $effective_status === 'pending_review' && ! $is_locked ) {
+    $p2 .= '<div class="el-es-definition-actions-row" style="margin-bottom:16px;">';
+    $p2 .= EL_Admin_UI::btn( [
+        'label'   => __( 'Reset to Draft', 'el-core' ),
+        'variant' => 'ghost',
+        'icon'    => 'undo',
+        'id'      => 'reset-definition-draft-btn',
+        'data'    => [ 'project-id' => $project_id ],
     ] );
     $p2 .= '</div>';
 }

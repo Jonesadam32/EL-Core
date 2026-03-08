@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.29.0 — Built and ready to upload to staging. **Next session:** Resume testing (V1.28.0-TESTING-GUIDE.md — pick up at 3G DM Final Decision) OR begin v1.30.0 portal alignment to new phase names. See `NEXT-SESSION-PROMPT-v1.30.0.md`.
+> **Current Plugin Version:** v1.30.0 — Built and ready to upload to staging. **Next session:** Upload v1.30.0 and test using `V1.30.0-TESTING-GUIDE.md`. See `NEXT-SESSION-PROMPT-v1.31.0.md`.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -201,7 +201,8 @@
 | v1.27.2 | Fix portal ?project_id routing, Back to Dashboard button, field editing in review, org-contact warning, Menu Visibility settings page | Built ✅ |
 | v1.27.3 | Hotfix: critical error from `object` type hint in `filter_client_nav_items` + missing `global $wpdb` in project-detail | Built ✅ |
 | v1.28.0 | Admin UX + Bug Fixes: verdict comment bug, needs-attention list, lock prompt banner, stage stepper + status card, definition version history (DB migration v9) | Built ✅ |
-| v1.29.0 | Admin project detail redesign: phase bar replaces stepper, utility tabs (Overview/Stakeholders/Stage History) + 8 phase panels, new stage names (Proposal, Final Design, Delivery) | Built ✅ — **CURRENT** |
+| v1.29.0 | Admin project detail redesign: phase bar replaces stepper, utility tabs (Overview/Stakeholders/Stage History) + 8 phase panels, new stage names (Proposal, Final Design, Delivery) | Built ✅ |
+| v1.30.0 | Definition Consensus Review fix: Needs Revision keeps review open + DM banner + Reset to Draft escape hatch; Qualification stage message in portal | Built ✅ — **CURRENT** |
 
 ---
 

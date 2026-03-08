@@ -5,9 +5,9 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 8, 2026
-> **Plugin Version:** v1.29.0 — built, ready to upload to staging
-> **Next Build:** v1.29.x (if bugs found in testing) or v1.30.0
-> **Deployed Version:** v1.28.0 on staging (upload `el-core-v1.29.0.zip` from Downloads or releases/)
+> **Plugin Version:** v1.30.0 — built, ready to upload to staging
+> **Next Build:** v1.30.x (if bugs found in testing) or v1.31.0
+> **Deployed Version:** v1.29.0 on staging (upload `el-core-v1.30.0.zip` from Downloads or releases/)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
@@ -637,10 +637,25 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 - [x] Update tab ID references in `expand-site-admin.js` (no changes needed — JS uses element IDs, not tab group IDs)
 - [x] Bump to v1.29.0, update CHANGELOG, build ZIP, commit, push
 
-### Testing resume point (after v1.29.0 deployed — use `V1.28.0-TESTING-GUIDE.md`):
-- [ ] **3G — DM Final Decision**: test Accept and Needs Revision from the DM portal view
-- [ ] **3H — Post-decision states (admin)**: check admin badges and button states after each decision
-- [ ] **Part 4 — Regression check**: project list, all phase panels, locked definition view, mood board, proposal, invoices
+### v1.30.0 — Definition Consensus Review fix + portal alignment ✅ COMPLETE
+- [x] Fix `handle_dm_decision`: Needs Revision keeps review open, records DM note, definition stays `pending_review`
+- [x] New `handle_reset_definition` AJAX handler: admin cancels review, returns definition to `draft`
+- [x] Portal JS: DM revision banner rendered in consensus UI when `review.dm_decision === 'needs_revision'`
+- [x] Portal JS: after Needs Revision submit, call `loadReview()` instead of page reload
+- [x] Admin Phase 2 panel: removed `needs_revision` terminal state; Send button only shows from `draft`
+- [x] Admin Phase 2 panel: "Reset to Draft" button shown when `pending_review`
+- [x] Admin JS: `handleResetDefinitionDraft` handler wired up
+- [x] Portal: Qualification stage graceful message (blue info banner) for stage 1
+- [x] CSS: `.el-es-dm-revision-banner` and `.el-es-stage-intro-banner` styles added
+- [x] Bump to v1.30.0, update CHANGELOG, START-HERE, CURSOR-TODO, build ZIP, commit, push
+
+### Testing resume point (after v1.30.0 deployed — use `V1.30.0-TESTING-GUIDE.md`):
+- [ ] **DM "Needs Revision" flow**: DM clicks Needs Revision → review stays open, DM banner appears, fields editable
+- [ ] **DM "Accept" flow**: DM clicks Accept → review closes, admin sees "Client Approved" badge and amber lock banner
+- [ ] **Admin "Reset to Draft"**: admin clicks Reset to Draft → review cancelled, back to draft, Send button reappears
+- [ ] **Portal stage names**: verify Qualification, Discovery, Proposal, Visual Identity, Wireframes, Final Design, Build, Delivery
+- [ ] **Qualification stage message**: verify friendly info banner shows when project is in stage 1
+- [ ] **Regression**: project list, all phase panels, locked definition view, mood board, proposal, invoices
 
 ---
 

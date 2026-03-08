@@ -6,6 +6,23 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.30.0] — 2026-03-08
+### Changed
+- **Definition Consensus Review — corrected "Needs Revision" flow** (`class-expand-site-module.php`, `expand-site.js`, `expand-site-portal.php`, `expand-site-admin.js`, `expand-site.css`):
+  - `handle_dm_decision`: when `decision = needs_revision`, review stays `open` (status unchanged) and `review_status` stays `pending_review` on the definition. Only `dm_decision` and `dm_note` are recorded on the review row.
+  - When `decision = accepted`: unchanged — review closes, definition becomes `approved`.
+  - Portal JS: after DM submits "Needs Revision," calls `loadReview()` instead of `window.location.reload()` — keeps the consensus UI active.
+  - Portal JS: new DM revision banner rendered inside `renderReviewUI` when `review.dm_decision === 'needs_revision' && review.status === 'open'` — shows DM note prominently above the definition fields.
+  - Admin Phase 2 panel: removed `needs_revision` as a terminal status label/variant. "Send to Client for Review" button now only shows from `draft` state (not from `needs_revision`).
+- **Admin "Reset to Draft" escape hatch** (`project-detail.php`, `expand-site-admin.js`, `class-expand-site-module.php`):
+  - New "Reset to Draft" button appears in Phase 2 when definition is `pending_review` and not locked.
+  - New `handle_reset_definition` AJAX handler: closes any open review rounds, resets `review_status` to `draft`.
+  - Registered as `es_reset_definition` (admin-only, no nopriv).
+- **Portal stage names** already aligned via `STAGES` constant (updated in v1.29.0) — no hardcoded old names remain in portal files. Confirmed: no "Scope Lock" or "Review" visible to clients.
+- **Qualification stage graceful message** (`expand-site-portal.php`, `expand-site.css`): when the current stage is 1 (Qualification), a friendly blue info banner is shown to clients explaining they are in the early qualification stage.
+
+---
+
 ## [1.29.0] — 2026-03-08
 ### Changed
 - **Admin project detail page — major redesign** (`project-detail.php`, `class-expand-site-module.php`):

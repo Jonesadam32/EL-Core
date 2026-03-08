@@ -213,7 +213,18 @@ function el_shortcode_expand_site_portal( $atts ): string {
 		$pending_feedback = array_filter( $stage_feedback, fn( $f ) => $f->status === 'pending' );
 		
 		$html .= '<div class="el-es-stage-content" data-stage="' . esc_attr( $num ) . '" ' . ( ! $is_current ? 'style="display:none;"' : '' ) . '>';
-		
+
+		// Stage 1 (Qualification) — friendly context message
+		if ( $num === 1 && $is_current ) {
+			$html .= '<div class="el-es-stage-intro-banner">';
+			$html .= el_es_icon( 'info', 20 );
+			$html .= '<div>';
+			$html .= '<strong>' . esc_html__( 'Your project is in the early qualification stage.', 'el-core' ) . '</strong> ';
+			$html .= esc_html__( 'We\'re getting to know your goals and confirming this project is a great fit. You\'ll hear from us shortly to schedule a discovery call.', 'el-core' );
+			$html .= '</div>';
+			$html .= '</div>';
+		}
+
 		// Stage content cards
 		$html .= '<div class="el-es-stage-cards">';
 		

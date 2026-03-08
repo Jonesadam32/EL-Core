@@ -41,6 +41,7 @@
         document.addEventListener('submit', handleSaveDefinition);
         document.addEventListener('submit', handleSendDefinitionReview);
         document.addEventListener('click', handleLockDefinition);
+        document.addEventListener('click', handleResetDefinitionDraft);
         
         // Proposals
         document.addEventListener('click', handleNewProposal);
@@ -789,6 +790,45 @@
         .catch(err => {
             console.error('AJAX Error:', err);
             alert(err.message || 'Failed to lock definition.');
+            btn.disabled = false;
+            btn.textContent = originalText;
+        });
+    }
+
+    function handleResetDefinitionDraft(e) {
+        const btn = e.target.closest('#reset-definition-draft-btn');
+        if (!btn) return;
+        e.preventDefault();
+
+        const projectId = btn.dataset.projectId;
+        if (!projectId) return;
+
+        if (!confirm('Cancel the active client review and return this definition to Draft?\n\nThe client will no longer see the review UI until you send again.')) {
+            return;
+        }
+
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = 'Resetting...';
+
+        const fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'es_reset_definition');
+        fd.append('nonce', elExpandSiteAdmin.nonce);
+        fd.append('project_id', projectId);
+
+        fetch(elExpandSiteAdmin.ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: fd
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (!result.success) throw new Error(result.data?.message || 'Request failed');
+            window.location.reload();
+        })
+        .catch(err => {
+            alert(err.message || 'Failed to reset definition.');
             btn.disabled = false;
             btn.textContent = originalText;
         });
