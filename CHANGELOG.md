@@ -6,7 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.30.2] — 2026-03-08
+## [1.30.3] — 2026-03-08
+### Fixed
+- **Verdict active state not persisting after loadReview()** (`expand-site.js`): Added module-level `localVerdicts` object that caches verdict selections client-side. On each click, the verdict is written to `localVerdicts` immediately. On each `loadReview()` re-render, server `user_verdicts` are merged in, and `localVerdicts` is used for button active-state rendering — so the highlighted button stays green/amber even if the server response is delayed or returns empty.
+- **Verdict buttons too tall** (`expand-site.css`, `expand-site.js`): Moved the help text `<p>` outside the `el-es-verdict-buttons` flex container (it was a flex child causing extra height). Tightened button padding (`0.2rem 0.6rem`) and font size (`0.8rem`). Added `align-items: center` to the flex row and `white-space: nowrap` to buttons.
+
+---
+
+
 ### Fixed
 - **Issue 1 — Phase bar pill doesn't highlight after Advance Stage** (`admin.js`): Added `initTabsOnLoad()` on DOMContentLoaded. Finds any visible `.el-tab-content` and adds `active` CSS class to its matching `.el-tab-btn`, so the correct phase pill is visually highlighted on every page load without requiring a manual click.
 - **Issue 2 — Verdict checkmark / count inconsistency** (`class-expand-site-module.php`): `get_definition_verdicts` now uses `COUNT(DISTINCT user_id)` to prevent double-counting if any edge-case duplicate rows exist. Added explicit `AND NOT (comment='' AND parent_id=0 AND verdict!='')` guard to `get_definition_comments` to ensure verdict-only rows are always excluded from comment display.

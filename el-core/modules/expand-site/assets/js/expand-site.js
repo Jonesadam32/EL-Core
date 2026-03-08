@@ -311,6 +311,7 @@
 
     var scrollDepthSeen = {};
     var countdownInterval = null;
+    var localVerdicts = {};  // client-side verdict cache, survives loadReview() calls
 
     function loadReview() {
         var loading = container.querySelector('.el-es-definition-review-loading');
@@ -334,6 +335,10 @@
         var comments = data.comments || {};
         var verdicts = data.verdicts || {};
         var userVerdicts = data.user_verdicts || {};
+        // Merge server verdicts into local cache (server is source of truth, but local fills gaps)
+        Object.keys(userVerdicts).forEach(function(k) {
+            if (userVerdicts[k]) localVerdicts[k] = userVerdicts[k];
+        });
         var deadlineTs = data.deadline_ts;
         var deadlinePassed = data.deadline_passed;
         var isDm = data.is_dm;
@@ -371,7 +376,7 @@
             var val = def[f.key] || '';
             if (!val) return;
             var fieldComments = comments[f.key] || [];
-            var userV = userVerdicts[f.key] || '';
+            var userV = localVerdicts[f.key] || '';
             var isUpdated = prevSnapshot && prevSnapshot[f.key] !== undefined &&
                             prevSnapshot[f.key].trim() !== val.trim();
             html += '<div class="el-es-definition-field-block" data-field-key="' + f.key + '" data-scroll-marker="' + f.key + '">';
@@ -394,10 +399,10 @@
             html += '</div>';
             html += '<div class="el-es-definition-actions">';
             html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-add-comment-btn" data-field-key="' + f.key + '">+ Add comment</button>';
-        // Verdict buttons — render active state based on userVerdicts from server
+        // Verdict buttons — render active state based on localVerdicts
         if (review.id && review.status === 'open') {
-                html += '<div class="el-es-verdict-buttons">';
                 html += '<p class="el-es-verdict-help">Use these to flag individual fields for the team\'s attention. The Decision Maker makes the overall final decision below.</p>';
+                html += '<div class="el-es-verdict-buttons">';
                 html += '<button type="button" class="el-es-verdict-btn el-es-verdict-approved' + (userV === 'approved' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="approved">✓ Approve Field</button>';
                 html += '<button type="button" class="el-es-verdict-btn el-es-verdict-revision' + (userV === 'needs_revision' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="needs_revision">⚑ Flag for changes</button>';
                 html += '</div>';
@@ -704,6 +709,8 @@
                 b.classList.remove('el-es-verdict-active');
             });
             btn.classList.add('el-es-verdict-active');
+            // Cache verdict locally so it survives loadReview() re-renders
+            localVerdicts[fieldKey] = verdict;
             ELCore.ajax('es_field_verdict', {
                 project_id: projectId,
                 review_id: review.id,
@@ -713,6 +720,7 @@
                 loadReview();
             }).catch(function(err) {
                 btn.classList.remove('el-es-verdict-active');
+                delete localVerdicts[fieldKey];
                 alert(err.message || 'Failed to save');
             });
         });

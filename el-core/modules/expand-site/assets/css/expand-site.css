@@ -905,15 +905,25 @@
 .el-es-verdict-buttons {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
+}
+
+.el-es-verdict-help {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin: 0.25rem 0 0.25rem;
+    line-height: 1.4;
 }
 
 .el-es-verdict-btn {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.8125rem;
-    border-radius: 6px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    border-radius: 4px;
     border: 1px solid transparent;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .el-es-verdict-btn.el-es-verdict-approved {

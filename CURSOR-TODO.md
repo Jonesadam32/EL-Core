@@ -5,9 +5,9 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 8, 2026
-> **Plugin Version:** v1.30.2 — built, ready to upload to staging
+> **Plugin Version:** v1.30.3 — built, ready to upload to staging
 > **Next Build:** v1.30.x (if bugs found in testing) or v1.31.0
-> **Deployed Version:** v1.29.0 on staging (upload `el-core-v1.30.2.zip` from Downloads or releases/)
+> **Deployed Version:** v1.29.0 on staging (upload `el-core-v1.30.3.zip` from Downloads or releases/)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
