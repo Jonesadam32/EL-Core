@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.30.3 — Built and ready to upload to staging.
+> **Current Plugin Version:** v1.30.3 — Built and ready to upload to staging. **Next session:** PLANNING — User Journey phase (Phase 5). Read `NEXT-SESSION-PROMPT-v1.31.0-PLANNING.md` before starting anything.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
