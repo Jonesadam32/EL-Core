@@ -2417,6 +2417,9 @@ class EL_Expand_Site_Module {
 
         EL_AJAX_Handler::success( [], __( 'AI workflow regenerated.', 'el-core' ) );
     }
+
+    /**
+     * AJAX: DM assigns (or reassigns) a stakeholder to a journey from the portal.
      * Requires es_decision_maker capability for this project.
      */
     public function handle_dm_assign_journey( array $data ): void {
