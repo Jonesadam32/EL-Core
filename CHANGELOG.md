@@ -6,7 +6,25 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.31.1] — 2026-03-08
+## [1.32.0] — 2026-03-08
+### Fixed
+- **Bug 1 — Empty-state "New Proposal" button**: The button in the Phase 3 data table empty state was using `data-modal-open` instead of the `.el-es-new-proposal-btn` class+`data-project-id`. Now wired to the same JS handler as the header button.
+- **Bug 2 — Proposal payment terms**: Replaced free-text payment terms textarea with structured fields: `final_price`, `annual_platform_fee`, `first_payment_amount` (25%), `final_payment_amount` (75%). DB migration v11 adds the three new DECIMAL columns. AI generation prompt now uses actual dollar amounts. Modal auto-calculates split from final price. Portal shows a structured payment breakdown.
+- **Bug 3 — T&C formatting**: Terms & Conditions in the portal now parses double-newline paragraph breaks and renders numbered section headings (e.g. "1. Scope of Work") as bold headings with body text — instead of one unformatted block.
+- **Bug 4 — PDF download**: Added "Download PDF" button (`window.print()`) to the portal proposal view. Added `@media print` CSS that hides nav/chrome and formats the proposal as a clean letterhead document with serif font, proper page margins, and page breaks.
+- **Bug 5 — Accepted proposal cleanup**: After the DM accepts the proposal and the project advances past Stage 3, the portal no longer shows the full proposal inline. Instead: (a) a "Proposal" info card appears in the stage cards row from Stage 3+ (greyed out if no proposal, shows Pending/Accepted status), clicking it opens a full-proposal modal; (b) the global proposal section shows only a brief "Accepted on [date] by [name]" line. Extracted `el_es_render_proposal_document()` helper to avoid code duplication.
+- **Bug 6 — Stage 4 portal placeholder**: Stage 4 (User Journey) now renders a meaningful placeholder block showing an intro message and a list of journey cards (user type, assigned stakeholder, status) — instead of showing Stage 3/proposal content. Full guided-questions UI deferred to v1.32.x.
+
+### Added
+- `el_es_render_proposal_document()` helper function in portal shortcode for reuse across inline view and modal view.
+- `.el-es-modal-container-large` CSS modifier (max-width: 860px) for the proposal modal.
+- `.el-es-info-card-disabled` CSS class for greyed-out non-interactive info cards.
+- `.el-es-pricing-total` and `.el-es-pricing-sub` CSS classes for structured payment breakdown display.
+- Stage 4 journey placeholder CSS: `.el-es-journey-placeholder`, `.el-es-journey-row`, `.el-es-placeholder-notice`.
+
+---
+
+
 ### Fixed
 - **Delete button missing from "Projects Needing Attention" table** (`project-list.php`): Projects with expired deadlines or definition actions pending were showing in the Needs Attention section with no way to delete them. Delete button now appears in both the Needs Attention table and the regular All Projects table.
 

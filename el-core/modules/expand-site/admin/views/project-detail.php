@@ -803,7 +803,7 @@ $p3 .= EL_Admin_UI::data_table( [
         'icon'    => 'media-document',
         'title'   => __( 'No proposals yet', 'el-core' ),
         'message' => __( 'Create a proposal to send to the client for approval.', 'el-core' ),
-        'action'  => [ 'label' => __( 'New Proposal', 'el-core' ), 'variant' => 'primary', 'data' => [ 'modal-open' => 'create-proposal-modal' ] ],
+        'action'  => [ 'label' => __( 'New Proposal', 'el-core' ), 'variant' => 'primary', 'class' => 'el-es-new-proposal-btn', 'data' => [ 'project-id' => $project_id ] ],
     ],
 ] );
 
@@ -1827,12 +1827,12 @@ $edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_what_we_build
 $edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_why_els',      'label' => __( 'Why ELS', 'el-core' ),               'type' => 'textarea', 'id' => 'prop-why-els',      'help' => __( 'Why Expanded Learning Solutions is the right partner.', 'el-core' ) ] );
 $edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_investment',   'label' => __( 'Investment', 'el-core' ),            'type' => 'textarea', 'id' => 'prop-investment',   'help' => __( 'Development cost + annual platform fee + ROI comparison.', 'el-core' ) ] );
 $edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'section_next_steps',   'label' => __( 'Next Steps', 'el-core' ),            'type' => 'textarea', 'id' => 'prop-next-steps',   'help' => __( 'Specific steps that happen after acceptance.', 'el-core' ) ] );
-$edit_proposal_form .= '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;">';
-$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'budget_low',   'label' => __( 'Budget Low ($)', 'el-core' ),   'type' => 'number', 'id' => 'prop-budget-low' ] );
-$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'budget_high',  'label' => __( 'Budget High ($)', 'el-core' ),  'type' => 'number', 'id' => 'prop-budget-high' ] );
-$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'final_price',  'label' => __( 'Final Price ($)', 'el-core' ),  'type' => 'number', 'id' => 'prop-final-price' ] );
+$edit_proposal_form .= '<div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">';
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'final_price',           'label' => __( 'Final Price ($)', 'el-core' ),              'type' => 'number', 'id' => 'prop-final-price' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'annual_platform_fee',   'label' => __( 'Annual Platform Fee ($)', 'el-core' ),       'type' => 'number', 'id' => 'prop-platform-fee' ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'first_payment_amount',  'label' => __( 'First Payment (25%) Amount ($)', 'el-core' ), 'type' => 'number', 'id' => 'prop-first-payment', 'help' => __( 'Auto-calculated as 25% of final price. Override if needed.', 'el-core' ) ] );
+$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'final_payment_amount',  'label' => __( 'Final Payment (75%) Amount ($)', 'el-core' ), 'type' => 'number', 'id' => 'prop-final-payment', 'help' => __( 'Auto-calculated as 75% of final price. Override if needed.', 'el-core' ) ] );
 $edit_proposal_form .= '</div>';
-$edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'payment_terms',    'label' => __( 'Payment Terms', 'el-core' ),    'type' => 'textarea', 'id' => 'prop-payment' ] );
 $edit_proposal_form .= EL_Admin_UI::form_row( [ 'name' => 'terms_conditions', 'label' => __( 'Terms & Conditions', 'el-core' ), 'type' => 'textarea', 'id' => 'prop-terms' ] );
 $edit_proposal_form .= '<div class="el-form-row">';
 $edit_proposal_form .= EL_Admin_UI::btn( [ 'label' => __( 'Save Proposal', 'el-core' ), 'variant' => 'primary', 'icon' => 'saved', 'type' => 'submit' ] );
@@ -1869,6 +1869,9 @@ foreach ( $proposals as $prop ) {
         'budget_low'             => $prop->budget_low,
         'budget_high'            => $prop->budget_high,
         'final_price'            => $prop->final_price,
+        'annual_platform_fee'    => $prop->annual_platform_fee ?? 0,
+        'first_payment_amount'   => $prop->first_payment_amount ?? 0,
+        'final_payment_amount'   => $prop->final_payment_amount ?? 0,
         'payment_terms'          => $prop->payment_terms,
         'terms_conditions'       => $prop->terms_conditions,
         'status'                 => $prop->status,

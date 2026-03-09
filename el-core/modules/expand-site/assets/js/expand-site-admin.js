@@ -52,6 +52,21 @@
         document.addEventListener('click', handleDeleteProposal);
         document.addEventListener('click', handleGenerateProposalAI);
 
+        // Auto-calculate payment split when final price changes
+        document.addEventListener('input', function(e) {
+            if (e.target.id !== 'prop-final-price') return;
+            const price = parseFloat(e.target.value) || 0;
+            const firstEl = document.getElementById('prop-first-payment');
+            const finalEl = document.getElementById('prop-final-payment');
+            if (firstEl && !firstEl.dataset.manualOverride) firstEl.value = price > 0 ? Math.round(price * 0.25) : '';
+            if (finalEl && !finalEl.dataset.manualOverride) finalEl.value = price > 0 ? Math.round(price * 0.75) : '';
+        });
+        document.addEventListener('input', function(e) {
+            if (e.target.id === 'prop-first-payment' || e.target.id === 'prop-final-payment') {
+                e.target.dataset.manualOverride = '1';
+            }
+        });
+
         // Organization search autocomplete in project creation modal
         const debouncedOrgSearch = debounce(handleOrgSearch, 300);
         document.addEventListener('input', function(e) {
@@ -947,10 +962,10 @@
             'prop-why-els': data.section_why_els,
             'prop-investment': data.section_investment,
             'prop-next-steps': data.section_next_steps,
-            'prop-budget-low': data.budget_low,
-            'prop-budget-high': data.budget_high,
             'prop-final-price': data.final_price,
-            'prop-payment': data.payment_terms,
+            'prop-platform-fee': data.annual_platform_fee,
+            'prop-first-payment': data.first_payment_amount,
+            'prop-final-payment': data.final_payment_amount,
             'prop-terms': data.terms_conditions,
         };
 

@@ -2900,7 +2900,9 @@ class EL_Expand_Site_Module {
             'budget_low'             => floatval( $data['budget_low'] ?? $proposal->budget_low ),
             'budget_high'            => floatval( $data['budget_high'] ?? $proposal->budget_high ),
             'final_price'            => floatval( $data['final_price'] ?? $proposal->final_price ),
-            'payment_terms'          => sanitize_textarea_field( $data['payment_terms'] ?? $proposal->payment_terms ),
+            'annual_platform_fee'    => floatval( $data['annual_platform_fee'] ?? $proposal->annual_platform_fee ?? 0 ),
+            'first_payment_amount'   => floatval( $data['first_payment_amount'] ?? $proposal->first_payment_amount ?? 0 ),
+            'final_payment_amount'   => floatval( $data['final_payment_amount'] ?? $proposal->final_payment_amount ?? 0 ),
             'terms_conditions'       => sanitize_textarea_field( $data['terms_conditions'] ?? $proposal->terms_conditions ),
             'updated_at'             => current_time( 'mysql' ),
         ];
@@ -2951,8 +2953,20 @@ class EL_Expand_Site_Module {
         $transcript = $project->discovery_transcript ?? '';
         $transcript_excerpt = $transcript ? mb_substr( $transcript, 0, 1500 ) : '';
         $client_org = $project->client_name;
-        $budget_low = number_format( (float) $project->budget_range_low, 0 );
-        $budget_high = number_format( (float) $project->budget_range_high, 0 );
+
+        // Pull pricing from most recent proposal for this project (if any), fallback to project budget
+        $proposals = $this->get_proposals( $project_id );
+        $current_proposal = ! empty( $proposals ) ? $proposals[0] : null;
+        $final_price = $current_proposal ? (float) $current_proposal->final_price : (float) $project->budget_range_low;
+        $annual_fee  = $current_proposal ? (float) ( $current_proposal->annual_platform_fee ?? 0 ) : 0;
+
+        $first_payment = $final_price > 0 ? $final_price * 0.25 : 0;
+        $final_payment = $final_price > 0 ? $final_price * 0.75 : 0;
+
+        $price_str   = $final_price > 0 ? '$' . number_format( $final_price, 0 ) : 'TBD';
+        $first_str   = $first_payment > 0 ? '$' . number_format( $first_payment, 0 ) : 'TBD';
+        $final_str   = $final_payment > 0 ? '$' . number_format( $final_payment, 0 ) : 'TBD';
+        $annual_str  = $annual_fee > 0 ? '$' . number_format( $annual_fee, 0 ) . '/year ($' . number_format( $annual_fee / 12, 0 ) . '/month)' : 'to be quoted separately';
 
         $prompt  = "You are writing a proposal for a web platform development project for Expanded Learning Solutions LLC.\n";
         $prompt .= "This proposal will be sent directly to a client decision-maker (typically a district administrator or nonprofit executive director) ";
@@ -2967,7 +2981,10 @@ class EL_Expand_Site_Module {
         $prompt .= "- Target Customers: " . ( $definition->target_customers ?? 'N/A' ) . "\n";
         $prompt .= "- User Types: " . ( $definition->user_types ?? 'N/A' ) . "\n";
         $prompt .= "- Site Type: " . ( $definition->site_type ?? 'N/A' ) . "\n";
-        $prompt .= "- Budget Range: \${$budget_low} – \${$budget_high}\n";
+        $prompt .= "- Development Investment: {$price_str}\n";
+        $prompt .= "- First Payment (25%, due upon wireframe approval): {$first_str}\n";
+        $prompt .= "- Final Payment (75%, due upon delivery): {$final_str}\n";
+        $prompt .= "- Annual Platform Fee: {$annual_str}\n";
         if ( $transcript_excerpt ) {
             $prompt .= "- Discovery Transcript: " . $transcript_excerpt . "\n";
         }
@@ -2976,7 +2993,7 @@ class EL_Expand_Site_Module {
         $prompt .= '  "situation": "2-3 sentences that mirror the client\'s specific problem back to them. Start with their organization name. Reference specific details from the transcript. Do not use generic language. Make them feel understood.",' . "\n\n";
         $prompt .= '  "what_we_are_building": "3-4 sentences describing what the platform will do, organized by who benefits. For each user type identified, write one sentence describing what they will be able to do and what outcome that enables. Focus on capabilities and outcomes, not features or technical details.",' . "\n\n";
         $prompt .= '  "why_els": "2-3 sentences explaining why Expanded Learning Solutions is the right partner. Reference that ELS has built platforms for organizations similar to theirs. Mention that this is a custom platform built on ELS\'s proprietary EL Core system, not off-the-shelf software stitched together.",' . "\n\n";
-        $prompt .= '  "investment": "Write this as a single paragraph. State the platform development investment (use the budget range or final price). Then state the annual platform fee (hosting, maintenance, security updates, support) and express it as a monthly equivalent. Then write one sentence comparing this to the cost of a full-time program coordinator salary or an off-the-shelf enterprise platform subscription. Make the ROI feel obvious without being salesy.",' . "\n\n";
+        $prompt .= '  "investment": "Write this as a single paragraph. State the platform development investment (' . $price_str . '). Then describe the payment schedule: first payment of ' . $first_str . ' (25%) is due upon wireframe approval, and the final payment of ' . $final_str . ' (75%) is due upon delivery. Then state the annual platform fee (' . $annual_str . ' — this covers hosting, maintenance, security updates, and support) and express the monthly cost if possible. Then write one sentence comparing this to the cost of a full-time program coordinator salary or an off-the-shelf enterprise platform subscription. Make the ROI feel obvious without being salesy.",' . "\n\n";
         $prompt .= '  "next_steps": "3-4 sentences describing exactly what happens after they accept. Be specific: You will receive a welcome email with a link to your client portal. We will schedule a kickoff call within 5 business days. You will be introduced to your project team and we will review your timeline together. Concrete, not vague."' . "\n";
         $prompt .= "}\n\n";
         $prompt .= "Return only valid JSON. No markdown. No explanation. No preamble.";

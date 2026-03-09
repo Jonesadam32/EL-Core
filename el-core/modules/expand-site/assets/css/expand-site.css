@@ -456,6 +456,12 @@
     color: var(--es-accent);
 }
 
+.el-es-info-card-disabled {
+    opacity: 0.45;
+    cursor: default;
+    pointer-events: none;
+}
+
 .el-es-info-card-content {
     flex: 1;
 }
@@ -1311,6 +1317,10 @@
     animation: modalSlideIn 0.2s ease-out;
 }
 
+.el-es-modal-container-large {
+    max-width: 860px;
+}
+
 @keyframes modalSlideIn {
     from {
         opacity: 0;
@@ -1506,6 +1516,18 @@
     border-bottom: none;
 }
 
+.el-es-pricing-total {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.el-es-pricing-sub {
+    padding-left: 20px;
+    font-size: 13px;
+    color: #555;
+    border-bottom-color: #eee;
+}
+
 .el-es-proposal-social-proof {
     margin: 40px 0;
     padding: 24px;
@@ -1550,6 +1572,30 @@
     margin-bottom: 12px;
 }
 
+.el-es-proposal-terms-body {
+    line-height: 1.75;
+    color: #555;
+}
+
+.el-es-tc-section {
+    margin-bottom: 20px;
+}
+
+.el-es-tc-heading {
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 6px;
+}
+
+.el-es-tc-body {
+    margin: 0;
+    color: #555;
+}
+
+.el-es-tc-para {
+    margin: 0 0 16px;
+}
+
 .el-es-proposal-actions {
     display: flex;
     gap: 16px;
@@ -1590,6 +1636,16 @@
     color: #065F46;
     font-weight: 600;
     border: 1px solid #A7F3D0;
+}
+
+.el-es-proposal-accepted-summary .el-es-section-title {
+    color: #065F46;
+}
+
+.el-es-proposal-accepted-line {
+    margin: 0;
+    color: #374151;
+    line-height: 1.6;
 }
 
 @media (max-width: 768px) {
@@ -2631,4 +2687,227 @@
 /* Phase 5 gate notice */
 .el-es-uj-header .el-badge {
     flex-shrink: 0;
+}
+
+/* ─── Stage 4 Journey Placeholder ──────────────────────────────────── */
+.el-es-journey-placeholder {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: #F8FAFF;
+    border: 1px solid #E0E7FF;
+    border-radius: 12px;
+}
+
+.el-es-journey-placeholder-intro {
+    color: #475569;
+    line-height: 1.65;
+    margin-bottom: 20px;
+}
+
+.el-es-journey-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.el-es-journey-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #E0E7FF;
+    border-radius: 8px;
+    gap: 12px;
+}
+
+.el-es-journey-user-type {
+    font-weight: 600;
+    color: #1E293B;
+    font-size: 0.9rem;
+}
+
+.el-es-journey-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.el-es-journey-assigned {
+    font-size: 0.8rem;
+    color: #64748B;
+}
+
+.el-es-journey-note {
+    font-size: 0.85rem;
+    color: #6B7280;
+    margin: 0;
+}
+
+.el-es-placeholder-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: #fff;
+    border: 1px dashed #CBD5E1;
+    border-radius: 8px;
+    color: #6B7280;
+}
+
+.el-es-placeholder-notice p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* ─── Proposal Toolbar ─────────────────────────────────────────────── */
+.el-es-proposal-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+.el-es-proposal-print-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #fff;
+    border: 1px solid #CBD5E1;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.el-es-proposal-print-btn:hover {
+    background: #F1F5F9;
+    border-color: #94A3B8;
+}
+
+/* ─── Print Styles ─────────────────────────────────────────────────── */
+@media print {
+    /* Hide everything except the proposal document */
+    body > *:not(.el-es-portal),
+    .el-es-portal > *:not(.el-es-global-sections),
+    .el-es-stage-bar,
+    .el-es-stage-content-wrapper,
+    .el-es-portal-header,
+    .el-es-stage-nav,
+    .admin-bar,
+    #wpadminbar,
+    .el-es-proposal-toolbar,
+    .el-es-proposal-actions,
+    .no-print {
+        display: none !important;
+    }
+
+    .el-es-global-sections {
+        margin: 0;
+        padding: 0;
+    }
+
+    .el-es-proposal-section:not(.el-es-proposal-section) {
+        display: block !important;
+    }
+
+    .el-es-proposal-document {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .el-es-proposal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #000;
+        padding-bottom: 16px;
+        margin-bottom: 24px;
+    }
+
+    .el-es-proposal-logo {
+        font-size: 18pt;
+        font-weight: 700;
+        font-family: serif;
+        color: #000;
+    }
+
+    body,
+    .el-es-proposal-document,
+    .el-es-proposal-document h1,
+    .el-es-proposal-document h2,
+    .el-es-proposal-document p {
+        font-family: Georgia, 'Times New Roman', serif !important;
+        color: #000 !important;
+        background: #fff !important;
+    }
+
+    .el-es-proposal-document h1 {
+        font-size: 22pt;
+        margin: 24pt 0 12pt;
+    }
+
+    .el-es-proposal-document h2 {
+        font-size: 14pt;
+        margin: 18pt 0 6pt;
+        page-break-after: avoid;
+    }
+
+    .el-es-proposal-document p {
+        font-size: 11pt;
+        line-height: 1.7;
+        margin-bottom: 10pt;
+    }
+
+    .el-es-proposal-section {
+        page-break-inside: avoid;
+        margin-bottom: 24pt;
+    }
+
+    .el-es-proposal-pricing {
+        border: 1pt solid #000;
+        padding: 12pt;
+        margin: 12pt 0;
+    }
+
+    .el-es-pricing-line {
+        font-size: 11pt;
+        padding: 4pt 0;
+    }
+
+    .el-es-proposal-social-proof,
+    .el-es-proposal-terms details summary::after {
+        display: none !important;
+    }
+
+    .el-es-proposal-terms details {
+        display: block !important;
+    }
+
+    .el-es-proposal-terms details > * {
+        display: block !important;
+    }
+
+    .el-es-tc-heading {
+        font-size: 11pt;
+        font-weight: 700;
+    }
+
+    .el-es-tc-body,
+    .el-es-tc-para {
+        font-size: 10pt;
+        line-height: 1.6;
+    }
+
+    @page {
+        margin: 1in;
+    }
 }

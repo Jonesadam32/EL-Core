@@ -329,6 +329,33 @@ function el_shortcode_expand_site_portal( $atts ): string {
 			$html .= '<div class="el-es-info-card-arrow">' . el_es_icon( 'chevron-right' ) . '</div>';
 			$html .= ( $definition->locked_at ? '</button>' : '</a>' );
 		}
+
+		// Proposal card (Stage 3+): always show, greyed out if no sent/accepted proposal
+		if ( $num >= 3 ) {
+			$stage_proposal = null;
+			foreach ( $module->get_proposals( $project_id ) as $p ) {
+				if ( $p->status === 'sent' || $p->status === 'accepted' ) { $stage_proposal = $p; break; }
+			}
+			if ( $stage_proposal ) {
+				$prop_badge = $stage_proposal->status === 'accepted' ? esc_html__( 'Accepted', 'el-core' ) : esc_html__( 'Pending', 'el-core' );
+				$html .= '<button type="button" class="el-es-info-card el-es-modal-trigger" data-modal="proposal-modal-' . esc_attr( $num ) . '">';
+				$html .= '<div class="el-es-info-card-icon">' . el_es_icon( 'media-document', 24 ) . '</div>';
+				$html .= '<div class="el-es-info-card-content">';
+				$html .= '<div class="el-es-info-card-title">' . esc_html__( 'Proposal', 'el-core' ) . '</div>';
+				$html .= '<div class="el-es-info-card-count">' . $prop_badge . '</div>';
+				$html .= '</div>';
+				$html .= '<div class="el-es-info-card-arrow">' . el_es_icon( 'chevron-right' ) . '</div>';
+				$html .= '</button>';
+			} else {
+				$html .= '<div class="el-es-info-card el-es-info-card-disabled">';
+				$html .= '<div class="el-es-info-card-icon">' . el_es_icon( 'media-document', 24 ) . '</div>';
+				$html .= '<div class="el-es-info-card-content">';
+				$html .= '<div class="el-es-info-card-title">' . esc_html__( 'Proposal', 'el-core' ) . '</div>';
+				$html .= '<div class="el-es-info-card-empty">' . esc_html__( 'Not yet sent', 'el-core' ) . '</div>';
+				$html .= '</div>';
+				$html .= '</div>';
+			}
+		}
 		
 		$html .= '</div>'; // end stage cards
 		
@@ -370,16 +397,94 @@ function el_shortcode_expand_site_portal( $atts ): string {
 			
 			$html .= '</div>'; // end modal body
 			$html .= '</div>'; // end modal container
-			$html .= '</div>'; // end modal
+		$html .= '</div>'; // end modal
 		}
-		
+
+		// Proposal Modal (Stage 3+)
+		if ( $num >= 3 ) {
+			$stage_proposal_modal = null;
+			foreach ( $module->get_proposals( $project_id ) as $p ) {
+				if ( $p->status === 'sent' || $p->status === 'accepted' ) { $stage_proposal_modal = $p; break; }
+			}
+			if ( $stage_proposal_modal ) {
+				$modal_id = 'proposal-modal-' . $num;
+				$html .= '<div class="el-es-modal el-es-proposal-modal" id="' . esc_attr( $modal_id ) . '" aria-hidden="true">';
+				$html .= '<div class="el-es-modal-overlay" data-close-modal="' . esc_attr( $modal_id ) . '"></div>';
+				$html .= '<div class="el-es-modal-container el-es-modal-container-large">';
+				$html .= '<div class="el-es-modal-header">';
+				$html .= '<h3 class="el-es-modal-title">' . el_es_icon( 'media-document' ) . esc_html__( 'Scope of Service Proposal', 'el-core' ) . '</h3>';
+				$html .= '<button type="button" class="el-es-modal-close" data-close-modal="' . esc_attr( $modal_id ) . '" aria-label="' . esc_attr__( 'Close', 'el-core' ) . '">';
+				$html .= '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+				$html .= '</button>';
+				$html .= '</div>';
+				$html .= '<div class="el-es-modal-body">';
+				$html .= el_es_render_proposal_document( $stage_proposal_modal );
+				$html .= '</div>';
+				$html .= '</div>';
+				$html .= '</div>';
+			}
+		}
+
+		// Stage 4 — User Journey placeholder
+		if ( $num === 4 ) {
+			global $wpdb;
+			$journeys_table = $wpdb->prefix . 'el_es_user_journeys';
+			$journeys = $wpdb->get_results( $wpdb->prepare(
+				"SELECT * FROM {$journeys_table} WHERE project_id = %d ORDER BY created_at ASC",
+				$project_id
+			) );
+
+			$html .= '<div class="el-es-stage-section el-es-journey-placeholder">';
+			$html .= '<h4 class="el-es-stage-section-title">' . el_es_icon( 'users', 18 ) . esc_html__( 'User Journeys', 'el-core' ) . '</h4>';
+			$html .= '<p class="el-es-journey-placeholder-intro">';
+			$html .= esc_html__( 'In this phase, each member of your team will describe how a specific type of user moves through your website. This helps us build something that truly works for the people who will use it.', 'el-core' );
+			$html .= '</p>';
+
+			if ( ! empty( $journeys ) ) {
+				$html .= '<div class="el-es-journey-list">';
+				foreach ( $journeys as $j ) {
+					$status_labels = [
+						'pending_assignment' => __( 'Awaiting Assignment', 'el-core' ),
+						'assigned'           => __( 'Assigned', 'el-core' ),
+						'in_progress'        => __( 'In Progress', 'el-core' ),
+						'submitted'          => __( 'Submitted', 'el-core' ),
+						'needs_revision'     => __( 'Needs Revision', 'el-core' ),
+						'locked'             => __( 'Complete', 'el-core' ),
+					];
+					$status_label = $status_labels[ $j->status ] ?? ucfirst( str_replace( '_', ' ', $j->status ) );
+					$assigned_name = '';
+					if ( $j->assigned_to ) {
+						$au = get_userdata( (int) $j->assigned_to );
+						if ( $au ) $assigned_name = $au->display_name;
+					}
+					$html .= '<div class="el-es-journey-row">';
+					$html .= '<div class="el-es-journey-user-type">' . esc_html( $j->user_type ) . '</div>';
+					$html .= '<div class="el-es-journey-meta">';
+					if ( $assigned_name ) {
+						$html .= '<span class="el-es-journey-assigned">' . esc_html( $assigned_name ) . '</span>';
+					}
+					$html .= '<span class="el-es-badge el-es-badge-' . esc_attr( $j->status ) . '">' . esc_html( $status_label ) . '</span>';
+					$html .= '</div>';
+					$html .= '</div>';
+				}
+				$html .= '</div>';
+				$html .= '<p class="el-es-journey-note">';
+				$html .= esc_html__( 'Your project manager will send you a link when it\'s your turn to describe a user journey. Check back here for updates.', 'el-core' );
+				$html .= '</p>';
+			} else {
+				$html .= '<div class="el-es-placeholder-notice">';
+				$html .= el_es_icon( 'clock', 20 );
+				$html .= '<p>' . esc_html__( 'Your project manager is setting up the user journey assignments. You\'ll be notified when your input is needed.', 'el-core' ) . '</p>';
+				$html .= '</div>';
+			}
+
+			$html .= '</div>';
+		}
+
 		$html .= '</div>'; // end stage content
 	}
 	
 	$html .= '</div>'; // end stage content wrapper
-
-	// ═══════════════════════════════════════════
-	// GLOBAL INFORMATION SECTIONS
 	// ═══════════════════════════════════════════
 	
 	$html .= '<div class="el-es-global-sections">';
@@ -798,137 +903,61 @@ function el_shortcode_expand_site_portal( $atts ): string {
 	
 	if ( $sent_proposal ) {
 		$is_accepted = ( $sent_proposal->status === 'accepted' );
-		
-		$html .= '<div class="el-es-global-section el-es-proposal-section">';
-		$html .= '<h3 class="el-es-section-title">';
-		$html .= el_es_icon( 'file-text' );
-		$html .= esc_html__( 'Scope of Service Proposal', 'el-core' );
-		if ( $is_accepted ) {
-			$html .= ' <span class="el-es-badge el-es-badge-decision-maker">' . esc_html__( 'Accepted', 'el-core' ) . '</span>';
-		}
-		$html .= '</h3>';
-		
-		$html .= '<div class="el-es-proposal-document">';
 
-		// Letterhead
-		$html .= '<div class="el-es-proposal-header">';
-		$html .= '<div class="el-es-proposal-logo">Expanded Learning Solutions</div>';
-		$html .= '<div class="el-es-proposal-meta">';
-		$html .= '<div>' . esc_html( $sent_proposal->proposal_number ) . '</div>';
-		$html .= '<div>' . date_i18n( get_option( 'date_format' ), strtotime( $sent_proposal->created_at ) ) . '</div>';
-		$html .= '<div>' . sprintf( esc_html__( 'Prepared for: %s', 'el-core' ), esc_html( $sent_proposal->client_organization ?: $sent_proposal->client_name ) ) . '</div>';
-		$html .= '</div>';
-		$html .= '</div>';
-
-		// Proposal Title
-		if ( $sent_proposal->proposal_title ) {
-			$html .= '<h1 class="el-es-proposal-title">' . esc_html( $sent_proposal->proposal_title ) . '</h1>';
-		}
-
-		// Narrative sections — use new columns, fall back to old columns for pre-migration proposals
-		$situation = $sent_proposal->section_situation ?? $sent_proposal->scope_description ?? '';
-		$what_we_build = $sent_proposal->section_what_we_build ?? $sent_proposal->goals_objectives ?? '';
-		$why_els = $sent_proposal->section_why_els ?? $sent_proposal->activities_description ?? '';
-		$investment_text = $sent_proposal->section_investment ?? '';
-		$next_steps = $sent_proposal->section_next_steps ?? $sent_proposal->deliverables_text ?? '';
-
-		if ( $situation ) {
-			$html .= '<div class="el-es-proposal-section">';
-			$html .= '<h2>' . esc_html__( 'The Situation', 'el-core' ) . '</h2>';
-			$html .= '<p>' . nl2br( esc_html( $situation ) ) . '</p>';
-			$html .= '</div>';
-		}
-
-		if ( $what_we_build ) {
-			$html .= '<div class="el-es-proposal-section">';
-			$html .= '<h2>' . esc_html__( 'What We\'re Building', 'el-core' ) . '</h2>';
-			$html .= '<p>' . nl2br( esc_html( $what_we_build ) ) . '</p>';
-			$html .= '</div>';
-		}
-
-		if ( $why_els ) {
-			$html .= '<div class="el-es-proposal-section">';
-			$html .= '<h2>' . esc_html__( 'Why Expanded Learning Solutions', 'el-core' ) . '</h2>';
-			$html .= '<p>' . nl2br( esc_html( $why_els ) ) . '</p>';
-			$html .= '</div>';
-		}
-
-		// Investment section with pricing box
-		if ( $investment_text || $sent_proposal->final_price > 0 || $sent_proposal->budget_low > 0 ) {
-			$html .= '<div class="el-es-proposal-section">';
-			$html .= '<h2>' . esc_html__( 'Your Investment', 'el-core' ) . '</h2>';
-			if ( $investment_text ) {
-				$html .= '<p>' . nl2br( esc_html( $investment_text ) ) . '</p>';
+		// When accepted and project has moved past Stage 3, show only a brief confirmation.
+		// The full proposal is accessible via the Proposal info card modal in the stage cards row.
+		if ( $is_accepted && $current_stage > 3 ) {
+			$accepted_date = $sent_proposal->accepted_at ? date_i18n( get_option( 'date_format' ), strtotime( $sent_proposal->accepted_at ) ) : '';
+			$accepted_by   = '';
+			if ( $sent_proposal->accepted_by ) {
+				$acc_user = get_userdata( (int) $sent_proposal->accepted_by );
+				if ( $acc_user ) $accepted_by = $acc_user->display_name;
 			}
-			$html .= '<div class="el-es-proposal-pricing">';
-			$price_display = '';
-			if ( $sent_proposal->final_price > 0 ) {
-				$price_display = '$' . number_format( (float) $sent_proposal->final_price, 2 );
-			} elseif ( $sent_proposal->budget_low > 0 ) {
-				$price_display = '$' . number_format( (float) $sent_proposal->budget_low, 0 ) . ' – $' . number_format( (float) $sent_proposal->budget_high, 0 );
+			$html .= '<div class="el-es-global-section el-es-proposal-section el-es-proposal-accepted-summary">';
+			$html .= '<h3 class="el-es-section-title">' . el_es_icon( 'check-circle' ) . esc_html__( 'Proposal', 'el-core' ) . ' <span class="el-es-badge el-es-badge-decision-maker">' . esc_html__( 'Accepted', 'el-core' ) . '</span></h3>';
+			$html .= '<p class="el-es-proposal-accepted-line">';
+			if ( $accepted_by ) {
+				$html .= sprintf( esc_html__( 'Accepted on %1$s by %2$s.', 'el-core' ), '<strong>' . esc_html( $accepted_date ) . '</strong>', '<strong>' . esc_html( $accepted_by ) . '</strong>' );
+			} else {
+				$html .= sprintf( esc_html__( 'Accepted on %s.', 'el-core' ), '<strong>' . esc_html( $accepted_date ) . '</strong>' );
 			}
-			if ( $price_display ) {
-				$html .= '<div class="el-es-pricing-line">';
-				$html .= '<span>' . esc_html__( 'Platform Development', 'el-core' ) . '</span>';
-				$html .= '<span>' . $price_display . '</span>';
+			$html .= ' ' . esc_html__( 'View the full proposal using the Proposal card above.', 'el-core' );
+			$html .= '</p>';
+			$html .= '</div>';
+		} else {
+			// Stage 3 (or pending): show full inline proposal document
+			$html .= '<div class="el-es-global-section el-es-proposal-section">';
+			$html .= '<h3 class="el-es-section-title">';
+			$html .= el_es_icon( 'file-text' );
+			$html .= esc_html__( 'Scope of Service Proposal', 'el-core' );
+			if ( $is_accepted ) {
+				$html .= ' <span class="el-es-badge el-es-badge-decision-maker">' . esc_html__( 'Accepted', 'el-core' ) . '</span>';
+			}
+			$html .= '</h3>';
+
+			$html .= el_es_render_proposal_document( $sent_proposal );
+
+			// Accept / Decline buttons (DM only, sent proposals only)
+			if ( $is_decision_maker && $sent_proposal->status === 'sent' ) {
+				$html .= '<div class="el-es-proposal-actions">';
+				$html .= '<button type="button" class="el-es-btn el-es-btn-primary el-es-accept-proposal-btn" data-proposal-id="' . esc_attr( $sent_proposal->id ) . '">';
+				$html .= el_es_icon( 'check-circle' );
+				$html .= esc_html__( 'Accept Proposal', 'el-core' );
+				$html .= '</button>';
+				$html .= '<button type="button" class="el-es-btn el-es-btn-secondary el-es-decline-proposal-btn" data-proposal-id="' . esc_attr( $sent_proposal->id ) . '">';
+				$html .= esc_html__( 'Decline', 'el-core' );
+				$html .= '</button>';
+				$html .= '</div>';
+			} elseif ( $is_accepted ) {
+				$accepted_date = $sent_proposal->accepted_at ? date_i18n( get_option( 'date_format' ), strtotime( $sent_proposal->accepted_at ) ) : '';
+				$html .= '<div class="el-es-proposal-accepted-notice">';
+				$html .= el_es_icon( 'check-circle' );
+				$html .= sprintf( esc_html__( 'Accepted on %s', 'el-core' ), $accepted_date );
 				$html .= '</div>';
 			}
-			$html .= '<div class="el-es-pricing-line el-es-pricing-annual">';
-			$html .= '<span>' . esc_html__( 'Annual Platform Fee', 'el-core' ) . '</span>';
-			$html .= '<span>' . esc_html__( 'Contact us for details', 'el-core' ) . '</span>';
-			$html .= '</div>';
-			$html .= '</div>';
-			$html .= '</div>';
-		}
 
-		if ( $next_steps ) {
-			$html .= '<div class="el-es-proposal-section">';
-			$html .= '<h2>' . esc_html__( 'What Happens Next', 'el-core' ) . '</h2>';
-			$html .= '<p>' . nl2br( esc_html( $next_steps ) ) . '</p>';
-			$html .= '</div>';
+			$html .= '</div>'; // end proposal section
 		}
-
-		// Social Proof
-		$html .= '<div class="el-es-proposal-social-proof">';
-		$html .= '<p class="el-es-social-proof-label">' . esc_html__( 'Trusted by organizations including:', 'el-core' ) . '</p>';
-		$html .= '<div class="el-es-social-proof-logos">';
-		$html .= '<div class="el-es-logo-placeholder">NYC Department of Education</div>';
-		$html .= '<div class="el-es-logo-placeholder">California Department of Education</div>';
-		$html .= '</div>';
-		$html .= '</div>';
-
-		// Terms & Conditions (collapsed)
-		if ( $sent_proposal->terms_conditions ) {
-			$html .= '<div class="el-es-proposal-terms">';
-			$html .= '<details>';
-			$html .= '<summary>' . esc_html__( 'Terms & Conditions', 'el-core' ) . '</summary>';
-			$html .= '<p>' . nl2br( esc_html( $sent_proposal->terms_conditions ) ) . '</p>';
-			$html .= '</details>';
-			$html .= '</div>';
-		}
-
-		$html .= '</div>'; // end proposal-document
-		
-		// Accept / Decline buttons (DM only, sent proposals only)
-		if ( $is_decision_maker && $sent_proposal->status === 'sent' ) {
-			$html .= '<div class="el-es-proposal-actions">';
-			$html .= '<button type="button" class="el-es-btn el-es-btn-primary el-es-accept-proposal-btn" data-proposal-id="' . esc_attr( $sent_proposal->id ) . '">';
-			$html .= el_es_icon( 'check-circle' );
-			$html .= esc_html__( 'Accept Proposal', 'el-core' );
-			$html .= '</button>';
-			$html .= '<button type="button" class="el-es-btn el-es-btn-secondary el-es-decline-proposal-btn" data-proposal-id="' . esc_attr( $sent_proposal->id ) . '">';
-			$html .= esc_html__( 'Decline', 'el-core' );
-			$html .= '</button>';
-			$html .= '</div>';
-		} elseif ( $is_accepted ) {
-			$accepted_date = $sent_proposal->accepted_at ? date_i18n( get_option( 'date_format' ), strtotime( $sent_proposal->accepted_at ) ) : '';
-			$html .= '<div class="el-es-proposal-accepted-notice">';
-			$html .= el_es_icon( 'check-circle' );
-			$html .= sprintf( esc_html__( 'Accepted on %s', 'el-core' ), $accepted_date );
-			$html .= '</div>';
-		}
-		
-		$html .= '</div>'; // end proposal section
 	}
 
 	// Project Team (Stakeholders)
@@ -994,6 +1023,119 @@ function el_shortcode_expand_site_portal( $atts ): string {
 	}
 
 	$html .= '</div>'; // end portal
+	return $html;
+}
+
+/**
+ * Helper: render a proposal document as HTML (used in portal proposal modal and global section).
+ */
+function el_es_render_proposal_document( $proposal ): string {
+	$html = '';
+
+	$situation     = $proposal->section_situation ?? $proposal->scope_description ?? '';
+	$what_we_build = $proposal->section_what_we_build ?? $proposal->goals_objectives ?? '';
+	$why_els       = $proposal->section_why_els ?? $proposal->activities_description ?? '';
+	$investment    = $proposal->section_investment ?? '';
+	$next_steps    = $proposal->section_next_steps ?? $proposal->deliverables_text ?? '';
+
+	$html .= '<div class="el-es-proposal-document">';
+
+	// Print button
+	$html .= '<div class="el-es-proposal-toolbar no-print">';
+	$html .= '<button type="button" class="el-es-btn el-es-proposal-print-btn" onclick="window.print()">';
+	$html .= el_es_icon( 'download' );
+	$html .= esc_html__( 'Download PDF', 'el-core' );
+	$html .= '</button>';
+	$html .= '</div>';
+
+	// Letterhead
+	$html .= '<div class="el-es-proposal-header">';
+	$html .= '<div class="el-es-proposal-logo">Expanded Learning Solutions</div>';
+	$html .= '<div class="el-es-proposal-meta">';
+	$html .= '<div>' . esc_html( $proposal->proposal_number ) . '</div>';
+	$html .= '<div>' . date_i18n( get_option( 'date_format' ), strtotime( $proposal->created_at ) ) . '</div>';
+	$html .= '<div>' . sprintf( esc_html__( 'Prepared for: %s', 'el-core' ), esc_html( $proposal->client_organization ?: $proposal->client_name ) ) . '</div>';
+	$html .= '</div>';
+	$html .= '</div>';
+
+	if ( $proposal->proposal_title ) {
+		$html .= '<h1 class="el-es-proposal-title">' . esc_html( $proposal->proposal_title ) . '</h1>';
+	}
+
+	if ( $situation ) {
+		$html .= '<div class="el-es-proposal-section"><h2>' . esc_html__( 'The Situation', 'el-core' ) . '</h2>';
+		$html .= '<p>' . nl2br( esc_html( $situation ) ) . '</p></div>';
+	}
+
+	if ( $what_we_build ) {
+		$html .= '<div class="el-es-proposal-section"><h2>' . esc_html__( 'What We\'re Building', 'el-core' ) . '</h2>';
+		$html .= '<p>' . nl2br( esc_html( $what_we_build ) ) . '</p></div>';
+	}
+
+	if ( $why_els ) {
+		$html .= '<div class="el-es-proposal-section"><h2>' . esc_html__( 'Why Expanded Learning Solutions', 'el-core' ) . '</h2>';
+		$html .= '<p>' . nl2br( esc_html( $why_els ) ) . '</p></div>';
+	}
+
+	// Investment section
+	if ( $investment || $proposal->final_price > 0 || $proposal->budget_low > 0 ) {
+		$html .= '<div class="el-es-proposal-section"><h2>' . esc_html__( 'Your Investment', 'el-core' ) . '</h2>';
+		if ( $investment ) {
+			$html .= '<p>' . nl2br( esc_html( $investment ) ) . '</p>';
+		}
+		$html .= '<div class="el-es-proposal-pricing">';
+		$final_price = (float) $proposal->final_price;
+		$annual_fee  = (float) ( $proposal->annual_platform_fee ?? 0 );
+		$first_pay   = (float) ( $proposal->first_payment_amount ?? 0 );
+		$final_pay   = (float) ( $proposal->final_payment_amount ?? 0 );
+		if ( $first_pay === 0.0 && $final_price > 0 ) $first_pay = $final_price * 0.25;
+		if ( $final_pay === 0.0 && $final_price > 0 ) $final_pay = $final_price * 0.75;
+
+		if ( $final_price > 0 ) {
+			$html .= '<div class="el-es-pricing-line el-es-pricing-total"><span>' . esc_html__( 'Development Investment', 'el-core' ) . '</span><span>$' . number_format( $final_price, 0 ) . '</span></div>';
+			if ( $first_pay > 0 ) {
+				$html .= '<div class="el-es-pricing-line el-es-pricing-sub"><span>' . esc_html__( 'First Payment (25%) — due upon wireframe approval', 'el-core' ) . '</span><span>$' . number_format( $first_pay, 0 ) . '</span></div>';
+			}
+			if ( $final_pay > 0 ) {
+				$html .= '<div class="el-es-pricing-line el-es-pricing-sub"><span>' . esc_html__( 'Final Payment (75%) — due upon delivery', 'el-core' ) . '</span><span>$' . number_format( $final_pay, 0 ) . '</span></div>';
+			}
+		} elseif ( $proposal->budget_low > 0 ) {
+			$html .= '<div class="el-es-pricing-line"><span>' . esc_html__( 'Platform Development', 'el-core' ) . '</span><span>$' . number_format( (float) $proposal->budget_low, 0 ) . ' – $' . number_format( (float) $proposal->budget_high, 0 ) . '</span></div>';
+		}
+		$html .= '<div class="el-es-pricing-line el-es-pricing-annual"><span>' . esc_html__( 'Annual Platform Fee', 'el-core' ) . '</span>';
+		$html .= $annual_fee > 0 ? '<span>$' . number_format( $annual_fee, 0 ) . '/year</span>' : '<span>' . esc_html__( 'Contact us for details', 'el-core' ) . '</span>';
+		$html .= '</div>';
+		$html .= '</div></div>';
+	}
+
+	if ( $next_steps ) {
+		$html .= '<div class="el-es-proposal-section"><h2>' . esc_html__( 'What Happens Next', 'el-core' ) . '</h2>';
+		$html .= '<p>' . nl2br( esc_html( $next_steps ) ) . '</p></div>';
+	}
+
+	// T&C
+	if ( $proposal->terms_conditions ) {
+		$html .= '<div class="el-es-proposal-terms"><details>';
+		$html .= '<summary>' . esc_html__( 'Terms & Conditions', 'el-core' ) . '</summary>';
+		$html .= '<div class="el-es-proposal-terms-body">';
+		$paragraphs = preg_split( '/\n{2,}/', trim( $proposal->terms_conditions ) );
+		foreach ( $paragraphs as $para ) {
+			$para = trim( $para );
+			if ( empty( $para ) ) continue;
+			if ( preg_match( '/^(\d+\.\s+)(.+?)(\n|$)/s', $para, $m ) ) {
+				$heading = rtrim( $m[1] . $m[2] );
+				$body = trim( substr( $para, strlen( $heading ) ) );
+				$html .= '<div class="el-es-tc-section"><p class="el-es-tc-heading">' . esc_html( $heading ) . '</p>';
+				if ( $body ) $html .= '<p class="el-es-tc-body">' . nl2br( esc_html( $body ) ) . '</p>';
+				$html .= '</div>';
+			} else {
+				$html .= '<p class="el-es-tc-para">' . nl2br( esc_html( $para ) ) . '</p>';
+			}
+		}
+		$html .= '</div></details></div>';
+	}
+
+	$html .= '</div>'; // end proposal-document
 	return $html;
 }
 
