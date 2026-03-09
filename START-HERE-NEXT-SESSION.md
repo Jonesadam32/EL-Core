@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.31.0 Step B — Built, ready to upload to staging. **Next session:** BUILD Step C — AI Round 1 (portal guided questions form + auto-fire AI on submit). Read `SPEC-USER-JOURNEY-PHASE.md` before starting.
+> **Current Plugin Version:** v1.31.1 — uploaded to staging, end-to-end test run. **Next session:** BUILD v1.32.0 — Proposal overhaul + portal fixes. Read `NEXT-SESSION-PROMPT-v1.32.0.md` for the full bug list before starting.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
