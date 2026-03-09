@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.30.3 — Built and ready to upload to staging. **Next session:** BUILD — User Journey phase (Phase 4, v1.31.0). Read `SPEC-USER-JOURNEY-PHASE.md` before starting anything. Planning is complete.
+> **Current Plugin Version:** v1.31.0 Step A — Built, ready to upload to staging. **Next session:** BUILD Step B — Admin Phase 4 panel + AJAX handlers (assign, send-for-review, reset, lock). Read `SPEC-USER-JOURNEY-PHASE.md` before starting.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

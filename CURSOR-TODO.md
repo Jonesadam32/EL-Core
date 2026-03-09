@@ -671,18 +671,19 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 > **Prerequisite:** v1.30.3 uploaded and tested on staging.
 > **What this is:** New Phase 4 inserted between Proposal and Visual Identity. Stakeholders describe how each user type moves through the site via guided questions; AI generates a structured workflow; admin refines with a second AI pass; full consensus review; admin locks. Phase 5 (Visual Identity) is hard-gated until all journeys are locked.
 
-### Step 1 — DB migration + pipeline update
+### Step 1 — DB migration + pipeline update ✅ DONE
 
-- [ ] Add 3 new tables to `module.json` under a new DB migration version (9 → 10):
+- [x] Add 3 new tables to `module.json` under DB migration version 10:
   - `el_es_user_journeys` — one row per user type per project (see spec for full schema)
   - `el_es_journey_reviews` — one row per review round per journey
   - `el_es_journey_comments` — threaded per-step comments with verdicts
-- [ ] Update `STAGES` constant in `class-expand-site-module.php`:
+- [x] Update `STAGES` constant in `class-expand-site-module.php`:
   - Insert `4 => [ 'name' => 'User Journey', 'slug' => 'user-journey', 'has_client_gate' => true ]`
   - Shift Visual Identity → Delivery to phases 5–9
-- [ ] Update `STAGE_DEADLINE_DAYS`: add `4 => 7` for User Journey; shift existing entries 4–8 to 5–9
-- [ ] Audit `project-detail.php` and `expand-site-admin.js` for hardcoded phase numbers 4–8 that now need to be 5–9
-- [ ] Deploy, verify 3 tables created, verify existing projects and phase bar still work
+- [x] Update `STAGE_DEADLINE_DAYS`: add `4 => 7` for User Journey; shift existing entries 4–8 to 5–9
+- [x] Audit `project-detail.php` and `class-expand-site-module.php` for hardcoded phase numbers 4–8 → shifted to 5–9
+- [x] Phase initialization: `init_user_journeys()` seeds journey rows when advancing to stage 4
+- [x] AJAX handlers: `es_init_user_journeys`, `es_add_user_type`
 - [ ] **Checkpoint:** Tables exist in DB, phase bar shows 9 phases, no regressions ✅
 
 ### Step 2 — Phase initialization logic
