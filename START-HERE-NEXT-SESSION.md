@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.32.0 — built and committed. Ready for upload to staging. **Next session:** Continue Phase 4 (User Journey) — Step C: portal guided questions form + AI Round 1 trigger. Read `SPEC-USER-JOURNEY-PHASE.md` before starting.
+> **Current Plugin Version:** v1.32.1 — uploaded to staging, tested. **Next session:** BUILD v1.33.0 — User Journey assignment flow redesign + portal Step C. Read `NEXT-SESSION-PROMPT-v1.33.0.md` before starting.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
