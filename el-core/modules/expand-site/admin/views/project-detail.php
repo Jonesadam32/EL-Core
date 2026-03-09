@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Admin View: Expand Site — Project Detail
  *
@@ -917,35 +917,42 @@ foreach ( $journeys as $jny ) {
 
     $p_uj .= '<div class="el-es-uj-card" data-journey-id="' . esc_attr( $jid ) . '" data-status="' . esc_attr( $jstatus ) . '">';
 
-    // Card header — always visible
+    // Card header - always visible
     $p_uj .= '<div class="el-es-uj-card__header" data-toggle="el-es-uj-card-body-' . esc_attr( $jid ) . '">';
-    $p_uj .= '<div class="el-es-uj-card__title">';
+
+    // Left column: name + assignee + inline edit form
+    $p_uj .= '<div class="el-es-uj-card__left">';
     $p_uj .= '<strong class="el-es-uj-type-display">' . esc_html( $jny->user_type ) . '</strong>';
-    // Inline edit — only available before stakeholder has submitted (pending_assignment or awaiting_input)
+    $p_uj .= '<div class="el-es-uj-card__assignee">' . ( $assigned_name ? esc_html( $assigned_name ) : '<em class="el-es-uj-unassigned">' . esc_html__( 'Unassigned', 'el-core' ) . '</em>' ) . '</div>';
     if ( in_array( $jstatus, [ 'pending_assignment', 'awaiting_input' ], true ) ) {
-        $p_uj .= '<button type="button" class="el-es-uj-edit-type-btn" title="' . esc_attr__( 'Edit user type name', 'el-core' ) . '" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '">';
-        $p_uj .= '<span class="dashicons dashicons-edit" style="font-size:14px;width:14px;height:14px;"></span>';
-        $p_uj .= '</button>';
-        // Delete — only when not yet assigned (no work done yet)
-        if ( $jstatus === 'pending_assignment' ) {
-            $p_uj .= '<button type="button" class="el-es-uj-delete-type-btn" title="' . esc_attr__( 'Delete this user type', 'el-core' ) . '" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" data-user-type="' . esc_attr( $jny->user_type ) . '">';
-            $p_uj .= '<span class="dashicons dashicons-trash" style="font-size:14px;width:14px;height:14px;color:#DC2626;"></span>';
-            $p_uj .= '</button>';
-        }
-        $p_uj .= '<span class="el-es-uj-edit-type-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;">';
-        $p_uj .= '<input type="text" class="el-es-uj-edit-type-input" value="' . esc_attr( $jny->user_type ) . '" style="font-size:13px;padding:3px 6px;border:1px solid #CBD5E1;border-radius:4px;width:180px;" />';
-        $p_uj .= '<button type="button" class="el-btn el-btn-primary el-es-uj-save-type-btn" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" style="padding:3px 10px;font-size:12px;margin-left:4px;">' . esc_html__( 'Save', 'el-core' ) . '</button>';
-        $p_uj .= '<button type="button" class="el-btn el-btn-secondary el-es-uj-cancel-edit-type-btn" data-journey-id="' . esc_attr( $jid ) . '" style="padding:3px 8px;font-size:12px;margin-left:2px;">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
-        $p_uj .= '</span>';
+        $p_uj .= '<div class="el-es-uj-edit-type-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;">';
+        $p_uj .= '<input type="text" class="el-es-uj-edit-type-input" value="' . esc_attr( $jny->user_type ) . '" />';
+        $p_uj .= '<div class="el-es-uj-edit-type-actions">';
+        $p_uj .= '<button type="button" class="el-btn el-btn-primary el-es-uj-save-type-btn" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '">' . esc_html__( 'Save', 'el-core' ) . '</button>';
+        $p_uj .= '<button type="button" class="el-btn el-btn-secondary el-es-uj-cancel-edit-type-btn" data-journey-id="' . esc_attr( $jid ) . '">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
+        $p_uj .= '</div>';
+        $p_uj .= '</div>';
     }
-    $p_uj .= '</div>';
+    $p_uj .= '</div>'; // .el-es-uj-card__left
+
+    // Right column: status badge + action icons + expand arrow
+    $p_uj .= '<div class="el-es-uj-card__right">';
     $p_uj .= EL_Admin_UI::badge( [
         'label'   => $uj_status_labels[ $jstatus ] ?? ucfirst( $jstatus ),
         'variant' => $uj_status_variants[ $jstatus ] ?? 'default',
     ] );
+    if ( in_array( $jstatus, [ 'pending_assignment', 'awaiting_input' ], true ) ) {
+        $p_uj .= '<div class="el-es-uj-card__actions" onclick="event.stopPropagation();">';
+        $p_uj .= '<button type="button" class="el-es-uj-icon-btn el-es-uj-edit-type-btn" title="' . esc_attr__( 'Rename user type', 'el-core' ) . '" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '"><span class="dashicons dashicons-edit"></span></button>';
+        if ( $jstatus === 'pending_assignment' ) {
+            $p_uj .= '<button type="button" class="el-es-uj-icon-btn el-es-uj-icon-btn--danger el-es-uj-delete-type-btn" title="' . esc_attr__( 'Delete user type', 'el-core' ) . '" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" data-user-type="' . esc_attr( $jny->user_type ) . '"><span class="dashicons dashicons-trash"></span></button>';
+        }
+        $p_uj .= '</div>';
+    }
     $p_uj .= '<span class="el-es-uj-expand-icon dashicons dashicons-arrow-down-alt2"></span>';
-    $p_uj .= '</div>'; // end header
+    $p_uj .= '</div>'; // .el-es-uj-card__right
 
+    $p_uj .= '</div>'; // end header
     // Card body — expanded state
     $p_uj .= '<div class="el-es-uj-card__body" id="el-es-uj-card-body-' . esc_attr( $jid ) . '" style="display:none;">';
 

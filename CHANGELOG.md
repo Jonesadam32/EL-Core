@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.3] — 2026-03-09
+### Fixed
+- **Portal "Assign" button still doing nothing (403 error)**: `handle_dm_assign_journey` was checking only `$project->decision_maker_id` to verify the DM. But the DM is often stored via the stakeholders table with role `decision_maker`, not necessarily in that legacy column. Fixed by mirroring the same dual-check that `is_decision_maker()` uses — checks both the column and the stakeholders table row.
+
+### Improved
+- **Admin Phase 4 card header layout redesign**: Replaced the cramped inline cluster of name + pencil + trash with a proper two-column layout:
+  - **Left:** User type name (bold, 14px) stacked above the assignee name in muted text
+  - **Right:** Status badge + icon-only action buttons (pencil to rename, trash to delete) + expand arrow, all cleanly spaced
+  - Pencil and trash are now proper 30×30 bordered icon buttons with hover states (trash turns red on hover)
+  - The inline edit form (when pencil is clicked) now drops below the user type name in a light blue tray — no longer squishes into the header row
+  - Expand arrow now rotates 180° when the card is open
+
+---
+
 ## [1.33.2] — 2026-03-09
 ### Fixed
 - **Portal "Assign" button did nothing when multiple journey cards existed**: The JS handler was using `document.querySelector('.el-es-journey-assign-select[data-journey-id="..."]')` which always found the first matching select on the page, not the one in the card that was clicked. Fixed by scoping the lookup to `btn.closest('.el-es-journey-card')` first.

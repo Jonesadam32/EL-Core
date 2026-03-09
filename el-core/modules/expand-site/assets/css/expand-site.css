@@ -2437,11 +2437,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
+    padding: 14px 18px;
     cursor: pointer;
     background: #f9fafb;
     border-bottom: 1px solid transparent;
     user-select: none;
+    gap: 16px;
 }
 .el-es-uj-card__header:hover {
     background: #f3f4f6;
@@ -2450,31 +2451,116 @@
     background: #f0fdf4;
 }
 
-.el-es-uj-card__title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+/* Left column — name + assignee stacked vertically */
+.el-es-uj-card__left {
     flex: 1;
     min-width: 0;
 }
-.el-es-uj-card__title strong {
+.el-es-uj-card__left strong.el-es-uj-type-display {
+    display: block;
     font-size: 14px;
-    color: #111827;
     font-weight: 600;
+    color: #111827;
+    line-height: 1.3;
 }
-.el-es-uj-card__assigned {
+.el-es-uj-card__assignee {
     font-size: 12px;
     color: #6b7280;
+    margin-top: 3px;
 }
-.el-es-uj-card__assigned em {
+.el-es-uj-unassigned {
     color: #9ca3af;
+    font-style: italic;
+}
+
+/* Right column — badge + action buttons + expand icon */
+.el-es-uj-card__right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* Action icon buttons (pencil + trash) */
+.el-es-uj-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.el-es-uj-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    color: #6b7280;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    padding: 0;
+}
+.el-es-uj-icon-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+}
+.el-es-uj-icon-btn .dashicons {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+}
+.el-es-uj-icon-btn--danger {
+    color: #dc2626;
+    border-color: #fecaca;
+}
+.el-es-uj-icon-btn--danger:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+}
+
+/* Inline edit form — appears below the user type name */
+.el-es-uj-edit-type-form {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.el-es-uj-edit-type-input {
+    width: 100%;
+    max-width: 280px;
+    padding: 6px 10px;
+    border: 1px solid #93c5fd;
+    border-radius: 5px;
+    font-size: 13px;
+    color: #111827;
+    background: #fff;
+    box-sizing: border-box;
+}
+.el-es-uj-edit-type-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+.el-es-uj-edit-type-actions {
+    display: flex;
+    gap: 6px;
 }
 
 .el-es-uj-expand-icon {
     font-size: 14px;
     color: #6b7280;
-    margin-left: 8px;
     flex-shrink: 0;
+    transition: transform 0.2s;
+}
+.el-es-uj-card.is-open .el-es-uj-expand-icon {
+    transform: rotate(180deg);
 }
 
 /* Card body — expandable */

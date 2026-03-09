@@ -2406,8 +2406,15 @@ class EL_Expand_Site_Module {
             EL_AJAX_Handler::error( __( 'Project not found.', 'el-core' ), 404 );
             return;
         }
-        $is_dm    = (int) $project->decision_maker_id === $user_id;
-        $is_admin = el_core_can( 'manage_expand_site' );
+        $is_admin    = el_core_can( 'manage_expand_site' );
+        $is_dm_col   = (int) $project->decision_maker_id === $user_id;
+        // Also check stakeholders table — DM may be stored there with role 'decision_maker'
+        $sh_table    = $wpdb->prefix . 'el_es_stakeholders';
+        $is_dm_row   = (bool) $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM {$sh_table} WHERE project_id = %d AND user_id = %d AND role = 'decision_maker' LIMIT 1",
+            $project_id, $user_id
+        ) );
+        $is_dm       = $is_dm_col || $is_dm_row;
         if ( ! $is_dm && ! $is_admin ) {
             EL_AJAX_Handler::error( __( 'Only the Decision Maker can assign journeys.', 'el-core' ), 403 );
             return;
