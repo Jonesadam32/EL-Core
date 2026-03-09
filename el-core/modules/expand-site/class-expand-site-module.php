@@ -2436,7 +2436,7 @@ class EL_Expand_Site_Module {
     }
 
     /**
-     * AJAX: Assigned stakeholder submits 5 guided answers.
+     * AJAX: Assigned stakeholder submits 6 guided answers.
      * Saves guided_answers JSON, fires Round 1 AI, advances status to ai_generated.
      */
     public function handle_submit_journey_answers( array $data ): void {
@@ -2469,13 +2469,14 @@ class EL_Expand_Site_Module {
             return;
         }
 
-        // Collect and validate the 5 answers
+        // Collect and validate the 6 answers
         $questions = [
             1 => 'How does this person first find or arrive at the website?',
-            2 => 'Once they land on the site, what is the first thing they need to do?',
-            3 => 'Do they need to create an account or log in to use the site — or can they get what they need without one?',
-            4 => 'What does success look like for this person — what have they accomplished when they leave the site happy?',
-            5 => 'Is there anything this person should NOT be able to do, or any frustration you want to prevent?',
+            2 => 'Do they need to create an account or log in to use the site — or can they get what they need without one?',
+            3 => 'Once they\'re in, what is the first thing they need to do?',
+            4 => 'What are the main things this person will do on the site on a regular basis?',
+            5 => 'What does success look like for this person — what have they accomplished when they leave the site happy?',
+            6 => 'Is there anything this person should NOT be able to do, or any frustration you want to prevent?',
         ];
 
         $guided_answers = [];
@@ -2513,7 +2514,7 @@ class EL_Expand_Site_Module {
     }
 
     /**
-     * Run Round 1 AI for a journey: generates structured workflow JSON from 5 guided answers.
+     * Run Round 1 AI for a journey: generates structured workflow JSON from 6 guided answers.
      * Returns decoded array on success, WP_Error on failure.
      */
     private function run_journey_ai_round1( int $project_id, object $journey, array $guided_answers ): array|WP_Error {

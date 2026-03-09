@@ -149,7 +149,7 @@ CREATE TABLE {prefix}el_es_journey_comments (
 
 ---
 
-## The 5 Guided Questions
+## The 6 Guided Questions
 
 Rendered in the portal for the assigned stakeholder. Each question has a visible "For example:" line that stays on screen while they type — not placeholder text inside the field.
 
@@ -163,31 +163,39 @@ Rendered in the portal for the assigned stakeholder. Each question has a visible
 
 ---
 
-**Question 2 — First action**
-
-> Once they land on the site, what is the first thing they need to do?
-
-*For example: Find out what programs are available, contact someone for more information, or sign up for an account.*
-
----
-
-**Question 3 — Account / login**
+**Question 2 — Account / login**
 
 > Do they need to create an account or log in to use the site — or can they get what they need without one?
 
-*For example: They can browse without an account but need to register to enroll. Or they always need to log in first because the content is private.*
+*For example: They can browse without an account but need to register to enroll. They always need to log in first because the content is private. Or they were given a login code with a pre-assigned profile and user type.*
 
 ---
 
-**Question 4 — Success state**
+**Question 3 — First action**
+
+> Once they're in, what is the first thing they need to do?
+
+*For example: Find out what programs are available, contact someone for more information, or go straight to a dashboard.*
+
+---
+
+**Question 4 — Core activities**
+
+> What are the main things this person will do on the site on a regular basis?
+
+*For example: Take courses, complete quizzes or exams, read articles, submit assignments, track their progress, or message other users.*
+
+---
+
+**Question 5 — Success state**
 
 > What does success look like for this person — what have they accomplished when they leave the site happy?
 
-*For example: They signed up for a program, they found the schedule they needed, or they submitted a contact form and got a confirmation.*
+*For example: They completed a course, passed an exam, found the schedule they needed, or submitted a contact form and got a confirmation.*
 
 ---
 
-**Question 5 — Restrictions / frustrations to prevent**
+**Question 6 — Restrictions / frustrations to prevent**
 
 > Is there anything this person should NOT be able to do, or any frustration you want to prevent?
 
@@ -197,7 +205,7 @@ Rendered in the portal for the assigned stakeholder. Each question has a visible
 
 ## AI Workflow — Round 1
 
-**Trigger:** Automatic, fires immediately after the assigned stakeholder submits their 5 answers.
+**Trigger:** Automatic, fires immediately after the assigned stakeholder submits their 6 answers.
 
 **Input to AI prompt:**
 

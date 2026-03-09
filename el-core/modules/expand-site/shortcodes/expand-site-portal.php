@@ -526,28 +526,32 @@ function el_shortcode_expand_site_portal( $atts ): string {
 							$html .= ' ' . esc_html__( 'Answer each question in your own words — there are no wrong answers.', 'el-core' );
 							$html .= '</p>';
 
-							$questions = [
-								1 => [
-									'q' => __( 'How does this person first find or arrive at the website?', 'el-core' ),
-									'eg' => __( 'They search Google for our services and click a result, or a teacher sends them a link, or they scan a QR code from a flyer.', 'el-core' ),
-								],
-								2 => [
-									'q' => __( 'Once they land on the site, what is the first thing they need to do?', 'el-core' ),
-									'eg' => __( 'Find out what programs are available, contact someone for more information, or sign up for an account.', 'el-core' ),
-								],
-								3 => [
-									'q' => __( 'Do they need to create an account or log in to use the site — or can they get what they need without one?', 'el-core' ),
-									'eg' => __( 'They can browse without an account but need to register to enroll. Or they always need to log in first because the content is private.', 'el-core' ),
-								],
-								4 => [
-									'q' => __( 'What does success look like for this person — what have they accomplished when they leave the site happy?', 'el-core' ),
-									'eg' => __( 'They signed up for a program, they found the schedule they needed, or they submitted a contact form and got a confirmation.', 'el-core' ),
-								],
-								5 => [
-									'q' => __( 'Is there anything this person should NOT be able to do, or any frustration you want to prevent?', 'el-core' ),
-									'eg' => __( 'They should not be able to see other users\' information. They should not get lost trying to find the registration button.', 'el-core' ),
-								],
-							];
+						$questions = [
+							1 => [
+								'q' => __( 'How does this person first find or arrive at the website?', 'el-core' ),
+								'eg' => __( 'They search Google for our services and click a result, or a teacher sends them a link, or they scan a QR code from a flyer.', 'el-core' ),
+							],
+							2 => [
+								'q' => __( 'Do they need to create an account or log in to use the site — or can they get what they need without one?', 'el-core' ),
+								'eg' => __( 'They can browse without an account but need to register to enroll. They always need to log in first because the content is private. Or they were given a login code with a pre-assigned profile and user type.', 'el-core' ),
+							],
+							3 => [
+								'q' => __( 'Once they\'re in, what is the first thing they need to do?', 'el-core' ),
+								'eg' => __( 'Find out what programs are available, contact someone for more information, or go straight to a dashboard.', 'el-core' ),
+							],
+							4 => [
+								'q' => __( 'What are the main things this person will do on the site on a regular basis?', 'el-core' ),
+								'eg' => __( 'Take courses, complete quizzes or exams, read articles, submit assignments, track their progress, or message other users.', 'el-core' ),
+							],
+							5 => [
+								'q' => __( 'What does success look like for this person — what have they accomplished when they leave the site happy?', 'el-core' ),
+								'eg' => __( 'They completed a course, passed an exam, found the schedule they needed, or submitted a contact form and got a confirmation.', 'el-core' ),
+							],
+							6 => [
+								'q' => __( 'Is there anything this person should NOT be able to do, or any frustration you want to prevent?', 'el-core' ),
+								'eg' => __( 'They should not be able to see other users\' information. They should not get lost trying to find the registration button.', 'el-core' ),
+							],
+						];
 
 							$html .= '<form class="el-es-journey-form" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" id="el-es-journey-form-' . esc_attr( $jid ) . '">';
 							foreach ( $questions as $n => $qdata ) {

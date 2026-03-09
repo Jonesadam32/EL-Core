@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.7] — 2026-03-09
+
+### Changed
+- **User Journey: 5 → 6 guided questions** — Added new Question 4 (Core activities: "What are the main things this person will do on the site on a regular basis?"). Reordered questions so Account/login is Q2 and First action is Q3 (was Q2/Q3 respectively). Updated example text across all questions. Changes applied consistently in:
+  - `SPEC-USER-JOURNEY-PHASE.md` — heading updated to "6 Guided Questions", full question set replaced
+  - `shortcodes/expand-site-portal.php` — portal question array updated to 6 entries with new wording and examples
+  - `class-expand-site-module.php` — server-side question array updated (validates all 6 answers on submit)
+  - `assets/js/expand-site.js` — answer collection loop updated from `n <= 5` to `n <= 6`
+
+---
+
 ## [1.33.6] — 2026-03-09
 
 ### Fixed

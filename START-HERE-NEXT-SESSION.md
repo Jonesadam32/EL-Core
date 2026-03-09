@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 9, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.33.6 — Found actual root cause of portal DM assign button not working: UJ JS handlers were nested inside the Mood Board IIFE which exits early when #el-es-mood-board doesn't exist on the page. Moved all UJ handlers to their own standalone IIFE.
+> **Current Plugin Version:** v1.33.7 — User Journey questions expanded from 5 to 6. New Q4 added (core activities). Questions reordered. All validation, collection loops, and spec updated.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

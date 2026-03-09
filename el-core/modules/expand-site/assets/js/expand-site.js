@@ -1098,7 +1098,7 @@
         var statusEl  = form.querySelector('.el-es-journey-submit-status');
 
         var answers = {};
-        for (var n = 1; n <= 5; n++) {
+        for (var n = 1; n <= 6; n++) {
             var field = form.querySelector('[name="answer_' + n + '"]');
             answers['answer_' + n] = field ? field.value : '';
         }
