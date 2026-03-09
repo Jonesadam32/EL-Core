@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 9, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.33.0 — built and committed. **Next session:** Continue with User Journey consensus review portal (portal `in_review` state: step-by-step comments, DM decision, verdicts — same pattern as definition review). Read `NEXT-SESSION-PROMPT-v1.33.0.md` for context.
+> **Current Plugin Version:** v1.33.4 — Portal DM assign button now shows inline errors instead of silent alert. Next: test v1.33.4 to confirm the exact error message surfaces when DM clicks Assign; if still failing, check browser console for JS errors and verify the DM user is properly added as a stakeholder on the project.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

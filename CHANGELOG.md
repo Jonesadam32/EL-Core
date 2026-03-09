@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.4] — 2026-03-09
+
+### Fixed
+- **Portal: DM "Assign" button — inline error feedback**: Replaced `alert()` with an inline DOM error message rendered directly below the assignment row. Errors from the server (permission denied, missing fields, etc.) now appear visibly in the UI regardless of browser alert suppression.
+- **Portal: Assignment select lookup simplified**: Removed the `[data-journey-id]` attribute filter from `card.querySelector` for the assignment select — the card scope alone is correct and avoids any attribute-matching edge cases.
+
+---
+
 ## [1.33.3] — 2026-03-09
 ### Fixed
 - **Portal "Assign" button still doing nothing (403 error)**: `handle_dm_assign_journey` was checking only `$project->decision_maker_id` to verify the DM. But the DM is often stored via the stakeholders table with role `decision_maker`, not necessarily in that legacy column. Fixed by mirroring the same dual-check that `is_decision_maker()` uses — checks both the column and the stakeholders table row.

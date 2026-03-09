@@ -1006,17 +1006,40 @@
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-journey-assign-btn');
         if (!btn) return;
+
         var journeyId = btn.dataset.journeyId;
         var projectId = btn.dataset.projectId;
+
         // Scope to the card so we get the right select when multiple cards exist
         var card   = btn.closest('.el-es-journey-card');
         var select = card
-            ? card.querySelector('.el-es-journey-assign-select[data-journey-id="' + journeyId + '"]')
+            ? card.querySelector('.el-es-journey-assign-select')
             : document.querySelector('.el-es-journey-assign-select[data-journey-id="' + journeyId + '"]');
+
+        // Find or create a status message element inside the card
+        var statusEl = card ? card.querySelector('.el-es-journey-assign-status') : null;
+        if (!statusEl && card) {
+            var assignRow = card.querySelector('.el-es-journey-assign-row');
+            if (assignRow) {
+                statusEl = document.createElement('p');
+                statusEl.className = 'el-es-journey-assign-status';
+                statusEl.style.cssText = 'margin-top:8px;font-size:13px;color:#c0392b;';
+                assignRow.appendChild(statusEl);
+            }
+        }
+
+        var showError = function(msg) {
+            if (statusEl) { statusEl.textContent = msg; statusEl.style.display = 'block'; }
+            else { alert(msg); }
+        };
+
         if (!select || !select.value) {
-            alert('Please select a team member first.');
+            showError('Please select a team member first.');
             return;
         }
+
+        if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
+
         var assigneeId   = select.value;
         var originalText = btn.textContent;
         btn.disabled = true;
@@ -1027,7 +1050,7 @@
                 window.location.reload();
             })
             .catch(function(err) {
-                alert(err.message || 'Failed to assign team member.');
+                showError(err.message || 'Failed to assign. Please try again.');
                 btn.disabled = false;
                 btn.textContent = originalText;
             });
