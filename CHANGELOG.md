@@ -6,6 +6,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.31.1] — 2026-03-08
+### Fixed
+- **Delete button missing from "Projects Needing Attention" table** (`project-list.php`): Projects with expired deadlines or definition actions pending were showing in the Needs Attention section with no way to delete them. Delete button now appears in both the Needs Attention table and the regular All Projects table.
+
+---
+
 ## [1.31.0] — 2026-03-08
 ### Added — Step A: User Journey Phase Foundation
 - **DB migration v10** (`module.json`): Added 3 new tables — `el_es_user_journeys` (one row per user type per project), `el_es_journey_reviews` (one row per review round), `el_es_journey_comments` (threaded per-step comments with verdicts).

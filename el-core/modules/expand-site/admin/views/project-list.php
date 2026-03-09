@@ -232,7 +232,15 @@ if ( ! empty( $needs_attention ) ) {
             'icon'    => 'visibility',
             'url'     => admin_url( 'admin.php?page=el-core-projects&project=' . $p->id ),
         ] );
-        
+
+        $actions .= EL_Admin_UI::btn( [
+            'label'   => __( 'Delete', 'el-core' ),
+            'variant' => 'ghost',
+            'icon'    => 'trash',
+            'class'   => 'el-es-delete-project-btn',
+            'data'    => [ 'project-id' => $p->id, 'project-name' => $p->name ],
+        ] );
+
         $attn_client = esc_html( $p->client_name );
         if ( ! empty( $p->organization_id ) && (int) $p->organization_id > 0 ) {
             $attn_client = '<a href="' . esc_url( admin_url( 'admin.php?page=el-core-clients&client_id=' . $p->organization_id ) ) . '">'
