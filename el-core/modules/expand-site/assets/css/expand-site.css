@@ -2746,6 +2746,222 @@
     margin: 0;
 }
 
+/* ─── Stage 4 Journey Full UI (portal) ─────────────────────────────────── */
+.el-es-journey-stage {
+    margin-top: 24px;
+}
+
+.el-es-journey-stage-intro {
+    color: #475569;
+    line-height: 1.65;
+    margin: 0 0 20px 0;
+    font-size: 0.9rem;
+}
+
+.el-es-journey-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.el-es-journey-card {
+    background: #fff;
+    border: 1px solid #E0E7FF;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.el-es-journey-card--locked {
+    border-color: #A7F3D0;
+}
+
+.el-es-journey-card--approved {
+    border-color: #6EE7B7;
+}
+
+.el-es-journey-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: #F8FAFF;
+    border-bottom: 1px solid #E0E7FF;
+    gap: 12px;
+}
+
+.el-es-journey-card--locked .el-es-journey-card-header,
+.el-es-journey-card--approved .el-es-journey-card-header {
+    background: #F0FDF4;
+    border-bottom-color: #A7F3D0;
+}
+
+.el-es-journey-card-title {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.el-es-journey-user-type {
+    font-weight: 700;
+    color: #1E293B;
+    font-size: 0.95rem;
+}
+
+.el-es-journey-assignee {
+    font-size: 0.8rem;
+    color: #64748B;
+}
+
+.el-es-journey-assignee--empty {
+    color: #94A3B8;
+    font-style: italic;
+}
+
+.el-es-journey-card-body {
+    padding: 16px 18px;
+}
+
+.el-es-journey-card-info {
+    margin: 0;
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.el-es-journey-card-info--processing {
+    color: #7C3AED;
+}
+
+.el-es-journey-assign-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.el-es-journey-assign-select {
+    flex: 1;
+    min-width: 160px;
+    max-width: 280px;
+    padding: 8px 10px;
+    border: 1px solid #CBD5E1;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #1E293B;
+    background: #fff;
+}
+
+.el-es-journey-assign-btn {
+    white-space: nowrap;
+}
+
+.el-es-journey-reassign-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #E2E8F0;
+}
+
+.el-es-journey-reassign-toggle {
+    font-size: 0.8rem;
+    color: #6366F1;
+    text-decoration: none;
+}
+
+.el-es-journey-reassign-toggle:hover {
+    text-decoration: underline;
+}
+
+.el-es-journey-reassign-form {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ─── Journey 5-Question Form ─────────────────────────────────────────── */
+.el-es-journey-form-intro {
+    color: #334155;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0 0 20px 0;
+    padding: 12px 14px;
+    background: #EEF2FF;
+    border-left: 3px solid #6366F1;
+    border-radius: 0 6px 6px 0;
+}
+
+.el-es-journey-question {
+    margin-bottom: 20px;
+}
+
+.el-es-journey-question-label {
+    display: block;
+    font-size: 0.9rem;
+    color: #1E293B;
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.el-es-journey-question-example {
+    font-size: 0.82rem;
+    color: #64748B;
+    margin: 0 0 8px 0;
+    line-height: 1.5;
+}
+
+.el-es-journey-answer {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: #1E293B;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+}
+
+.el-es-journey-answer:focus {
+    outline: none;
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.el-es-journey-form-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #F1F5F9;
+    margin-top: 8px;
+}
+
+.el-es-journey-submit-status {
+    font-size: 0.85rem;
+    color: #7C3AED;
+    font-style: italic;
+}
+
+.el-es-journey-submitted-notice {
+    padding: 16px;
+    background: #F0FDF4;
+    border: 1px solid #A7F3D0;
+    border-radius: 8px;
+    color: #065F46;
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.el-es-journey-submitted-notice p {
+    margin: 0;
+}
+
 .el-es-placeholder-notice {
     display: flex;
     align-items: flex-start;

@@ -29,7 +29,7 @@
     },
 
     "database": {
-        "version": 11,
+        "version": 12,
         "tables": {
             "el_es_projects": {
                 "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
@@ -55,7 +55,8 @@
                 "notes": "LONGTEXT",
                 "created_by": "BIGINT UNSIGNED DEFAULT 0",
                 "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
-                "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+                "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+                "journey_list_approved_at": "DATETIME NULL"
             },
             "el_es_stage_history": {
                 "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
@@ -309,6 +310,9 @@
                 "ALTER TABLE el_es_proposals ADD COLUMN annual_platform_fee DECIMAL(10,2) DEFAULT 0 AFTER final_price",
                 "ALTER TABLE el_es_proposals ADD COLUMN first_payment_amount DECIMAL(10,2) DEFAULT 0 AFTER annual_platform_fee",
                 "ALTER TABLE el_es_proposals ADD COLUMN final_payment_amount DECIMAL(10,2) DEFAULT 0 AFTER first_payment_amount"
+            ],
+            "12": [
+                "ALTER TABLE el_es_projects ADD COLUMN journey_list_approved_at DATETIME NULL"
             ],
             "7": [
                 "ALTER TABLE el_es_project_definition MODIFY COLUMN site_type VARCHAR(100) DEFAULT ''"

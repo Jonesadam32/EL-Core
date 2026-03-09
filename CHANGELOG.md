@@ -6,6 +6,26 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.0] — 2026-03-09
+### Added
+- **DB migration v12**: Added `journey_list_approved_at DATETIME NULL` column to `el_es_projects`. Admin sets this when they're satisfied with the user type list and ready for the DM to begin assignments.
+- **Admin — "Send List to Client" button** (Phase 4 panel): Appears in the panel header when the list hasn't been sent yet and at least one journey row exists. Clicking calls `es_approve_journey_list` and sets the timestamp. Panel shows a "List sent to client" confirmation badge after the click.
+- **AJAX handler `es_approve_journey_list`** (`handle_approve_journey_list`): Admin-only — sets `journey_list_approved_at` on the project.
+- **AJAX handler `es_dm_assign_journey`** (`handle_dm_assign_journey`): Portal-facing — DM (or admin) assigns a stakeholder to a journey row. Sets `assigned_to`, advances status from `pending_assignment` → `awaiting_input`. Validates that the caller is the project's DM or an admin.
+- **AJAX handler `es_submit_journey_answers`** (`handle_submit_journey_answers`): Portal-facing — the assigned stakeholder submits 5 guided answers. Saves as `guided_answers` JSON, fires `run_journey_ai_round1()` which calls the AI API and saves the result as `ai_workflow`, advances status to `ai_generated`.
+- **Private helper `run_journey_ai_round1()`**: Builds the Round 1 AI prompt from project definition context + user type + 5 Q&A pairs. Returns structured JSON workflow (summary, steps, implied_pages, open_questions) or WP_Error.
+- **Portal Stage 4 — full DM assignment UI**: Replaces the read-only placeholder. Shows a "pending admin" message when `journey_list_approved_at` is NULL. When set, renders one card per user type:
+  - DM sees assignment dropdown + "Assign" button for `pending_assignment` rows
+  - DM sees "Reassign" toggle on `awaiting_input` rows
+  - Assigned stakeholder sees the full 5-question form with "For example:" helper text visible at all times; "Submit My Input" button is disabled until all 5 fields are non-empty
+  - Non-assigned viewers see a "Waiting for [Name]" message
+  - Processing states (`awaiting_ai`, `ai_generated`, `admin_refined`) show an "in progress" indicator
+  - Locked/approved/in_review states show read-only status messaging
+- **Portal JS** (`expand-site.js`): Journey assign button handler, reassign toggle, form field validator (enable submit only when all 5 filled), form submit handler with loading/success states.
+- **CSS** (`expand-site.css`): Full Stage 4 portal styles — journey cards, card headers, assignment row, question form, "For example:" labels, submit footer, submitted/success notice.
+
+---
+
 ## [1.32.1] — 2026-03-09
 ### Fixed
 - **Phantom slashes in proposal narrative prose**: Section fields (`section_situation`, `section_what_we_build`, `section_why_els`, `section_investment`, `section_next_steps`, `terms_conditions`) were being passed through the AJAX handler's `sanitize_input()` which calls `sanitize_text_field()` — stripping newlines and corrupting multi-paragraph text. Fixed by reading these fields directly from `$_POST` with `wp_unslash()` + `sanitize_textarea_field()`, bypassing the pre-sanitized `$data` array.

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Expand Site — Client Portal JavaScript
  *
  * Vanilla JS only. Uses ELCore.ajax(). Event delegation on document.
@@ -999,4 +999,90 @@
         });
     });
 
+
+    // === User Journey â€” Portal (Stage 4) ===
+
+    // Assign button (DM assigns a stakeholder to a journey)
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-journey-assign-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var select    = document.querySelector('.el-es-journey-assign-select[data-journey-id="' + journeyId + '"]');
+        if (!select || !select.value) {
+            alert('Please select a team member first.');
+            return;
+        }
+        var assigneeId   = select.value;
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Assigning...';
+
+        ELCore.ajax('es_dm_assign_journey', { journey_id: journeyId, project_id: projectId, assigned_to: assigneeId })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to assign team member.');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+    });
+
+    // Reassign toggle (show/hide reassign form)
+    document.addEventListener('click', function(e) {
+        var toggle = e.target.closest('.el-es-journey-reassign-toggle');
+        if (!toggle) return;
+        e.preventDefault();
+        var journeyId = toggle.dataset.journeyId;
+        var form      = document.querySelector('.el-es-journey-reassign-form[data-journey-id="' + journeyId + '"]');
+        if (!form) return;
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Journey answer form -- enable submit when all 5 fields have text
+    document.addEventListener('input', function(e) {
+        var textarea = e.target.closest('.el-es-journey-answer');
+        if (!textarea) return;
+        var form   = textarea.closest('.el-es-journey-form');
+        if (!form) return;
+        var fields = form.querySelectorAll('.el-es-journey-answer');
+        var allFilled = true;
+        fields.forEach(function(f) { if (!f.value.trim()) allFilled = false; });
+        var submitBtn = form.querySelector('.el-es-journey-submit-btn');
+        if (submitBtn) submitBtn.disabled = !allFilled;
+    });
+
+    // Journey answer form submit
+    document.addEventListener('submit', function(e) {
+        var form = e.target.closest('.el-es-journey-form');
+        if (!form) return;
+        e.preventDefault();
+        var journeyId = form.dataset.journeyId;
+        var projectId = form.dataset.projectId;
+        var submitBtn = form.querySelector('.el-es-journey-submit-btn');
+        var statusEl  = form.querySelector('.el-es-journey-submit-status');
+
+        var answers = {};
+        for (var n = 1; n <= 5; n++) {
+            var field = form.querySelector('[name="answer_' + n + '"]');
+            answers['answer_' + n] = field ? field.value : '';
+        }
+
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
+        if (statusEl)  { statusEl.style.display = 'inline'; statusEl.textContent = 'Generating workflow...'; }
+
+        ELCore.ajax('es_submit_journey_answers', Object.assign({ journey_id: journeyId, project_id: projectId }, answers))
+            .then(function(result) {
+                if (statusEl) statusEl.textContent = '';
+                form.innerHTML = '<div class="el-es-journey-submitted-notice">'
+                    + '<p>' + (result.message || 'Thank you! Our team will review and build out this workflow.') + '</p>'
+                    + '</div>';
+            })
+            .catch(function(err) {
+                if (statusEl) { statusEl.style.display = 'none'; }
+                alert(err.message || 'Failed to submit answers. Please try again.');
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit My Input'; }
+            });
+    });
 })();

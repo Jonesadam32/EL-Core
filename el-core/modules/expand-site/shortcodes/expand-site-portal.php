@@ -425,7 +425,7 @@ function el_shortcode_expand_site_portal( $atts ): string {
 			}
 		}
 
-		// Stage 4 — User Journey placeholder
+		// Stage 4 — User Journey: DM Assignment + Stakeholder Questions
 		if ( $num === 4 ) {
 			global $wpdb;
 			$journeys_table = $wpdb->prefix . 'el_es_user_journeys';
@@ -434,51 +434,190 @@ function el_shortcode_expand_site_portal( $atts ): string {
 				$project_id
 			) );
 
-			$html .= '<div class="el-es-stage-section el-es-journey-placeholder">';
-			$html .= '<h4 class="el-es-stage-section-title">' . el_es_icon( 'users', 18 ) . esc_html__( 'User Journeys', 'el-core' ) . '</h4>';
-			$html .= '<p class="el-es-journey-placeholder-intro">';
-			$html .= esc_html__( 'In this phase, each member of your team will describe how a specific type of user moves through your website. This helps us build something that truly works for the people who will use it.', 'el-core' );
-			$html .= '</p>';
+			$current_user_id       = get_current_user_id();
+			$journey_list_approved = ! empty( $project->journey_list_approved_at );
 
-			if ( ! empty( $journeys ) ) {
-				$html .= '<div class="el-es-journey-list">';
-				foreach ( $journeys as $j ) {
-					$status_labels = [
-						'pending_assignment' => __( 'Awaiting Assignment', 'el-core' ),
-						'assigned'           => __( 'Assigned', 'el-core' ),
-						'in_progress'        => __( 'In Progress', 'el-core' ),
-						'submitted'          => __( 'Submitted', 'el-core' ),
-						'needs_revision'     => __( 'Needs Revision', 'el-core' ),
-						'locked'             => __( 'Complete', 'el-core' ),
-					];
-					$status_label = $status_labels[ $j->status ] ?? ucfirst( str_replace( '_', ' ', $j->status ) );
-					$assigned_name = '';
-					if ( $j->assigned_to ) {
-						$au = get_userdata( (int) $j->assigned_to );
-						if ( $au ) $assigned_name = $au->display_name;
-					}
-					$html .= '<div class="el-es-journey-row">';
-					$html .= '<div class="el-es-journey-user-type">' . esc_html( $j->user_type ) . '</div>';
-					$html .= '<div class="el-es-journey-meta">';
-					if ( $assigned_name ) {
-						$html .= '<span class="el-es-journey-assigned">' . esc_html( $assigned_name ) . '</span>';
-					}
-					$html .= '<span class="el-es-badge el-es-badge-' . esc_attr( $j->status ) . '">' . esc_html( $status_label ) . '</span>';
-					$html .= '</div>';
-					$html .= '</div>';
-				}
-				$html .= '</div>';
-				$html .= '<p class="el-es-journey-note">';
-				$html .= esc_html__( 'Your project manager will send you a link when it\'s your turn to describe a user journey. Check back here for updates.', 'el-core' );
-				$html .= '</p>';
-			} else {
+			$html .= '<div class="el-es-stage-section el-es-journey-stage">';
+			$html .= '<h4 class="el-es-stage-section-title">' . el_es_icon( 'users', 18 ) . esc_html__( 'User Journeys', 'el-core' ) . '</h4>';
+			$html .= '<p class="el-es-journey-stage-intro">' . esc_html__( 'In this phase, each member of your team will describe how a specific type of user moves through your website. This helps us design a site that works for everyone who uses it.', 'el-core' ) . '</p>';
+
+			if ( ! $journey_list_approved ) {
+				// Admin hasn't sent the list yet
 				$html .= '<div class="el-es-placeholder-notice">';
 				$html .= el_es_icon( 'clock', 20 );
-				$html .= '<p>' . esc_html__( 'Your project manager is setting up the user journey assignments. You\'ll be notified when your input is needed.', 'el-core' ) . '</p>';
+				$html .= '<p>' . esc_html__( 'Your project manager is reviewing the list of user types and will notify you when it\'s ready for your team\'s input.', 'el-core' ) . '</p>';
 				$html .= '</div>';
+			} elseif ( empty( $journeys ) ) {
+				$html .= '<div class="el-es-placeholder-notice">';
+				$html .= el_es_icon( 'clock', 20 );
+				$html .= '<p>' . esc_html__( 'Your project manager is finalizing the user type list. Check back soon.', 'el-core' ) . '</p>';
+				$html .= '</div>';
+			} else {
+				// Build stakeholder options for DM assignment dropdown
+				$stakeholder_options = '<option value="">' . esc_html__( '— Select a team member —', 'el-core' ) . '</option>';
+				foreach ( $stakeholders as $sh ) {
+					$su = get_userdata( (int) $sh->user_id );
+					if ( $su ) {
+						$stakeholder_options .= '<option value="' . esc_attr( $sh->user_id ) . '">' . esc_html( $su->display_name ) . '</option>';
+					}
+				}
+
+				$html .= '<div class="el-es-journey-list" id="el-es-journey-list" data-project-id="' . esc_attr( $project_id ) . '">';
+
+				foreach ( $journeys as $j ) {
+					$jid         = (int) $j->id;
+					$jstatus     = $j->status;
+					$assigned_to = (int) $j->assigned_to;
+					$is_assigned_to_me = ( $assigned_to === $current_user_id );
+
+					$assigned_name = '';
+					if ( $assigned_to ) {
+						$au = get_userdata( $assigned_to );
+						if ( $au ) $assigned_name = $au->display_name;
+					}
+
+					$status_labels = [
+						'pending_assignment' => __( 'Awaiting Assignment', 'el-core' ),
+						'awaiting_input'     => __( 'Awaiting Input', 'el-core' ),
+						'awaiting_ai'        => __( 'Processing', 'el-core' ),
+						'ai_generated'       => __( 'In Review', 'el-core' ),
+						'admin_refined'      => __( 'In Review', 'el-core' ),
+						'in_review'          => __( 'Under Review', 'el-core' ),
+						'approved'           => __( 'Approved', 'el-core' ),
+						'locked'             => __( 'Complete', 'el-core' ),
+					];
+					$status_label = $status_labels[ $jstatus ] ?? ucfirst( str_replace( '_', ' ', $jstatus ) );
+
+					$html .= '<div class="el-es-journey-card el-es-journey-card--' . esc_attr( $jstatus ) . '" data-journey-id="' . esc_attr( $jid ) . '">';
+
+					// Card header
+					$html .= '<div class="el-es-journey-card-header">';
+					$html .= '<div class="el-es-journey-card-title">';
+					$html .= '<span class="el-es-journey-user-type">' . esc_html( $j->user_type ) . '</span>';
+					if ( $assigned_name ) {
+						$html .= '<span class="el-es-journey-assignee">' . esc_html( $assigned_name ) . '</span>';
+					} else {
+						$html .= '<span class="el-es-journey-assignee el-es-journey-assignee--empty">' . esc_html__( 'Unassigned', 'el-core' ) . '</span>';
+					}
+					$html .= '</div>';
+					$html .= '<span class="el-es-badge el-es-badge-' . esc_attr( $jstatus ) . '">' . esc_html( $status_label ) . '</span>';
+					$html .= '</div>'; // .el-es-journey-card-header
+
+					// Card body — varies by status and viewer
+					$html .= '<div class="el-es-journey-card-body">';
+
+					if ( $jstatus === 'pending_assignment' ) {
+						if ( $is_decision_maker ) {
+							$html .= '<p class="el-es-journey-card-info">' . esc_html__( 'Assign a team member to describe this user\'s journey through the site.', 'el-core' ) . '</p>';
+							$html .= '<div class="el-es-journey-assign-row" data-journey-id="' . esc_attr( $jid ) . '">';
+							$html .= '<select class="el-es-journey-assign-select" data-journey-id="' . esc_attr( $jid ) . '">' . $stakeholder_options . '</select>';
+							$html .= '<button class="el-btn el-btn-primary el-es-journey-assign-btn" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '">' . esc_html__( 'Assign', 'el-core' ) . '</button>';
+							$html .= '</div>';
+						} else {
+							$html .= '<p class="el-es-journey-card-info">' . esc_html__( 'Waiting for the Decision Maker to assign a team member to this journey.', 'el-core' ) . '</p>';
+						}
+
+					} elseif ( $jstatus === 'awaiting_input' ) {
+						if ( $is_assigned_to_me ) {
+							// Full 5-question form
+							$html .= '<p class="el-es-journey-form-intro">';
+							$html .= esc_html__( 'You\'ve been asked to describe the journey for: ', 'el-core' );
+							$html .= '<strong>' . esc_html( $j->user_type ) . '</strong>.';
+							$html .= ' ' . esc_html__( 'Answer each question in your own words — there are no wrong answers.', 'el-core' );
+							$html .= '</p>';
+
+							$questions = [
+								1 => [
+									'q' => __( 'How does this person first find or arrive at the website?', 'el-core' ),
+									'eg' => __( 'They search Google for our services and click a result, or a teacher sends them a link, or they scan a QR code from a flyer.', 'el-core' ),
+								],
+								2 => [
+									'q' => __( 'Once they land on the site, what is the first thing they need to do?', 'el-core' ),
+									'eg' => __( 'Find out what programs are available, contact someone for more information, or sign up for an account.', 'el-core' ),
+								],
+								3 => [
+									'q' => __( 'Do they need to create an account or log in to use the site — or can they get what they need without one?', 'el-core' ),
+									'eg' => __( 'They can browse without an account but need to register to enroll. Or they always need to log in first because the content is private.', 'el-core' ),
+								],
+								4 => [
+									'q' => __( 'What does success look like for this person — what have they accomplished when they leave the site happy?', 'el-core' ),
+									'eg' => __( 'They signed up for a program, they found the schedule they needed, or they submitted a contact form and got a confirmation.', 'el-core' ),
+								],
+								5 => [
+									'q' => __( 'Is there anything this person should NOT be able to do, or any frustration you want to prevent?', 'el-core' ),
+									'eg' => __( 'They should not be able to see other users\' information. They should not get lost trying to find the registration button.', 'el-core' ),
+								],
+							];
+
+							$html .= '<form class="el-es-journey-form" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" id="el-es-journey-form-' . esc_attr( $jid ) . '">';
+							foreach ( $questions as $n => $qdata ) {
+								$html .= '<div class="el-es-journey-question">';
+								$html .= '<label class="el-es-journey-question-label"><strong>' . esc_html( $qdata['q'] ) . '</strong></label>';
+								$html .= '<p class="el-es-journey-question-example"><em>' . esc_html__( 'For example:', 'el-core' ) . '</em> ' . esc_html( $qdata['eg'] ) . '</p>';
+								$html .= '<textarea class="el-es-journey-answer" name="answer_' . $n . '" rows="3" placeholder="' . esc_attr__( 'Your answer…', 'el-core' ) . '" required></textarea>';
+								$html .= '</div>';
+							}
+							$html .= '<div class="el-es-journey-form-footer">';
+							$html .= '<button type="submit" class="el-btn el-btn-primary el-es-journey-submit-btn" disabled data-journey-id="' . esc_attr( $jid ) . '">' . esc_html__( 'Submit My Input', 'el-core' ) . '</button>';
+							$html .= '<span class="el-es-journey-submit-status" style="display:none;"></span>';
+							$html .= '</div>';
+							$html .= '</form>';
+
+							// Reassign link for DM who is also the assigned person
+							if ( $is_decision_maker ) {
+								$html .= '<div class="el-es-journey-reassign-section" style="margin-top:12px;">';
+								$html .= '<a href="#" class="el-es-journey-reassign-toggle" data-journey-id="' . esc_attr( $jid ) . '">' . esc_html__( 'Reassign to a different team member', 'el-core' ) . '</a>';
+								$html .= '<div class="el-es-journey-reassign-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;margin-top:8px;">';
+								$html .= '<select class="el-es-journey-assign-select" data-journey-id="' . esc_attr( $jid ) . '">' . $stakeholder_options . '</select>';
+								$html .= '<button class="el-btn el-btn-secondary el-es-journey-assign-btn" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" style="margin-top:6px;">' . esc_html__( 'Reassign', 'el-core' ) . '</button>';
+								$html .= '</div>';
+								$html .= '</div>';
+							}
+
+						} else {
+							// Not the assigned person
+							$waiting_name = $assigned_name ?: esc_html__( 'a team member', 'el-core' );
+							$html .= '<p class="el-es-journey-card-info">';
+							$html .= sprintf( esc_html__( 'Waiting for %s to complete this journey.', 'el-core' ), '<strong>' . esc_html( $waiting_name ) . '</strong>' );
+							$html .= '</p>';
+
+							if ( $is_decision_maker ) {
+								$html .= '<div class="el-es-journey-reassign-section">';
+								$html .= '<a href="#" class="el-es-journey-reassign-toggle" data-journey-id="' . esc_attr( $jid ) . '">' . esc_html__( 'Reassign to a different team member', 'el-core' ) . '</a>';
+								$html .= '<div class="el-es-journey-reassign-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;margin-top:8px;">';
+								$html .= '<select class="el-es-journey-assign-select" data-journey-id="' . esc_attr( $jid ) . '">' . $stakeholder_options . '</select>';
+								$html .= '<button class="el-btn el-btn-secondary el-es-journey-assign-btn" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" style="margin-top:6px;">' . esc_html__( 'Reassign', 'el-core' ) . '</button>';
+								$html .= '</div>';
+								$html .= '</div>';
+							}
+						}
+
+					} elseif ( in_array( $jstatus, [ 'awaiting_ai', 'ai_generated', 'admin_refined' ], true ) ) {
+						$html .= '<p class="el-es-journey-card-info el-es-journey-card-info--processing">';
+						$html .= el_es_icon( 'update', 16 );
+						$html .= ' ' . esc_html__( 'Our team is reviewing and building out this workflow. Check back soon.', 'el-core' );
+						$html .= '</p>';
+
+					} elseif ( in_array( $jstatus, [ 'in_review', 'approved', 'locked' ], true ) ) {
+						$html .= '<p class="el-es-journey-card-info">';
+						if ( $jstatus === 'locked' ) {
+							$html .= el_es_icon( 'lock', 16 ) . ' ' . esc_html__( 'This journey has been finalized.', 'el-core' );
+						} elseif ( $jstatus === 'approved' ) {
+							$html .= el_es_icon( 'yes-alt', 16 ) . ' ' . esc_html__( 'This journey has been approved by the team.', 'el-core' );
+						} else {
+							$html .= el_es_icon( 'visibility', 16 ) . ' ' . esc_html__( 'This journey is currently under team review.', 'el-core' );
+						}
+						$html .= '</p>';
+					}
+
+					$html .= '</div>'; // .el-es-journey-card-body
+					$html .= '</div>'; // .el-es-journey-card
+				}
+
+				$html .= '</div>'; // .el-es-journey-list
 			}
 
-			$html .= '</div>';
+			$html .= '</div>'; // .el-es-journey-stage
 		}
 
 		$html .= '</div>'; // end stage content

@@ -163,6 +163,11 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_send_journey_review',   [ $this, 'handle_send_journey_review' ] );
         add_action( 'el_core_ajax_es_reset_journey_review',  [ $this, 'handle_reset_journey_review' ] );
         add_action( 'el_core_ajax_es_lock_journey',          [ $this, 'handle_lock_journey' ] );
+        add_action( 'el_core_ajax_es_approve_journey_list',  [ $this, 'handle_approve_journey_list' ] );
+        add_action( 'el_core_ajax_nopriv_es_dm_assign_journey',      [ $this, 'handle_dm_assign_journey' ] );
+        add_action( 'el_core_ajax_nopriv_es_submit_journey_answers', [ $this, 'handle_submit_journey_answers' ] );
+        add_action( 'el_core_ajax_es_dm_assign_journey',             [ $this, 'handle_dm_assign_journey' ] );
+        add_action( 'el_core_ajax_es_submit_journey_answers',        [ $this, 'handle_submit_journey_answers' ] );
         // Guest (portal) access for stakeholders
         add_action( 'el_core_ajax_nopriv_es_get_definition_review',   [ $this, 'handle_get_definition_review' ] );
         add_action( 'el_core_ajax_nopriv_es_post_definition_comment', [ $this, 'handle_post_definition_comment' ] );
@@ -2301,7 +2306,210 @@ class EL_Expand_Site_Module {
     }
 
     /**
-     * AJAX: Admin sends definition for stakeholder review.
+     * AJAX: Admin marks the journey user-type list as ready for the DM to view.
+     * Sets journey_list_approved_at on the project.
+     */
+    public function handle_approve_journey_list( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Project ID required.', 'el-core' ) );
+            return;
+        }
+        global $wpdb;
+        $projects_table = $wpdb->prefix . 'el_es_projects';
+        $wpdb->update( $projects_table, [
+            'journey_list_approved_at' => current_time( 'mysql' ),
+        ], [ 'id' => $project_id ] );
+        EL_AJAX_Handler::success( [], __( 'Journey list sent to client.', 'el-core' ) );
+    }
+
+    /**
+     * AJAX: DM assigns (or reassigns) a stakeholder to a journey from the portal.
+     * Requires es_decision_maker capability for this project.
+     */
+    public function handle_dm_assign_journey( array $data ): void {
+        $user_id    = get_current_user_id();
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $assignee   = absint( $data['assigned_to'] ?? 0 );
+
+        if ( ! $user_id || ! $project_id || ! $journey_id || ! $assignee ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        // Verify the caller is the DM (or an admin) for this project
+        global $wpdb;
+        $projects_table = $wpdb->prefix . 'el_es_projects';
+        $project        = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$projects_table} WHERE id = %d", $project_id ) );
+        if ( ! $project ) {
+            EL_AJAX_Handler::error( __( 'Project not found.', 'el-core' ), 404 );
+            return;
+        }
+        $is_dm    = (int) $project->decision_maker_id === $user_id;
+        $is_admin = el_core_can( 'manage_expand_site' );
+        if ( ! $is_dm && ! $is_admin ) {
+            EL_AJAX_Handler::error( __( 'Only the Decision Maker can assign journeys.', 'el-core' ), 403 );
+            return;
+        }
+
+        $journeys_table = $wpdb->prefix . 'el_es_user_journeys';
+        $journey        = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$journeys_table} WHERE id = %d AND project_id = %d", $journey_id, $project_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ) );
+            return;
+        }
+
+        // Can only assign when awaiting assignment or awaiting input
+        if ( ! in_array( $journey->status, [ 'pending_assignment', 'awaiting_input' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'This journey can no longer be reassigned.', 'el-core' ) );
+            return;
+        }
+
+        $new_status = 'awaiting_input';
+        $wpdb->update( $journeys_table, [
+            'assigned_to' => $assignee,
+            'status'      => $new_status,
+        ], [ 'id' => $journey_id ] );
+
+        $assignee_user = get_userdata( $assignee );
+        EL_AJAX_Handler::success(
+            [ 'status' => $new_status, 'assigned_name' => $assignee_user ? $assignee_user->display_name : '' ],
+            __( 'Stakeholder assigned.', 'el-core' )
+        );
+    }
+
+    /**
+     * AJAX: Assigned stakeholder submits 5 guided answers.
+     * Saves guided_answers JSON, fires Round 1 AI, advances status to ai_generated.
+     */
+    public function handle_submit_journey_answers( array $data ): void {
+        $user_id    = get_current_user_id();
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+
+        if ( ! $user_id || ! $project_id || ! $journey_id ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $journeys_table = $wpdb->prefix . 'el_es_user_journeys';
+        $journey        = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$journeys_table} WHERE id = %d AND project_id = %d", $journey_id, $project_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ) );
+            return;
+        }
+
+        // Only the assigned stakeholder (or an admin) may submit
+        $is_assigned = (int) $journey->assigned_to === $user_id;
+        $is_admin    = el_core_can( 'manage_expand_site' );
+        if ( ! $is_assigned && ! $is_admin ) {
+            EL_AJAX_Handler::error( __( 'You are not assigned to this journey.', 'el-core' ), 403 );
+            return;
+        }
+        if ( $journey->status !== 'awaiting_input' ) {
+            EL_AJAX_Handler::error( __( 'Answers have already been submitted for this journey.', 'el-core' ) );
+            return;
+        }
+
+        // Collect and validate the 5 answers
+        $questions = [
+            1 => 'How does this person first find or arrive at the website?',
+            2 => 'Once they land on the site, what is the first thing they need to do?',
+            3 => 'Do they need to create an account or log in to use the site — or can they get what they need without one?',
+            4 => 'What does success look like for this person — what have they accomplished when they leave the site happy?',
+            5 => 'Is there anything this person should NOT be able to do, or any frustration you want to prevent?',
+        ];
+
+        $guided_answers = [];
+        foreach ( $questions as $n => $q_text ) {
+            $answer = sanitize_textarea_field( wp_unslash( $_POST[ 'answer_' . $n ] ?? '' ) );
+            if ( trim( $answer ) === '' ) {
+                EL_AJAX_Handler::error( sprintf( __( 'Answer %d is required.', 'el-core' ), $n ) );
+                return;
+            }
+            $guided_answers[] = [ 'question' => $q_text, 'answer' => $answer ];
+        }
+
+        $guided_answers_json = wp_json_encode( $guided_answers );
+        $wpdb->update( $journeys_table, [
+            'guided_answers' => $guided_answers_json,
+            'status'         => 'awaiting_ai',
+        ], [ 'id' => $journey_id ] );
+
+        // Fire Round 1 AI
+        $ai_result = $this->run_journey_ai_round1( $project_id, $journey, $guided_answers );
+
+        if ( is_wp_error( $ai_result ) ) {
+            // Answers saved; AI failed — still advance but flag it
+            $wpdb->update( $journeys_table, [ 'status' => 'ai_generated', 'ai_workflow' => null ], [ 'id' => $journey_id ] );
+            EL_AJAX_Handler::success( [ 'status' => 'ai_generated', 'ai_error' => $ai_result->get_error_message() ], __( 'Answers saved. AI generation failed — your project manager will review.', 'el-core' ) );
+            return;
+        }
+
+        $wpdb->update( $journeys_table, [
+            'ai_workflow' => wp_json_encode( $ai_result ),
+            'status'      => 'ai_generated',
+        ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success( [ 'status' => 'ai_generated' ], __( 'Thank you! Our team will review and build out this workflow.', 'el-core' ) );
+    }
+
+    /**
+     * Run Round 1 AI for a journey: generates structured workflow JSON from 5 guided answers.
+     * Returns decoded array on success, WP_Error on failure.
+     */
+    private function run_journey_ai_round1( int $project_id, object $journey, array $guided_answers ): array|WP_Error {
+        if ( ! $this->core->ai->is_configured() ) {
+            return new WP_Error( 'ai_not_configured', __( 'AI is not configured.', 'el-core' ) );
+        }
+
+        $definition = $this->get_project_definition( $project_id );
+        $project    = $this->get_project( $project_id );
+
+        $site_description = $definition->site_description ?? 'N/A';
+        $primary_goal     = $definition->primary_goal ?? 'N/A';
+        $site_type        = $definition->site_type ?? 'N/A';
+        $user_type        = $journey->user_type;
+
+        $qa_text = '';
+        foreach ( $guided_answers as $i => $qa ) {
+            $qa_text .= 'Q' . ( $i + 1 ) . ': ' . $qa['question'] . "\n";
+            $qa_text .= 'A: ' . $qa['answer'] . "\n\n";
+        }
+
+        $prompt  = "You are a UX designer reading a client's description of how a specific user type interacts with their website.\n";
+        $prompt .= "Based on this information, produce a structured user journey workflow in JSON format.\n\n";
+        $prompt .= "Project Context:\n";
+        $prompt .= "- Site Description: {$site_description}\n";
+        $prompt .= "- Primary Goal: {$primary_goal}\n";
+        $prompt .= "- Site Type: {$site_type}\n";
+        $prompt .= "- User Type: {$user_type}\n\n";
+        $prompt .= "Client's Answers:\n{$qa_text}\n";
+        $prompt .= "Produce ONLY valid JSON (no markdown fences, no explanation) with this exact shape:\n";
+        $prompt .= '{"summary":"string","steps":[{"id":"step_1","label":"string","description":"string","branch":null}],"implied_pages":["string"],"open_questions":["string"]}' . "\n";
+        $prompt .= "A step with a branch looks like: {\"branch\":{\"condition\":\"Has account?\",\"yes\":\"step_2a\",\"no\":\"step_2b\"}}\n";
+        $prompt .= "Use 5–10 steps. Keep labels short (3–5 words). Descriptions are 1 sentence. open_questions lists things the client did NOT clarify.\n";
+
+        $response = $this->core->ai->complete( $prompt );
+        if ( is_wp_error( $response ) ) {
+            return $response;
+        }
+
+        $decoded = json_decode( $response, true );
+        if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
+            return new WP_Error( 'ai_parse_error', __( 'AI returned an invalid workflow structure.', 'el-core' ) );
+        }
+
+        return $decoded;
+    }
+
+    /**
      * Creates a new review round, sets definition status to pending_review.
      */
     public function handle_send_definition_review( array $data ): void {

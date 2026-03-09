@@ -1816,4 +1816,23 @@
             });
     });
 
+    // ── Send List to Client button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-approve-list-btn');
+        if (!btn) return;
+        var projectId = btn.dataset.projectId;
+        if (!confirm('Send the user type list to the client? The Decision Maker will be able to assign team members once you confirm.')) return;
+        var originalText = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Sending…';
+
+        ujAjax('es_approve_journey_list', { project_id: projectId })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to send list to client.');
+                btn.disabled = false; btn.textContent = originalText;
+            });
+    });
+
 })();

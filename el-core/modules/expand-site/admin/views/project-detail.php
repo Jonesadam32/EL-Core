@@ -851,12 +851,27 @@ if ( $locked_journeys < $total_journeys ) {
     $p_uj .= '<span style="font-size:12px;color:#d97706;">' . __( 'Visual Identity will unlock once all journeys are locked.', 'el-core' ) . '</span>';
 }
 $p_uj .= '</div>';
+$p_uj .= '<div style="display:flex;align-items:center;gap:8px;">';
+// "Send List to Client" button — only shown when list not yet approved and at least 1 journey row exists
+$journey_list_approved = ! empty( $project->journey_list_approved_at );
+if ( ! $journey_list_approved && $total_journeys > 0 ) {
+    $p_uj .= EL_Admin_UI::btn( [
+        'label'   => __( 'Send List to Client', 'el-core' ),
+        'variant' => 'primary',
+        'icon'    => 'email-alt',
+        'data'    => [ 'action' => 'approve_journey_list', 'project-id' => $project_id ],
+        'classes' => 'el-es-uj-approve-list-btn',
+    ] );
+} elseif ( $journey_list_approved ) {
+    $p_uj .= '<span style="font-size:12px;color:#059669;font-weight:500;">' . esc_html__( 'List sent to client', 'el-core' ) . '</span>';
+}
 $p_uj .= EL_Admin_UI::btn( [
     'label'   => __( 'Add User Type', 'el-core' ),
     'variant' => 'secondary',
     'icon'    => 'plus-alt',
     'data'    => [ 'modal-open' => 'add-user-type-modal', 'project-id' => $project_id ],
 ] );
+$p_uj .= '</div>';
 $p_uj .= '</div>';
 
 if ( empty( $journeys ) ) {
