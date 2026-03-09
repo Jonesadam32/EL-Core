@@ -14,6 +14,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - **Phase initialization** (`class-expand-site-module.php`): `init_user_journeys()` method seeds one `el_es_user_journeys` row per user type when advancing to Stage 4. Reads `user_types` from locked definition (supports JSON array and comma-separated). Falls back to "General User" if empty. Idempotent — skips if rows already exist.
 - **AJAX handlers**: `es_init_user_journeys` (admin manual re-seed) and `es_add_user_type` (admin adds a user type not in the original list).
 
+### Added — Step B: Admin Phase 4 Panel + AJAX Handlers
+- **Admin Phase 4 panel** (`project-detail.php`): Full "User Journey" panel inserted between Proposal (Phase 3) and Visual Identity (Phase 5). Renders all 7 journey statuses per card: `pending_assignment` (stakeholder dropdown + Assign button), `awaiting_input` (waiting message + Reassign link), `ai_generated` (Q&A pairs + AI workflow display + admin notes + Refine button + Mermaid diagram placeholder), `admin_refined` (refined workflow + Send for Review button + further refinement option), `in_review` (active review info + read-only workflow + stakeholder comments list + Reset to Draft button), `approved` (lock banner + Lock button), `locked` (read-only workflow + lock badge with timestamp).
+- **Panel header**: Progress badge ("X of Y journeys locked"), Phase 5 gate notice, "Add User Type" button.
+- **Add User Type modal**: Simple text input form that creates a new `pending_assignment` journey row.
+- **Per-card "Send for Review" modals**: One deadline date picker modal per `admin_refined` journey.
+- **AJAX handlers** (`class-expand-site-module.php`): `handle_assign_journey` (sets `assigned_to`, advances `pending_assignment` → `awaiting_input`), `handle_send_journey_review` (creates review row, sets deadline, advances to `in_review`), `handle_reset_journey_review` (cancels open review, resets to `admin_refined`), `handle_lock_journey` (sets `locked_at`/`locked_by`, advances to `locked`, returns `all_locked` flag).
+- **Query helper**: `get_user_journeys( int $project_id )` returns all journey rows for a project.
+- **Admin JS** (`expand-site-admin.js`): User Journey IIFE block — card expand/collapse toggle, reassign link toggle, Assign button AJAX, Refine with AI button AJAX, Send for Review form submit, Reset to Draft confirm + AJAX, Lock Journey confirm + AJAX, Add User Type form submit.
+- **CSS** (`expand-site.css`): Full `el-es-uj-*` component system — journey cards with header/body expand pattern, status colour mapping, assign/reassign rows, Q&A pairs, workflow summary/steps/implied-pages, Mermaid diagram container, admin notes textarea, review info panel, stakeholder comments list, locked badge row.
+
 ---
 
 ## [1.30.4] — 2026-03-08

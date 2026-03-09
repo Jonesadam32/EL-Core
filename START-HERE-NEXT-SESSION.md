@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.31.0 Step A — Built, ready to upload to staging. **Next session:** BUILD Step B — Admin Phase 4 panel + AJAX handlers (assign, send-for-review, reset, lock). Read `SPEC-USER-JOURNEY-PHASE.md` before starting.
+> **Current Plugin Version:** v1.31.0 Step B — Built, ready to upload to staging. **Next session:** BUILD Step C — AI Round 1 (portal guided questions form + auto-fire AI on submit). Read `SPEC-USER-JOURNEY-PHASE.md` before starting.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

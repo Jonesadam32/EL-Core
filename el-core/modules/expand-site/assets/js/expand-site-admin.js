@@ -1609,3 +1609,196 @@
     });
 
 })();
+
+// ═══════════════════════════════════════════
+// USER JOURNEY PHASE — Admin JS (Phase 4)
+// ═══════════════════════════════════════════
+
+(function() {
+    'use strict';
+
+    var ajaxUrl = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.ajaxUrl : '';
+    var nonce   = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.nonce   : '';
+
+    function ujAjax(action, data) {
+        var body = new URLSearchParams(Object.assign({
+            action:    'el_core_action',
+            el_action: action,
+            nonce:     nonce
+        }, data));
+        return fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
+            .then(function(r) { return r.json(); })
+            .then(function(r) {
+                if (!r.success) throw new Error(r.data && r.data.message ? r.data.message : 'Request failed');
+                return r.data;
+            });
+    }
+
+    // ── Toggle expand/collapse journey cards ──
+    document.addEventListener('click', function(e) {
+        var header = e.target.closest('.el-es-uj-card__header');
+        if (!header) return;
+        var bodyId = header.dataset.toggle;
+        if (!bodyId) return;
+        var body = document.getElementById(bodyId);
+        if (!body) return;
+        var icon = header.querySelector('.el-es-uj-expand-icon');
+        if (body.style.display === 'none') {
+            body.style.display = 'block';
+            if (icon) { icon.classList.remove('dashicons-arrow-down-alt2'); icon.classList.add('dashicons-arrow-up-alt2'); }
+        } else {
+            body.style.display = 'none';
+            if (icon) { icon.classList.remove('dashicons-arrow-up-alt2'); icon.classList.add('dashicons-arrow-down-alt2'); }
+        }
+    });
+
+    // ── Reassign link toggle ──
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('.el-es-uj-reassign-link');
+        if (!link) return;
+        e.preventDefault();
+        var row = link.closest('.el-es-uj-reassign-row');
+        if (!row) return;
+        var form = row.querySelector('.el-es-uj-reassign-form');
+        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // ── Assign button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-assign-btn');
+        if (!btn) return;
+        var journeyId  = btn.dataset.journeyId;
+        var projectId  = btn.dataset.projectId;
+        // Find the closest select
+        var card       = btn.closest('.el-es-uj-card');
+        if (!card) return;
+        var select = card.querySelector('.el-es-uj-assign-select[data-journey-id="' + journeyId + '"]');
+        if (!select || !select.value) {
+            alert('Please select a stakeholder.');
+            return;
+        }
+        var userId = select.value;
+        var originalText = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Assigning…';
+
+        ujAjax('es_assign_journey', { journey_id: journeyId, assigned_to: userId, project_id: projectId })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to assign stakeholder.');
+                btn.disabled = false; btn.textContent = originalText;
+            });
+    });
+
+    // ── Refine with AI button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-refine-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var card = btn.closest('.el-es-uj-card');
+        var notesEl = card ? card.querySelector('.el-es-uj-admin-notes[data-journey-id="' + journeyId + '"]') : null;
+        var notes = notesEl ? notesEl.value : '';
+        var statusEl = btn.parentElement ? btn.parentElement.querySelector('.el-es-uj-refine-status') : null;
+
+        btn.disabled = true; btn.textContent = 'Refining…';
+        if (statusEl) { statusEl.textContent = 'Calling AI…'; }
+
+        ujAjax('es_refine_journey', { journey_id: journeyId, project_id: projectId, admin_notes: notes })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'AI refinement failed.');
+                btn.disabled = false; btn.textContent = 'Refine with AI';
+                if (statusEl) { statusEl.textContent = ''; }
+            });
+    });
+
+    // ── Send for Review form submit (modal form) ──
+    document.addEventListener('submit', function(e) {
+        var form = e.target.closest('.el-es-uj-send-review-form');
+        if (!form) return;
+        e.preventDefault();
+        var journeyId  = form.dataset.journeyId;
+        var projectId  = form.dataset.projectId;
+        var deadlineEl = form.querySelector('[name="deadline"]');
+        var deadline   = deadlineEl ? deadlineEl.value : '';
+        var btn        = form.querySelector('[type="submit"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+        ujAjax('es_send_journey_review', { journey_id: journeyId, project_id: projectId, deadline: deadline })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to send for review.');
+                if (btn) { btn.disabled = false; btn.textContent = 'Send for Review'; }
+            });
+    });
+
+    // ── Reset to Draft button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-reset-btn');
+        if (!btn) return;
+        if (!confirm('Cancel the active review and return this journey to Admin Refined status?')) return;
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var originalText = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Resetting…';
+
+        ujAjax('es_reset_journey_review', { journey_id: journeyId, project_id: projectId })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to reset journey.');
+                btn.disabled = false; btn.textContent = originalText;
+            });
+    });
+
+    // ── Lock Journey button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-lock-btn');
+        if (!btn) return;
+        if (!confirm('Lock this journey? This cannot be undone.')) return;
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        btn.disabled = true; btn.textContent = 'Locking…';
+
+        ujAjax('es_lock_journey', { journey_id: journeyId, project_id: projectId })
+            .then(function(result) {
+                if (result.data && result.data.all_locked) {
+                    alert('All journeys are now locked. Phase 5 (Visual Identity) is unlocked.');
+                }
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to lock journey.');
+                btn.disabled = false; btn.textContent = 'Lock Journey';
+            });
+    });
+
+    // ── Add User Type modal form submit ──
+    document.addEventListener('submit', function(e) {
+        var form = e.target.closest('#add-user-type-form');
+        if (!form) return;
+        e.preventDefault();
+        var projectId = form.querySelector('[name="project_id"]').value;
+        var userType  = form.querySelector('[name="user_type"]').value.trim();
+        if (!userType) { alert('Please enter a user type name.'); return; }
+        var btn = form.querySelector('[type="submit"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+
+        ujAjax('es_add_user_type', { project_id: projectId, user_type: userType })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to add user type.');
+                if (btn) { btn.disabled = false; btn.textContent = 'Add User Type'; }
+            });
+    });
+
+})();

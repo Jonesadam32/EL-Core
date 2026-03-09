@@ -821,7 +821,481 @@ $html .= EL_Admin_UI::tab_panel( [
     'active'  => $current_stage === 3,
 ] );
 
-// ── Phase 4: Visual Identity ──
+// ── Phase 4: User Journey ──
+$p_uj = '';
+
+// Load journey rows for this project
+global $wpdb;
+$journeys_table  = $wpdb->prefix . 'el_es_user_journeys';
+$jreviews_table  = $wpdb->prefix . 'el_es_journey_reviews';
+$journeys        = $wpdb->get_results( $wpdb->prepare(
+    "SELECT * FROM {$journeys_table} WHERE project_id = %d ORDER BY id ASC",
+    $project_id
+) );
+$total_journeys  = count( $journeys );
+$locked_journeys = count( array_filter( $journeys, fn( $j ) => $j->status === 'locked' ) );
+
+// Stakeholder list for assignment dropdowns
+$journey_stakeholders = $module->get_stakeholders( $project_id );
+
+// Progress badge
+$progress_variant = ( $total_journeys > 0 && $locked_journeys === $total_journeys ) ? 'success' : 'warning';
+$progress_label   = $total_journeys === 0
+    ? __( 'No user types yet', 'el-core' )
+    : sprintf( __( '%1$d of %2$d journeys locked', 'el-core' ), $locked_journeys, $total_journeys );
+
+$p_uj .= '<div class="el-es-uj-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
+$p_uj .= '<div style="display:flex;align-items:center;gap:10px;">';
+$p_uj .= EL_Admin_UI::badge( [ 'label' => $progress_label, 'variant' => $progress_variant ] );
+if ( $locked_journeys < $total_journeys ) {
+    $p_uj .= '<span style="font-size:12px;color:#d97706;">' . __( 'Visual Identity will unlock once all journeys are locked.', 'el-core' ) . '</span>';
+}
+$p_uj .= '</div>';
+$p_uj .= EL_Admin_UI::btn( [
+    'label'   => __( 'Add User Type', 'el-core' ),
+    'variant' => 'secondary',
+    'icon'    => 'plus-alt',
+    'data'    => [ 'modal-open' => 'add-user-type-modal', 'project-id' => $project_id ],
+] );
+$p_uj .= '</div>';
+
+if ( empty( $journeys ) ) {
+    $p_uj .= EL_Admin_UI::notice( [
+        'message' => __( 'No user journey rows yet. Advance to Phase 4 to auto-seed from the project definition, or click "Add User Type" above.', 'el-core' ),
+        'type'    => 'info',
+    ] );
+}
+
+// Status badge colour map
+$uj_status_variants = [
+    'pending_assignment' => 'default',
+    'awaiting_input'     => 'info',
+    'ai_generated'       => 'warning',
+    'admin_refined'      => 'warning',
+    'in_review'          => 'info',
+    'approved'           => 'success',
+    'locked'             => 'success',
+];
+$uj_status_labels = [
+    'pending_assignment' => __( 'Pending Assignment', 'el-core' ),
+    'awaiting_input'     => __( 'Awaiting Input', 'el-core' ),
+    'ai_generated'       => __( 'AI Generated', 'el-core' ),
+    'admin_refined'      => __( 'Admin Refined', 'el-core' ),
+    'in_review'          => __( 'In Review', 'el-core' ),
+    'approved'           => __( 'Approved', 'el-core' ),
+    'locked'             => __( 'Locked', 'el-core' ),
+];
+
+foreach ( $journeys as $jny ) {
+    $jstatus      = $jny->status;
+    $jid          = (int) $jny->id;
+    $jassigned_id = (int) ( $jny->assigned_to ?? 0 );
+    $assigned_user = $jassigned_id ? get_userdata( $jassigned_id ) : null;
+    $assigned_name = $assigned_user ? $assigned_user->display_name : '';
+
+    // Active review for this journey
+    $active_jreview = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM {$jreviews_table} WHERE journey_id = %d AND status = 'open' ORDER BY id DESC LIMIT 1",
+        $jid
+    ) );
+    $jcomments_table = $wpdb->prefix . 'el_es_journey_comments';
+
+    $p_uj .= '<div class="el-es-uj-card" data-journey-id="' . esc_attr( $jid ) . '" data-status="' . esc_attr( $jstatus ) . '">';
+
+    // Card header — always visible
+    $p_uj .= '<div class="el-es-uj-card__header" data-toggle="el-es-uj-card-body-' . esc_attr( $jid ) . '">';
+    $p_uj .= '<div class="el-es-uj-card__title">';
+    $p_uj .= '<strong>' . esc_html( $jny->user_type ) . '</strong>';
+    $p_uj .= '<span class="el-es-uj-card__assigned">' . ( $assigned_name ? esc_html( $assigned_name ) : '<em>' . __( 'Unassigned', 'el-core' ) . '</em>' ) . '</span>';
+    $p_uj .= '</div>';
+    $p_uj .= EL_Admin_UI::badge( [
+        'label'   => $uj_status_labels[ $jstatus ] ?? ucfirst( $jstatus ),
+        'variant' => $uj_status_variants[ $jstatus ] ?? 'default',
+    ] );
+    $p_uj .= '<span class="el-es-uj-expand-icon dashicons dashicons-arrow-down-alt2"></span>';
+    $p_uj .= '</div>'; // end header
+
+    // Card body — expanded state
+    $p_uj .= '<div class="el-es-uj-card__body" id="el-es-uj-card-body-' . esc_attr( $jid ) . '" style="display:none;">';
+
+    // ── pending_assignment ──
+    if ( $jstatus === 'pending_assignment' ) {
+        $p_uj .= '<p class="el-es-uj-msg">' . __( 'Assign a stakeholder to describe how this user type moves through the site.', 'el-core' ) . '</p>';
+        $p_uj .= '<div class="el-es-uj-assign-row">';
+        $p_uj .= '<select class="el-input el-es-uj-assign-select" data-journey-id="' . esc_attr( $jid ) . '">';
+        $p_uj .= '<option value="">' . esc_html__( '— Select stakeholder —', 'el-core' ) . '</option>';
+        foreach ( $journey_stakeholders as $sh ) {
+            $sh_user = get_userdata( $sh->user_id );
+            if ( ! $sh_user ) continue;
+            $p_uj .= '<option value="' . esc_attr( $sh->user_id ) . '">' . esc_html( $sh_user->display_name ) . ' (' . esc_html( $sh->role === 'decision_maker' ? __( 'DM', 'el-core' ) : __( 'Contributor', 'el-core' ) ) . ')</option>';
+        }
+        $p_uj .= '</select>';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Assign', 'el-core' ),
+            'variant' => 'primary',
+            'icon'    => 'yes-alt',
+            'class'   => 'el-es-uj-assign-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '</div>';
+    }
+
+    // ── awaiting_input ──
+    if ( $jstatus === 'awaiting_input' ) {
+        $p_uj .= '<p class="el-es-uj-msg">';
+        $p_uj .= sprintf(
+            __( 'Waiting for <strong>%s</strong> to complete their input.', 'el-core' ),
+            esc_html( $assigned_name ?: __( 'the assigned stakeholder', 'el-core' ) )
+        );
+        $p_uj .= '</p>';
+        $p_uj .= '<div class="el-es-uj-reassign-row">';
+        $p_uj .= '<a href="#" class="el-es-uj-reassign-link" data-journey-id="' . esc_attr( $jid ) . '">' . __( 'Reassign to a different stakeholder', 'el-core' ) . '</a>';
+        $p_uj .= '<div class="el-es-uj-reassign-form" style="display:none;margin-top:10px;">';
+        $p_uj .= '<select class="el-input el-es-uj-assign-select" data-journey-id="' . esc_attr( $jid ) . '">';
+        $p_uj .= '<option value="">' . esc_html__( '— Select stakeholder —', 'el-core' ) . '</option>';
+        foreach ( $journey_stakeholders as $sh ) {
+            $sh_user = get_userdata( $sh->user_id );
+            if ( ! $sh_user ) continue;
+            $p_uj .= '<option value="' . esc_attr( $sh->user_id ) . '">' . esc_html( $sh_user->display_name ) . ' (' . esc_html( $sh->role === 'decision_maker' ? __( 'DM', 'el-core' ) : __( 'Contributor', 'el-core' ) ) . ')</option>';
+        }
+        $p_uj .= '</select>';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Reassign', 'el-core' ),
+            'variant' => 'secondary',
+            'icon'    => 'update',
+            'class'   => 'el-es-uj-assign-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '</div>';
+        $p_uj .= '</div>';
+    }
+
+    // ── ai_generated ──
+    if ( $jstatus === 'ai_generated' ) {
+        // Q&A pairs
+        $guided = $jny->guided_answers ? json_decode( $jny->guided_answers, true ) : [];
+        if ( ! empty( $guided ) ) {
+            $p_uj .= '<div class="el-es-uj-section">';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'What the team described', 'el-core' ) . '</h4>';
+            foreach ( $guided as $qa ) {
+                $p_uj .= '<div class="el-es-uj-qa">';
+                $p_uj .= '<p class="el-es-uj-qa__q"><strong>' . esc_html( $qa['question'] ?? '' ) . '</strong></p>';
+                $p_uj .= '<p class="el-es-uj-qa__a">' . esc_html( $qa['answer'] ?? '' ) . '</p>';
+                $p_uj .= '</div>';
+            }
+            $p_uj .= '</div>';
+        }
+
+        // AI workflow output
+        $ai_wf = $jny->ai_workflow ? json_decode( $jny->ai_workflow, true ) : null;
+        if ( $ai_wf ) {
+            $p_uj .= '<div class="el-es-uj-section">';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'AI-generated workflow', 'el-core' ) . '</h4>';
+            if ( ! empty( $ai_wf['summary'] ) ) {
+                $p_uj .= '<p class="el-es-uj-summary">' . esc_html( $ai_wf['summary'] ) . '</p>';
+            }
+            if ( ! empty( $ai_wf['steps'] ) ) {
+                $p_uj .= '<ol class="el-es-uj-steps">';
+                foreach ( $ai_wf['steps'] as $step ) {
+                    $p_uj .= '<li><strong>' . esc_html( $step['label'] ?? '' ) . '</strong>: ' . esc_html( $step['description'] ?? '' );
+                    if ( ! empty( $step['branch'] ) ) {
+                        $p_uj .= ' <em class="el-es-uj-branch">→ ' . sprintf( __( 'Branch: %s', 'el-core' ), esc_html( $step['branch']['condition'] ?? '' ) ) . '</em>';
+                    }
+                    $p_uj .= '</li>';
+                }
+                $p_uj .= '</ol>';
+            }
+            if ( ! empty( $ai_wf['implied_pages'] ) ) {
+                $p_uj .= '<p class="el-es-uj-implied"><strong>' . __( 'Implied pages:', 'el-core' ) . '</strong> ' . esc_html( implode( ', ', $ai_wf['implied_pages'] ) ) . '</p>';
+            }
+            if ( ! empty( $ai_wf['open_questions'] ) ) {
+                $p_uj .= EL_Admin_UI::notice( [
+                    'message' => '<strong>' . __( 'Open questions:', 'el-core' ) . '</strong><br>' . esc_html( implode( "\n", $ai_wf['open_questions'] ) ),
+                    'type'    => 'warning',
+                ] );
+            }
+            $p_uj .= '</div>';
+        }
+
+        // Mermaid diagram placeholder
+        $p_uj .= '<div class="el-es-uj-diagram-container" data-journey-id="' . esc_attr( $jid ) . '" data-workflow-source="ai">';
+        $p_uj .= '<div class="el-es-uj-diagram-inner mermaid"></div>';
+        $p_uj .= '</div>';
+
+        // Admin notes + Refine button
+        $p_uj .= '<div class="el-es-uj-section">';
+        $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'Refine with AI', 'el-core' ) . '</h4>';
+        $p_uj .= '<div class="el-form-row">';
+        $p_uj .= '<label class="el-form-label">' . __( 'Admin notes for AI', 'el-core' ) . '</label>';
+        $p_uj .= '<div class="el-form-field">';
+        $p_uj .= '<textarea class="el-textarea el-es-uj-admin-notes" data-journey-id="' . esc_attr( $jid ) . '" rows="3" placeholder="' . esc_attr__( 'Describe what to add, change, or clarify...', 'el-core' ) . '">' . esc_textarea( $jny->admin_notes ?? '' ) . '</textarea>';
+        $p_uj .= '</div></div>';
+        $p_uj .= '<div class="el-es-uj-btn-row">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Refine with AI', 'el-core' ),
+            'variant' => 'primary',
+            'icon'    => 'admin-generic',
+            'class'   => 'el-es-uj-refine-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '<span class="el-es-uj-refine-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
+        $p_uj .= '</div>';
+        $p_uj .= '</div>';
+    }
+
+    // ── admin_refined ──
+    if ( $jstatus === 'admin_refined' ) {
+        $admin_wf = $jny->admin_workflow ? json_decode( $jny->admin_workflow, true ) : null;
+        if ( $admin_wf ) {
+            $p_uj .= '<div class="el-es-uj-section">';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'Refined workflow', 'el-core' ) . '</h4>';
+            if ( ! empty( $admin_wf['summary'] ) ) {
+                $p_uj .= '<p class="el-es-uj-summary">' . esc_html( $admin_wf['summary'] ) . '</p>';
+            }
+            if ( ! empty( $admin_wf['steps'] ) ) {
+                $p_uj .= '<ol class="el-es-uj-steps">';
+                foreach ( $admin_wf['steps'] as $step ) {
+                    $p_uj .= '<li><strong>' . esc_html( $step['label'] ?? '' ) . '</strong>: ' . esc_html( $step['description'] ?? '' );
+                    if ( ! empty( $step['branch'] ) ) {
+                        $p_uj .= ' <em class="el-es-uj-branch">→ ' . sprintf( __( 'Branch: %s', 'el-core' ), esc_html( $step['branch']['condition'] ?? '' ) ) . '</em>';
+                    }
+                    $p_uj .= '</li>';
+                }
+                $p_uj .= '</ol>';
+            }
+            if ( ! empty( $admin_wf['implied_pages'] ) ) {
+                $p_uj .= '<p class="el-es-uj-implied"><strong>' . __( 'Implied pages:', 'el-core' ) . '</strong> ' . esc_html( implode( ', ', $admin_wf['implied_pages'] ) ) . '</p>';
+            }
+            if ( ! empty( $admin_wf['open_questions'] ) ) {
+                $p_uj .= EL_Admin_UI::notice( [
+                    'message' => '<strong>' . __( 'Open questions:', 'el-core' ) . '</strong><br>' . esc_html( implode( "\n", $admin_wf['open_questions'] ) ),
+                    'type'    => 'warning',
+                ] );
+            }
+            $p_uj .= '</div>';
+        }
+
+        $p_uj .= '<div class="el-es-uj-diagram-container" data-journey-id="' . esc_attr( $jid ) . '" data-workflow-source="admin">';
+        $p_uj .= '<div class="el-es-uj-diagram-inner mermaid"></div>';
+        $p_uj .= '</div>';
+
+        // Admin notes still available for further rounds
+        $p_uj .= '<div class="el-es-uj-section">';
+        $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'Further refinement', 'el-core' ) . '</h4>';
+        $p_uj .= '<div class="el-form-row">';
+        $p_uj .= '<label class="el-form-label">' . __( 'Admin notes for AI', 'el-core' ) . '</label>';
+        $p_uj .= '<div class="el-form-field">';
+        $p_uj .= '<textarea class="el-textarea el-es-uj-admin-notes" data-journey-id="' . esc_attr( $jid ) . '" rows="3" placeholder="' . esc_attr__( 'Describe what to add, change, or clarify...', 'el-core' ) . '">' . esc_textarea( $jny->admin_notes ?? '' ) . '</textarea>';
+        $p_uj .= '</div></div>';
+        $p_uj .= '<div class="el-es-uj-btn-row">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Refine with AI Again', 'el-core' ),
+            'variant' => 'secondary',
+            'icon'    => 'admin-generic',
+            'class'   => 'el-es-uj-refine-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '<span class="el-es-uj-refine-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
+        $p_uj .= '</div>';
+        $p_uj .= '</div>';
+
+        // Send for Review
+        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:16px;">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Send for Review', 'el-core' ),
+            'variant' => 'primary',
+            'icon'    => 'email-alt',
+            'class'   => 'el-es-uj-send-review-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id, 'modal-open' => 'send-journey-review-modal-' . $jid ],
+        ] );
+        $p_uj .= '</div>';
+    }
+
+    // ── in_review ──
+    if ( $jstatus === 'in_review' ) {
+        if ( $active_jreview ) {
+            $p_uj .= '<div class="el-es-uj-review-info">';
+            $p_uj .= EL_Admin_UI::detail_row( [
+                'label' => __( 'Review Round', 'el-core' ),
+                'value' => sprintf( __( 'Round %d', 'el-core' ), $active_jreview->round ),
+                'icon'  => 'update',
+            ] );
+            $p_uj .= EL_Admin_UI::detail_row( [
+                'label' => __( 'Sent', 'el-core' ),
+                'value' => date_i18n( 'M j, Y g:i A', strtotime( $active_jreview->created_at ) ),
+                'icon'  => 'calendar-alt',
+            ] );
+            if ( $active_jreview->deadline ) {
+                $p_uj .= EL_Admin_UI::detail_row( [
+                    'label' => __( 'Deadline', 'el-core' ),
+                    'value' => date_i18n( 'M j, Y', strtotime( $active_jreview->deadline ) ),
+                    'icon'  => 'clock',
+                ] );
+            }
+            if ( $active_jreview->dm_decision ) {
+                $dm_badge = $active_jreview->dm_decision === 'approved'
+                    ? EL_Admin_UI::badge( [ 'label' => __( 'DM Approved', 'el-core' ), 'variant' => 'success' ] )
+                    : EL_Admin_UI::badge( [ 'label' => __( 'DM Requested Revisions', 'el-core' ), 'variant' => 'warning' ] );
+                $p_uj .= EL_Admin_UI::detail_row( [ 'label' => __( 'DM Decision', 'el-core' ), 'value' => $dm_badge, 'icon' => 'yes-alt' ] );
+            } else {
+                $p_uj .= EL_Admin_UI::detail_row( [ 'label' => __( 'DM Decision', 'el-core' ), 'value' => __( 'Awaiting DM decision', 'el-core' ), 'icon' => 'clock' ] );
+            }
+            $p_uj .= '</div>';
+        }
+
+        // Show admin_workflow (read-only)
+        $in_review_wf = $jny->admin_workflow ? json_decode( $jny->admin_workflow, true ) : null;
+        if ( $in_review_wf ) {
+            $p_uj .= '<div class="el-es-uj-section">';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'Workflow under review', 'el-core' ) . '</h4>';
+            if ( ! empty( $in_review_wf['summary'] ) ) {
+                $p_uj .= '<p class="el-es-uj-summary">' . esc_html( $in_review_wf['summary'] ) . '</p>';
+            }
+            if ( ! empty( $in_review_wf['steps'] ) ) {
+                $p_uj .= '<ol class="el-es-uj-steps">';
+                foreach ( $in_review_wf['steps'] as $step ) {
+                    $p_uj .= '<li><strong>' . esc_html( $step['label'] ?? '' ) . '</strong>: ' . esc_html( $step['description'] ?? '' );
+                    if ( ! empty( $step['branch'] ) ) {
+                        $p_uj .= ' <em class="el-es-uj-branch">→ ' . sprintf( __( 'Branch: %s', 'el-core' ), esc_html( $step['branch']['condition'] ?? '' ) ) . '</em>';
+                    }
+                    $p_uj .= '</li>';
+                }
+                $p_uj .= '</ol>';
+            }
+            $p_uj .= '</div>';
+        }
+
+        // Comments from stakeholders (read-only for admin)
+        $journey_comments = $active_jreview ? $wpdb->get_results( $wpdb->prepare(
+            "SELECT c.*, u.display_name FROM {$jcomments_table} c LEFT JOIN {$wpdb->users} u ON c.user_id = u.ID WHERE c.review_id = %d AND c.parent_id = 0 ORDER BY c.created_at ASC",
+            $active_jreview->id
+        ) ) : [];
+        if ( ! empty( $journey_comments ) ) {
+            $p_uj .= '<div class="el-es-uj-section">';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'Stakeholder comments', 'el-core' ) . '</h4>';
+            $p_uj .= '<div class="el-es-uj-comments-list">';
+            foreach ( $journey_comments as $jc ) {
+                $step_label = $jc->step_key ? sprintf( __( 'Step %s', 'el-core' ), esc_html( $jc->step_key ) ) : __( 'Overall', 'el-core' );
+                $p_uj .= '<div class="el-es-uj-comment">';
+                $p_uj .= '<div class="el-es-uj-comment__meta"><span class="el-es-uj-comment__author">' . esc_html( $jc->display_name ?? 'Unknown' ) . '</span>';
+                $p_uj .= ' <span class="el-es-uj-comment__step">— ' . $step_label . '</span>';
+                $p_uj .= ' <span class="el-es-uj-comment__date">' . esc_html( date_i18n( 'M j, Y g:i A', strtotime( $jc->created_at ) ) ) . '</span></div>';
+                $p_uj .= '<div class="el-es-uj-comment__text">' . esc_html( $jc->comment ) . '</div>';
+                if ( $jc->verdict ) {
+                    $vbadge = $jc->verdict === 'approved'
+                        ? EL_Admin_UI::badge( [ 'label' => __( '✓ Looks good', 'el-core' ), 'variant' => 'success' ] )
+                        : EL_Admin_UI::badge( [ 'label' => __( '⚑ Flag for changes', 'el-core' ), 'variant' => 'warning' ] );
+                    $p_uj .= '<div class="el-es-uj-comment__verdict">' . $vbadge . '</div>';
+                }
+                $p_uj .= '</div>';
+            }
+            $p_uj .= '</div>';
+            $p_uj .= '</div>';
+        }
+
+        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:16px;">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Reset to Draft', 'el-core' ),
+            'variant' => 'secondary',
+            'icon'    => 'undo',
+            'class'   => 'el-es-uj-reset-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '</div>';
+    }
+
+    // ── approved ──
+    if ( $jstatus === 'approved' ) {
+        $p_uj .= EL_Admin_UI::notice( [
+            'message' => __( '<strong>Client Approved.</strong> Lock this journey to contribute to the Phase 5 gate.', 'el-core' ),
+            'type'    => 'warning',
+        ] );
+        $approved_wf = $jny->admin_workflow ? json_decode( $jny->admin_workflow, true ) : null;
+        if ( $approved_wf && ! empty( $approved_wf['summary'] ) ) {
+            $p_uj .= '<p class="el-es-uj-summary">' . esc_html( $approved_wf['summary'] ) . '</p>';
+        }
+        $p_uj .= '<div class="el-es-uj-btn-row">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Lock Journey', 'el-core' ),
+            'variant' => 'primary',
+            'icon'    => 'lock',
+            'class'   => 'el-es-uj-lock-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '</div>';
+    }
+
+    // ── locked ──
+    if ( $jstatus === 'locked' ) {
+        $locked_wf = $jny->admin_workflow ? json_decode( $jny->admin_workflow, true ) : ( $jny->ai_workflow ? json_decode( $jny->ai_workflow, true ) : null );
+        if ( $locked_wf ) {
+            if ( ! empty( $locked_wf['summary'] ) ) {
+                $p_uj .= '<p class="el-es-uj-summary">' . esc_html( $locked_wf['summary'] ) . '</p>';
+            }
+            if ( ! empty( $locked_wf['steps'] ) ) {
+                $p_uj .= '<ol class="el-es-uj-steps">';
+                foreach ( $locked_wf['steps'] as $step ) {
+                    $p_uj .= '<li><strong>' . esc_html( $step['label'] ?? '' ) . '</strong>: ' . esc_html( $step['description'] ?? '' ) . '</li>';
+                }
+                $p_uj .= '</ol>';
+            }
+            if ( ! empty( $locked_wf['implied_pages'] ) ) {
+                $p_uj .= '<p class="el-es-uj-implied"><strong>' . __( 'Implied pages:', 'el-core' ) . '</strong> ' . esc_html( implode( ', ', $locked_wf['implied_pages'] ) ) . '</p>';
+            }
+        }
+        $p_uj .= '<div class="el-es-uj-locked-badge">';
+        $p_uj .= EL_Admin_UI::badge( [ 'label' => __( '🔒 Locked', 'el-core' ), 'variant' => 'success' ] );
+        if ( $jny->locked_at ) {
+            $locked_by_user = $jny->locked_by ? get_userdata( (int) $jny->locked_by ) : null;
+            $p_uj .= '<span class="el-es-uj-lock-meta"> ' . sprintf(
+                __( 'Locked %s by %s', 'el-core' ),
+                esc_html( date_i18n( 'M j, Y', strtotime( $jny->locked_at ) ) ),
+                esc_html( $locked_by_user ? $locked_by_user->display_name : __( 'Admin', 'el-core' ) )
+            ) . '</span>';
+        }
+        $p_uj .= '</div>';
+    }
+
+    $p_uj .= '</div>'; // end card body
+    $p_uj .= '</div>'; // end card
+}
+
+// Inline "Send for Review" deadline modals (one per admin_refined journey)
+foreach ( $journeys as $jny ) {
+    if ( $jny->status !== 'admin_refined' ) continue;
+    $jid        = (int) $jny->id;
+    $srf_form   = '<form class="el-es-uj-send-review-form" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '">';
+    $srf_form  .= '<input type="hidden" name="journey_id" value="' . esc_attr( $jid ) . '">';
+    $srf_form  .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+    $srf_form  .= EL_Admin_UI::form_row( [
+        'name'  => 'deadline',
+        'label' => __( 'Review deadline (optional)', 'el-core' ),
+        'type'  => 'date',
+        'help'  => __( 'Stakeholders will have until this date to provide input.', 'el-core' ),
+    ] );
+    $srf_form  .= '<div class="el-form-row">';
+    $srf_form  .= EL_Admin_UI::btn( [ 'label' => __( 'Send for Review', 'el-core' ), 'variant' => 'primary', 'icon' => 'email-alt', 'type' => 'submit' ] );
+    $srf_form  .= '</div>';
+    $srf_form  .= '</form>';
+    $p_uj .= EL_Admin_UI::modal( [
+        'id'      => 'send-journey-review-modal-' . $jid,
+        'title'   => sprintf( __( 'Send %s Journey for Review', 'el-core' ), esc_html( $jny->user_type ) ),
+        'content' => $srf_form,
+    ] );
+}
+
+$html .= EL_Admin_UI::tab_panel( [
+    'id'      => 'phase-4',
+    'group'   => 'phase-tabs',
+    'content' => EL_Admin_UI::card( [
+        'title'   => __( 'User Journey', 'el-core' ),
+        'icon'    => 'networking',
+        'content' => $p_uj,
+    ] ),
+    'active'  => $current_stage === 4,
+] );
+
+// ── Phase 5: Visual Identity ──
 $p4 = '';
 $review_items = $module->get_review_items( $project_id, 'mood_board' );
 
@@ -1453,6 +1927,27 @@ $html .= EL_Admin_UI::modal( [
     'id'      => 'create-review-modal',
     'title'   => __( 'Create Mood Board Review Session', 'el-core' ),
     'content' => $create_review_form,
+] );
+
+// Add User Type modal (Phase 4)
+$aut_form  = '<form id="add-user-type-form">';
+$aut_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+$aut_form .= EL_Admin_UI::form_row( [
+    'name'        => 'user_type',
+    'label'       => __( 'User Type Name', 'el-core' ),
+    'required'    => true,
+    'placeholder' => __( 'e.g., Parent, Student, Teacher', 'el-core' ),
+    'help'        => __( 'The type of user who will be navigating the site.', 'el-core' ),
+] );
+$aut_form .= '<div class="el-form-row">';
+$aut_form .= EL_Admin_UI::btn( [ 'label' => __( 'Add User Type', 'el-core' ), 'variant' => 'primary', 'icon' => 'plus-alt', 'type' => 'submit' ] );
+$aut_form .= '</div>';
+$aut_form .= '</form>';
+
+$html .= EL_Admin_UI::modal( [
+    'id'      => 'add-user-type-modal',
+    'title'   => __( 'Add User Type', 'el-core' ),
+    'content' => $aut_form,
 ] );
 
 echo EL_Admin_UI::wrap( $html );

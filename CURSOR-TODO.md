@@ -5,8 +5,8 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 8, 2026
-> **Plugin Version:** v1.30.3 — built, ready to upload to staging
-> **Next Build:** v1.30.x (if bugs found in testing) or v1.31.0
+> **Plugin Version:** v1.31.0 Step B — built, ready to upload to staging
+> **Next Build:** v1.31.0 Step C (AI Round 1 — portal guided questions form + auto-fire AI on submit)
 > **Deployed Version:** v1.29.0 on staging (upload `el-core-v1.30.3.zip` from Downloads or releases/)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
@@ -696,23 +696,23 @@ Do not skip these. Build the sub-phase, deploy, wait for Fred to confirm it work
 
 ### Step 3 — Admin Phase 4 panel (static states first)
 
-- [ ] Add Phase 4 panel to `project-detail.php` with panel header (progress badge, "X of Y locked", "Add User Type" button)
-- [ ] Render collapsed journey card list (user type name, assigned stakeholder, status badge, expand toggle)
-- [ ] `pending_assignment` state: stakeholder assignment dropdown + "Assign" button
-- [ ] `awaiting_input` state: read-only assignment display + waiting message + "Reassign" link
-- [ ] `ai_generated` state: Q&A display, AI output display (summary, steps, implied pages, open questions), admin notes textarea, "Refine with AI" button
-- [ ] `admin_refined` state: refined workflow display + "Send for Review" button with deadline date picker
-- [ ] `in_review` state: active review info, comments panel, DM verdict status, "Reset to Review" button
-- [ ] `approved` state: approval banner + "Lock Journey" button
-- [ ] `locked` state: read-only locked workflow display
+- [x] Add Phase 4 panel to `project-detail.php` with panel header (progress badge, "X of Y locked", "Add User Type" button)
+- [x] Render collapsed journey card list (user type name, assigned stakeholder, status badge, expand toggle)
+- [x] `pending_assignment` state: stakeholder assignment dropdown + "Assign" button
+- [x] `awaiting_input` state: read-only assignment display + waiting message + "Reassign" link
+- [x] `ai_generated` state: Q&A display, AI output display (summary, steps, implied pages, open questions), admin notes textarea, "Refine with AI" button
+- [x] `admin_refined` state: refined workflow display + "Send for Review" button with deadline date picker
+- [x] `in_review` state: active review info, comments panel, DM verdict status, "Reset to Review" button
+- [x] `approved` state: approval banner + "Lock Journey" button
+- [x] `locked` state: read-only locked workflow display
 - [ ] **Checkpoint:** All admin panel states render correctly with test data ✅
 
 ### Step 4 — Admin AJAX handlers
 
-- [ ] `es_assign_journey` — saves `assigned_to`, advances status to `awaiting_input`
-- [ ] `es_reset_journey_review` — cancels active review round, resets status to `admin_refined`
-- [ ] `es_lock_journey` — sets `locked_at`, `locked_by`, status to `locked`
-- [ ] `es_send_journey_review` — creates `el_es_journey_reviews` row, sets deadline, status → `in_review`
+- [x] `es_assign_journey` — saves `assigned_to`, advances status to `awaiting_input`
+- [x] `es_reset_journey_review` — cancels active review round, resets status to `admin_refined`
+- [x] `es_lock_journey` — sets `locked_at`, `locked_by`, status to `locked`
+- [x] `es_send_journey_review` — creates `el_es_journey_reviews` row, sets deadline, status → `in_review`
 - [ ] **Checkpoint:** Assign, reset, lock, send-for-review all work from admin panel ✅
 
 ### Step 5 — AI Round 1 (auto-fires on submission)

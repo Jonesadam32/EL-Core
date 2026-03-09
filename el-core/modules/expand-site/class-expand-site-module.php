@@ -157,8 +157,12 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_reset_definition',         [ $this, 'handle_reset_definition' ] );
         add_action( 'el_core_ajax_es_client_edit_definition_field', [ $this, 'handle_client_edit_definition_field' ] );
         // User Journey phase
-        add_action( 'el_core_ajax_es_init_user_journeys', [ $this, 'handle_init_user_journeys' ] );
-        add_action( 'el_core_ajax_es_add_user_type',      [ $this, 'handle_add_user_type' ] );
+        add_action( 'el_core_ajax_es_init_user_journeys',    [ $this, 'handle_init_user_journeys' ] );
+        add_action( 'el_core_ajax_es_add_user_type',         [ $this, 'handle_add_user_type' ] );
+        add_action( 'el_core_ajax_es_assign_journey',        [ $this, 'handle_assign_journey' ] );
+        add_action( 'el_core_ajax_es_send_journey_review',   [ $this, 'handle_send_journey_review' ] );
+        add_action( 'el_core_ajax_es_reset_journey_review',  [ $this, 'handle_reset_journey_review' ] );
+        add_action( 'el_core_ajax_es_lock_journey',          [ $this, 'handle_lock_journey' ] );
         // Guest (portal) access for stakeholders
         add_action( 'el_core_ajax_nopriv_es_get_definition_review',   [ $this, 'handle_get_definition_review' ] );
         add_action( 'el_core_ajax_nopriv_es_post_definition_comment', [ $this, 'handle_post_definition_comment' ] );
@@ -2118,6 +2122,182 @@ class EL_Expand_Site_Module {
             'created_at' => current_time( 'mysql' ),
         ] );
         EL_AJAX_Handler::success( [ 'id' => $wpdb->insert_id, 'user_type' => $user_type ], __( 'User type added.', 'el-core' ) );
+    }
+
+    /**
+     * Query: Get all journey rows for a project.
+     */
+    public function get_user_journeys( int $project_id ): array {
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_user_journeys';
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE project_id = %d ORDER BY id ASC",
+            $project_id
+        ) ) ?: [];
+    }
+
+    /**
+     * AJAX: Assign (or reassign) a stakeholder to a journey row.
+     * Sets assigned_to and advances status from pending_assignment → awaiting_input.
+     */
+    public function handle_assign_journey( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $user_id    = absint( $data['assigned_to'] ?? 0 );
+        if ( ! $journey_id || ! $user_id ) {
+            EL_AJAX_Handler::error( __( 'Journey ID and user ID are required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $journey_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ) );
+            return;
+        }
+
+        $new_status = ( $journey->status === 'pending_assignment' ) ? 'awaiting_input' : $journey->status;
+        $wpdb->update( $table, [
+            'assigned_to' => $user_id,
+            'status'      => $new_status,
+        ], [ 'id' => $journey_id ] );
+
+        $assigned_user = get_userdata( $user_id );
+        EL_AJAX_Handler::success(
+            [ 'status' => $new_status, 'assigned_name' => $assigned_user ? $assigned_user->display_name : '' ],
+            __( 'Stakeholder assigned.', 'el-core' )
+        );
+    }
+
+    /**
+     * AJAX: Admin sends a journey for stakeholder consensus review.
+     * Creates a row in el_es_journey_reviews, sets status → in_review.
+     */
+    public function handle_send_journey_review( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $deadline   = sanitize_text_field( wp_unslash( $_POST['deadline'] ?? '' ) );
+        if ( ! $journey_id ) {
+            EL_AJAX_Handler::error( __( 'Journey ID required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt       = $wpdb->prefix . 'el_es_user_journeys';
+        $jrt      = $wpdb->prefix . 'el_es_journey_reviews';
+        $journey  = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d", $journey_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ) );
+            return;
+        }
+        if ( ! in_array( $journey->status, [ 'admin_refined' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Journey must be in admin_refined status to send for review.', 'el-core' ) );
+            return;
+        }
+
+        // Close any existing open review for this journey
+        $wpdb->update( $jrt, [ 'status' => 'closed' ], [ 'journey_id' => $journey_id, 'status' => 'open' ] );
+
+        // Next round
+        $last_round = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT MAX(round) FROM {$jrt} WHERE journey_id = %d",
+            $journey_id
+        ) );
+        $round = $last_round + 1;
+        $deadline_dt = $deadline ? date( 'Y-m-d 23:59:59', strtotime( $deadline ) ) : null;
+
+        $wpdb->insert( $jrt, [
+            'journey_id'  => $journey_id,
+            'round'       => $round,
+            'sent_by'     => get_current_user_id(),
+            'deadline'    => $deadline_dt,
+            'status'      => 'open',
+            'created_at'  => current_time( 'mysql' ),
+        ] );
+        $review_id = $wpdb->insert_id;
+
+        $wpdb->update( $jt, [ 'status' => 'in_review' ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success(
+            [ 'review_id' => $review_id, 'round' => $round, 'status' => 'in_review' ],
+            sprintf( __( 'Journey sent for review — Round %d.', 'el-core' ), $round )
+        );
+    }
+
+    /**
+     * AJAX: Admin resets an in_review journey back to admin_refined.
+     * Cancels the active review round.
+     */
+    public function handle_reset_journey_review( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        if ( ! $journey_id ) {
+            EL_AJAX_Handler::error( __( 'Journey ID required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt  = $wpdb->prefix . 'el_es_user_journeys';
+        $jrt = $wpdb->prefix . 'el_es_journey_reviews';
+
+        $wpdb->update( $jrt, [ 'status' => 'closed' ], [ 'journey_id' => $journey_id, 'status' => 'open' ] );
+        $wpdb->update( $jt,  [ 'status' => 'admin_refined' ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success( [ 'status' => 'admin_refined' ], __( 'Journey reset to draft. Review cancelled.', 'el-core' ) );
+    }
+
+    /**
+     * AJAX: Admin locks a journey (status must be approved).
+     */
+    public function handle_lock_journey( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        if ( ! $journey_id ) {
+            EL_AJAX_Handler::error( __( 'Journey ID required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $journey_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ) );
+            return;
+        }
+        if ( $journey->status !== 'approved' ) {
+            EL_AJAX_Handler::error( __( 'Journey must be approved before locking.', 'el-core' ) );
+            return;
+        }
+
+        $wpdb->update( $table, [
+            'status'    => 'locked',
+            'locked_at' => current_time( 'mysql' ),
+            'locked_by' => get_current_user_id(),
+        ], [ 'id' => $journey_id ] );
+
+        // Check if all journeys for the project are now locked
+        $project_id   = (int) $journey->project_id;
+        $total         = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE project_id = %d", $project_id ) );
+        $locked        = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE project_id = %d AND status = 'locked'", $project_id ) );
+        $all_locked    = ( $total > 0 && $locked === $total );
+
+        EL_AJAX_Handler::success(
+            [ 'status' => 'locked', 'all_locked' => $all_locked, 'locked_count' => $locked, 'total_count' => $total ],
+            __( 'Journey locked.', 'el-core' )
+        );
     }
 
     /**
