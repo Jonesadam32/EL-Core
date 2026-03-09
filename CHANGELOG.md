@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.8] — 2026-03-09
+
+### Fixed
+- **Portal: "Unexpected token `<`" on journey answer submit** — `run_journey_ai_round1()` was calling `$this->core->ai->complete( $prompt )` with a plain string instead of the required `['prompt' => $prompt]` array. This caused a PHP warning to be emitted before the JSON response, corrupting the AJAX output. Fixed argument to use the correct array format.
+- **Portal: AI response parsing** — `complete()` returns `['success', 'content', 'error']` array, not a WP_Error or plain string. Updated `run_journey_ai_round1()` to check `$response['success']` and extract `$response['content']` correctly. Also added regex stripping of markdown code fences in case AI wraps output in triple backticks.
+- **Admin: "AWAITING_AI" badge with no content** — `awaiting_ai` status was missing from badge label/variant maps (showed raw enum string) and had no content block in the admin card body. Added label ("Processing AI"), warning variant, and a content block showing saved Q&A answers plus a **Retry AI** button.
+
+### Added
+- **Admin: Retry AI button** — New `es_retry_journey_ai` AJAX handler + admin UI button for journeys stuck at `awaiting_ai`. Reruns Round 1 AI from the saved `guided_answers` and advances status to `ai_generated` on success.
+
+---
+
 ## [1.33.7] — 2026-03-09
 
 ### Changed

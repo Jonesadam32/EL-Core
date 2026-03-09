@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Expand Site Module — Admin JavaScript
  * 
  * Handles project creation form submission via AJAX
@@ -1923,6 +1923,32 @@
             .catch(function(err) {
                 alert(err.message || 'Failed to send list to client.');
                 btn.disabled = false; btn.textContent = originalText;
+            });
+    });
+
+    // -- Retry AI (admin retries AI generation for stuck awaiting_ai journeys) --
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-retry-ai-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var card      = btn.closest('.el-es-uj-card');
+        var statusEl  = card ? card.querySelector('.el-es-uj-retry-status') : null;
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+        if (statusEl) statusEl.textContent = '';
+
+        ujAjax('es_retry_journey_ai', { journey_id: journeyId, project_id: projectId })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                if (statusEl) statusEl.textContent = err.message || 'AI generation failed.';
+                else alert(err.message || 'AI generation failed.');
+                btn.disabled = false;
+                btn.textContent = originalText;
             });
     });
 

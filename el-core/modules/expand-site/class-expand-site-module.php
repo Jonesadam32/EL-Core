@@ -166,6 +166,7 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_reset_journey_review',  [ $this, 'handle_reset_journey_review' ] );
         add_action( 'el_core_ajax_es_lock_journey',          [ $this, 'handle_lock_journey' ] );
         add_action( 'el_core_ajax_es_approve_journey_list',  [ $this, 'handle_approve_journey_list' ] );
+        add_action( 'el_core_ajax_es_retry_journey_ai',      [ $this, 'handle_retry_journey_ai' ] );
         add_action( 'el_core_ajax_nopriv_es_dm_assign_journey',      [ $this, 'handle_dm_assign_journey' ] );
         add_action( 'el_core_ajax_nopriv_es_submit_journey_answers', [ $this, 'handle_submit_journey_answers' ] );
         add_action( 'el_core_ajax_es_dm_assign_journey',             [ $this, 'handle_dm_assign_journey' ] );
@@ -2373,7 +2374,49 @@ class EL_Expand_Site_Module {
     }
 
     /**
-     * AJAX: DM assigns (or reassigns) a stakeholder to a journey from the portal.
+     * AJAX: Admin retries AI generation for a journey stuck at awaiting_ai.
+     */
+    public function handle_retry_journey_ai( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        if ( ! $project_id || ! $journey_id ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+        global $wpdb;
+        $journeys_table = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$journeys_table} WHERE id = %d AND project_id = %d", $journey_id, $project_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ), 404 );
+            return;
+        }
+        if ( ! in_array( $journey->status, [ 'awaiting_ai', 'ai_generated' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Journey is not in a retryable state.', 'el-core' ) );
+            return;
+        }
+        $guided_answers = $journey->guided_answers ? json_decode( $journey->guided_answers, true ) : [];
+        if ( empty( $guided_answers ) ) {
+            EL_AJAX_Handler::error( __( 'No saved answers found to regenerate from.', 'el-core' ) );
+            return;
+        }
+
+        $ai_result = $this->run_journey_ai_round1( $project_id, $journey, $guided_answers );
+        if ( is_wp_error( $ai_result ) ) {
+            EL_AJAX_Handler::error( $ai_result->get_error_message() );
+            return;
+        }
+
+        $wpdb->update( $journeys_table, [
+            'ai_workflow' => wp_json_encode( $ai_result ),
+            'status'      => 'ai_generated',
+        ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success( [], __( 'AI workflow regenerated.', 'el-core' ) );
+    }
      * Requires es_decision_maker capability for this project.
      */
     public function handle_dm_assign_journey( array $data ): void {
@@ -2549,12 +2592,19 @@ class EL_Expand_Site_Module {
         $prompt .= "A step with a branch looks like: {\"branch\":{\"condition\":\"Has account?\",\"yes\":\"step_2a\",\"no\":\"step_2b\"}}\n";
         $prompt .= "Use 5–10 steps. Keep labels short (3–5 words). Descriptions are 1 sentence. open_questions lists things the client did NOT clarify.\n";
 
-        $response = $this->core->ai->complete( $prompt );
-        if ( is_wp_error( $response ) ) {
-            return $response;
+        $response = $this->core->ai->complete( [
+            'prompt' => $prompt,
+        ] );
+        if ( empty( $response['success'] ) ) {
+            return new WP_Error( 'ai_error', $response['error'] ?? __( 'AI request failed.', 'el-core' ) );
         }
 
-        $decoded = json_decode( $response, true );
+        $raw = $response['content'] ?? '';
+        // Strip markdown fences if AI wraps response despite instructions
+        $raw = preg_replace( '/^```(?:json)?\s*/i', '', trim( $raw ) );
+        $raw = preg_replace( '/\s*```$/', '', $raw );
+
+        $decoded = json_decode( $raw, true );
         if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
             return new WP_Error( 'ai_parse_error', __( 'AI returned an invalid workflow structure.', 'el-core' ) );
         }

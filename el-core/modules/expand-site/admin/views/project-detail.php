@@ -885,6 +885,7 @@ if ( empty( $journeys ) ) {
 $uj_status_variants = [
     'pending_assignment' => 'default',
     'awaiting_input'     => 'info',
+    'awaiting_ai'        => 'warning',
     'ai_generated'       => 'warning',
     'admin_refined'      => 'warning',
     'in_review'          => 'info',
@@ -894,6 +895,7 @@ $uj_status_variants = [
 $uj_status_labels = [
     'pending_assignment' => __( 'Pending Assignment', 'el-core' ),
     'awaiting_input'     => __( 'Awaiting Input', 'el-core' ),
+    'awaiting_ai'        => __( 'Processing AI', 'el-core' ),
     'ai_generated'       => __( 'AI Generated', 'el-core' ),
     'admin_refined'      => __( 'Admin Refined', 'el-core' ),
     'in_review'          => __( 'In Review', 'el-core' ),
@@ -1005,6 +1007,36 @@ foreach ( $journeys as $jny ) {
             'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
         ] );
         $p_uj .= '</div>';
+        $p_uj .= '</div>';
+    }
+
+    // ── awaiting_ai — AI is processing (or got stuck due to a prior error) ──
+    if ( $jstatus === 'awaiting_ai' ) {
+        $guided = $jny->guided_answers ? json_decode( $jny->guided_answers, true ) : [];
+        if ( ! empty( $guided ) ) {
+            $p_uj .= '<div class="el-es-uj-section">';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'What the team described', 'el-core' ) . '</h4>';
+            foreach ( $guided as $qa ) {
+                $p_uj .= '<div class="el-es-uj-qa">';
+                $p_uj .= '<p class="el-es-uj-qa__q"><strong>' . esc_html( $qa['question'] ?? '' ) . '</strong></p>';
+                $p_uj .= '<p class="el-es-uj-qa__a">' . esc_html( $qa['answer'] ?? '' ) . '</p>';
+                $p_uj .= '</div>';
+            }
+            $p_uj .= '</div>';
+        }
+        $p_uj .= EL_Admin_UI::notice( [
+            'message' => __( 'AI generation is pending or may have failed on a previous attempt. Click "Retry AI" to regenerate the workflow from the saved answers.', 'el-core' ),
+            'type'    => 'warning',
+        ] );
+        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:12px;">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Retry AI', 'el-core' ),
+            'variant' => 'primary',
+            'icon'    => 'update',
+            'class'   => 'el-es-uj-retry-ai-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '<span class="el-es-uj-retry-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
         $p_uj .= '</div>';
     }
 
