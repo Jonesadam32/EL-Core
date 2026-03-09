@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.31.0] — 2026-03-08
+### Added — Step A: User Journey Phase Foundation
+- **DB migration v10** (`module.json`): Added 3 new tables — `el_es_user_journeys` (one row per user type per project), `el_es_journey_reviews` (one row per review round), `el_es_journey_comments` (threaded per-step comments with verdicts).
+- **9-phase pipeline** (`class-expand-site-module.php`): Inserted User Journey as Phase 4. Visual Identity through Delivery shifted to phases 5–9. `STAGE_DEADLINE_DAYS` updated (User Journey = 7 days). Stage max guard bumped from 8 → 9. Scope lock moved to Stage 5 entry. `get_stage_badge_variant()` updated for 9 phases.
+- **Phase bar audit** (`project-detail.php`): All phase panel IDs (`phase-4` → `phase-5` through `phase-8` → `phase-9`), `active` checks, `/8` count display, and `min(..., 8)` modal cap updated to reflect 9-phase pipeline.
+- **Phase initialization** (`class-expand-site-module.php`): `init_user_journeys()` method seeds one `el_es_user_journeys` row per user type when advancing to Stage 4. Reads `user_types` from locked definition (supports JSON array and comma-separated). Falls back to "General User" if empty. Idempotent — skips if rows already exist.
+- **AJAX handlers**: `es_init_user_journeys` (admin manual re-seed) and `es_add_user_type` (admin adds a user type not in the original list).
+
+---
+
 ## [1.30.4] — 2026-03-08
 ### Fixed
 - **Per-user verdict indicators not showing** (`class-expand-site-module.php`, `expand-site.js`, `expand-site.css`): `get_definition_verdicts()` now returns per-user rows (name, verdict, created_at) in addition to aggregate counts. Portal JS renders a compact pill badge per voter below the verdict buttons, showing name + ✓/⚑ icon + timestamp. Green pill for approved, amber pill for needs revision. Visible to all stakeholders so the team can see at a glance who has weighed in on each field.

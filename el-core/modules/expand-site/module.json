@@ -29,7 +29,7 @@
     },
 
     "database": {
-        "version": 8,
+        "version": 10,
         "tables": {
             "el_es_projects": {
                 "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
@@ -296,6 +296,11 @@
             ],
             "9": [
                 "ALTER TABLE el_es_definition_reviews ADD COLUMN snapshot LONGTEXT NULL"
+            ],
+            "10": [
+                "CREATE TABLE IF NOT EXISTS el_es_user_journeys (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, user_type VARCHAR(100) NOT NULL, added_by BIGINT UNSIGNED NULL, assigned_to BIGINT UNSIGNED NULL, guided_answers LONGTEXT NULL, ai_workflow LONGTEXT NULL, admin_notes TEXT NULL, admin_workflow LONGTEXT NULL, status VARCHAR(30) NOT NULL DEFAULT 'pending_assignment', locked_at DATETIME NULL, locked_by BIGINT UNSIGNED NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, KEY idx_project (project_id), KEY idx_assigned (assigned_to))",
+                "CREATE TABLE IF NOT EXISTS el_es_journey_reviews (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, journey_id BIGINT UNSIGNED NOT NULL, round TINYINT UNSIGNED NOT NULL DEFAULT 1, sent_by BIGINT UNSIGNED NOT NULL, deadline DATETIME NULL, status VARCHAR(20) NOT NULL DEFAULT 'open', dm_decision VARCHAR(20) NULL, dm_note TEXT NULL, dm_decided_at DATETIME NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, KEY idx_journey (journey_id))",
+                "CREATE TABLE IF NOT EXISTS el_es_journey_comments (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, review_id BIGINT UNSIGNED NOT NULL, journey_id BIGINT UNSIGNED NOT NULL, step_key VARCHAR(50) NULL, parent_id BIGINT UNSIGNED NULL DEFAULT 0, user_id BIGINT UNSIGNED NOT NULL, comment TEXT NOT NULL, verdict VARCHAR(20) NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, KEY idx_review (review_id), KEY idx_journey (journey_id))"
             ],
             "7": [
                 "ALTER TABLE el_es_project_definition MODIFY COLUMN site_type VARCHAR(100) DEFAULT ''"

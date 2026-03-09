@@ -5,7 +5,7 @@
 # which Linux servers cannot extract into subdirectories. This script uses
 # .NET ZipFile API to ensure forward slashes per the ZIP specification.
 
-$version = "1.30.4"
+$version = "1.31.0"
 $root    = $PSScriptRoot
 $source  = Join-Path $root "el-core"
 $backupDir = Join-Path $root "old-versions\v$version"

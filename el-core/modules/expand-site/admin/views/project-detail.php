@@ -77,7 +77,7 @@ $html .= EL_Admin_UI::page_header( [
 $html .= EL_Admin_UI::stats_grid( [
     [
         'icon'    => 'flag',
-        'number'  => $current_stage . '/8',
+        'number'  => $current_stage . '/9',
         'label'   => $module->get_stage_name( $current_stage ),
         'variant' => EL_Expand_Site_Module::get_stage_badge_variant( $current_stage ),
     ],
@@ -901,10 +901,10 @@ $p4 .= EL_Admin_UI::btn( [
 $p4 .= '</div>';
 
 $html .= EL_Admin_UI::tab_panel( [
-    'id'      => 'phase-4',
+    'id'      => 'phase-5',
     'group'   => 'phase-tabs',
     'content' => EL_Admin_UI::card( [ 'title' => __( 'Visual Identity — Branding Review', 'el-core' ), 'icon' => 'art', 'content' => $p4 ] ),
-    'active'  => $current_stage === 4,
+    'active'  => $current_stage === 5,
 ] );
 
 // ── Phase 5: Wireframes ──
@@ -932,7 +932,7 @@ foreach ( $pages as $pg ) {
 }
 
 $html .= EL_Admin_UI::tab_panel( [
-    'id'      => 'phase-5',
+    'id'      => 'phase-6',
     'group'   => 'phase-tabs',
     'content' => EL_Admin_UI::card( [
         'title'   => __( 'Wireframe Pages', 'el-core' ),
@@ -955,10 +955,10 @@ $html .= EL_Admin_UI::tab_panel( [
             [ 'label' => __( 'Add Page', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'data' => [ 'modal-open' => 'add-page-modal' ] ],
         ],
     ] ),
-    'active'  => $current_stage === 5,
+    'active'  => $current_stage === 6,
 ] );
 
-// ── Phase 6: Final Design ──
+// ── Phase 7: Final Design ──
 $p6  = EL_Admin_UI::notice( [
     'message' => __( '<strong>Final Design phase</strong> — Full-color mockups and client content entry. Content entry and design approval tools are coming in a future update.', 'el-core' ),
     'type'    => 'info',
@@ -984,13 +984,13 @@ $p6 .= EL_Admin_UI::card( [
 ] );
 
 $html .= EL_Admin_UI::tab_panel( [
-    'id'      => 'phase-6',
+    'id'      => 'phase-7',
     'group'   => 'phase-tabs',
     'content' => $p6,
-    'active'  => $current_stage === 6,
+    'active'  => $current_stage === 7,
 ] );
 
-// ── Phase 7: Build ──
+// ── Phase 8: Build ──
 $del_rows = [];
 foreach ( $deliverables as $d ) {
     $review_badge = EL_Admin_UI::badge( [
@@ -1023,7 +1023,7 @@ foreach ( $deliverables as $d ) {
 }
 
 $html .= EL_Admin_UI::tab_panel( [
-    'id'      => 'phase-7',
+    'id'      => 'phase-8',
     'group'   => 'phase-tabs',
     'content' => EL_Admin_UI::card( [
         'title'   => __( 'Build — Deliverables', 'el-core' ),
@@ -1047,10 +1047,10 @@ $html .= EL_Admin_UI::tab_panel( [
             [ 'label' => __( 'Add Deliverable', 'el-core' ), 'variant' => 'secondary', 'icon' => 'plus-alt', 'data' => [ 'modal-open' => 'add-deliverable-modal' ] ],
         ],
     ] ),
-    'active'  => $current_stage === 7,
+    'active'  => $current_stage === 8,
 ] );
 
-// ── Phase 8: Delivery ──
+// ── Phase 9: Delivery ──
 $fb_rows = [];
 foreach ( $feedback as $fb ) {
     $fb_user = get_userdata( $fb->user_id );
@@ -1126,14 +1126,14 @@ $p8 .= EL_Admin_UI::data_table( [
 ] );
 
 $html .= EL_Admin_UI::tab_panel( [
-    'id'      => 'phase-8',
+    'id'      => 'phase-9',
     'group'   => 'phase-tabs',
     'content' => EL_Admin_UI::card( [
         'title'   => __( 'Delivery — Client Feedback', 'el-core' ),
         'icon'    => 'format-chat',
         'content' => $p8,
     ] ),
-    'active'  => $current_stage === 8,
+    'active'  => $current_stage === 9,
 ] );
 
 // ═══════════════════════════════════════════
@@ -1141,7 +1141,7 @@ $html .= EL_Admin_UI::tab_panel( [
 // ═══════════════════════════════════════════
 
 // Advance Stage modal
-$next_stage            = min( $current_stage + 1, 8 );
+$next_stage            = min( $current_stage + 1, 9 );
 $default_deadline_days = $module->get_stage_deadline_days( $next_stage );
 $default_deadline      = date( 'Y-m-d', strtotime( "+{$default_deadline_days} days" ) );
 

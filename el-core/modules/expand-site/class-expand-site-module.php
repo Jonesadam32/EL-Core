@@ -156,6 +156,9 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_dm_decision',              [ $this, 'handle_dm_decision' ] );
         add_action( 'el_core_ajax_es_reset_definition',         [ $this, 'handle_reset_definition' ] );
         add_action( 'el_core_ajax_es_client_edit_definition_field', [ $this, 'handle_client_edit_definition_field' ] );
+        // User Journey phase
+        add_action( 'el_core_ajax_es_init_user_journeys', [ $this, 'handle_init_user_journeys' ] );
+        add_action( 'el_core_ajax_es_add_user_type',      [ $this, 'handle_add_user_type' ] );
         // Guest (portal) access for stakeholders
         add_action( 'el_core_ajax_nopriv_es_get_definition_review',   [ $this, 'handle_get_definition_review' ] );
         add_action( 'el_core_ajax_nopriv_es_post_definition_comment', [ $this, 'handle_post_definition_comment' ] );
@@ -440,11 +443,12 @@ class EL_Expand_Site_Module {
         1 => [ 'name' => 'Qualification',   'slug' => 'qualification',   'has_client_gate' => true ],
         2 => [ 'name' => 'Discovery',       'slug' => 'discovery',       'has_client_gate' => true ],
         3 => [ 'name' => 'Proposal',        'slug' => 'proposal',        'has_client_gate' => true ],
-        4 => [ 'name' => 'Visual Identity', 'slug' => 'visual-identity', 'has_client_gate' => true ],
-        5 => [ 'name' => 'Wireframes',      'slug' => 'wireframes',      'has_client_gate' => true ],
-        6 => [ 'name' => 'Final Design',    'slug' => 'final-design',    'has_client_gate' => true ],
-        7 => [ 'name' => 'Build',           'slug' => 'build',           'has_client_gate' => false ],
-        8 => [ 'name' => 'Delivery',        'slug' => 'delivery',        'has_client_gate' => true ],
+        4 => [ 'name' => 'User Journey',    'slug' => 'user-journey',    'has_client_gate' => true ],
+        5 => [ 'name' => 'Visual Identity', 'slug' => 'visual-identity', 'has_client_gate' => true ],
+        6 => [ 'name' => 'Wireframes',      'slug' => 'wireframes',      'has_client_gate' => true ],
+        7 => [ 'name' => 'Final Design',    'slug' => 'final-design',    'has_client_gate' => true ],
+        8 => [ 'name' => 'Build',           'slug' => 'build',           'has_client_gate' => false ],
+        9 => [ 'name' => 'Delivery',        'slug' => 'delivery',        'has_client_gate' => true ],
     ];
 
     /**
@@ -455,11 +459,12 @@ class EL_Expand_Site_Module {
         1 => 3,   // Qualification: 3 days
         2 => 7,   // Discovery: 7 days
         3 => 5,   // Proposal: 5 days
-        4 => 10,  // Visual Identity: 10 days
-        5 => 10,  // Wireframes: 10 days
-        6 => 10,  // Final Design: 10 days
-        7 => 14,  // Build: 14 days
-        8 => 7,   // Delivery: 7 days
+        4 => 7,   // User Journey: 7 days
+        5 => 10,  // Visual Identity: 10 days
+        6 => 10,  // Wireframes: 10 days
+        7 => 10,  // Final Design: 10 days
+        8 => 14,  // Build: 14 days
+        9 => 7,   // Delivery: 7 days
     ];
 
     /**
@@ -490,10 +495,10 @@ class EL_Expand_Site_Module {
     public static function get_stage_badge_variant( int $stage ): string {
         if ( $stage <= 2 ) return 'info';
         if ( $stage === 3 ) return 'warning';
-        if ( $stage <= 5 ) return 'primary';
-        if ( $stage === 6 ) return 'default';
-        if ( $stage === 7 ) return 'warning';
-        if ( $stage === 8 ) return 'success';
+        if ( $stage <= 6 ) return 'primary';
+        if ( $stage === 7 ) return 'default';
+        if ( $stage === 8 ) return 'warning';
+        if ( $stage === 9 ) return 'success';
         return 'default';
     }
 
@@ -796,7 +801,7 @@ class EL_Expand_Site_Module {
 
     public function advance_stage( int $project_id, string $notes = '', string $deadline = '' ): bool {
         $project = $this->get_project( $project_id );
-        if ( ! $project || $project->current_stage >= 8 ) {
+        if ( ! $project || $project->current_stage >= 9 ) {
             return false;
         }
 
@@ -844,13 +849,73 @@ class EL_Expand_Site_Module {
             ] );
         }
 
-        // Lock scope when entering Stage 4
-        if ( $new_stage === 4 && ! $project->scope_locked_at ) {
+        // Lock scope when entering Stage 5 (Visual Identity)
+        if ( $new_stage === 5 && ! $project->scope_locked_at ) {
             $update_data['scope_locked_at'] = current_time( 'mysql' );
+        }
+
+        // Seed user journey rows when entering Stage 4 (User Journey)
+        if ( $new_stage === 4 ) {
+            $this->init_user_journeys( $project_id );
         }
 
         $db->update( 'el_es_projects', $update_data, [ 'id' => $project_id ] );
         return true;
+    }
+
+    /**
+     * Seed one el_es_user_journeys row per user type when advancing to Stage 4.
+     * Reads user_types from the locked definition; falls back to 'General User' if empty.
+     * Safe to call multiple times — skips existing rows for this project.
+     */
+    public function init_user_journeys( int $project_id ): void {
+        global $wpdb;
+        $table      = $wpdb->prefix . 'el_es_user_journeys';
+        $def_table  = $wpdb->prefix . 'el_es_project_definition';
+
+        // Bail if rows already exist for this project
+        $existing = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE project_id = %d", $project_id ) );
+        if ( $existing > 0 ) {
+            return;
+        }
+
+        $definition = $wpdb->get_row( $wpdb->prepare( "SELECT user_types FROM {$def_table} WHERE project_id = %d", $project_id ) );
+        $user_types = [];
+
+        if ( $definition && ! empty( $definition->user_types ) ) {
+            $raw = json_decode( $definition->user_types, true );
+            if ( is_array( $raw ) ) {
+                // Support both ["Student","Parent"] and [{"name":"Student"},...]
+                foreach ( $raw as $item ) {
+                    if ( is_string( $item ) && trim( $item ) !== '' ) {
+                        $user_types[] = trim( $item );
+                    } elseif ( is_array( $item ) && ! empty( $item['name'] ) ) {
+                        $user_types[] = trim( $item['name'] );
+                    }
+                }
+            } elseif ( is_string( $definition->user_types ) ) {
+                // Comma-separated fallback
+                foreach ( explode( ',', $definition->user_types ) as $t ) {
+                    $t = trim( $t );
+                    if ( $t !== '' ) $user_types[] = $t;
+                }
+            }
+        }
+
+        if ( empty( $user_types ) ) {
+            $user_types = [ 'General User' ];
+        }
+
+        $now = current_time( 'mysql' );
+        foreach ( $user_types as $type ) {
+            $wpdb->insert( $table, [
+                'project_id' => $project_id,
+                'user_type'  => sanitize_text_field( $type ),
+                'added_by'   => null,
+                'status'     => 'pending_assignment',
+                'created_at' => $now,
+            ] );
+        }
     }
 
     public function add_deliverable( array $data ): int|false {
@@ -2006,6 +2071,53 @@ class EL_Expand_Site_Module {
             ];
         }
         return $out;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // USER JOURNEY PHASE — AJAX HANDLERS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * AJAX: Admin manually triggers journey row seeding (in case auto-seed missed).
+     */
+    public function handle_init_user_journeys( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Project ID required.', 'el-core' ) );
+            return;
+        }
+        $this->init_user_journeys( $project_id );
+        EL_AJAX_Handler::success( [], __( 'User journey rows initialized.', 'el-core' ) );
+    }
+
+    /**
+     * AJAX: Admin adds a user type manually (not from the definition list).
+     */
+    public function handle_add_user_type( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $user_type  = sanitize_text_field( wp_unslash( $data['user_type'] ?? '' ) );
+        if ( ! $project_id || ! $user_type ) {
+            EL_AJAX_Handler::error( __( 'Project ID and user type are required.', 'el-core' ) );
+            return;
+        }
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_user_journeys';
+        $wpdb->insert( $table, [
+            'project_id' => $project_id,
+            'user_type'  => $user_type,
+            'added_by'   => get_current_user_id(),
+            'status'     => 'pending_assignment',
+            'created_at' => current_time( 'mysql' ),
+        ] );
+        EL_AJAX_Handler::success( [ 'id' => $wpdb->insert_id, 'user_type' => $user_type ], __( 'User type added.', 'el-core' ) );
     }
 
     /**
