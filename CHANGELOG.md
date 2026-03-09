@@ -6,7 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.32.0] — 2026-03-08
+## [1.32.1] — 2026-03-09
+### Fixed
+- **Phantom slashes in proposal narrative prose**: Section fields (`section_situation`, `section_what_we_build`, `section_why_els`, `section_investment`, `section_next_steps`, `terms_conditions`) were being passed through the AJAX handler's `sanitize_input()` which calls `sanitize_text_field()` — stripping newlines and corrupting multi-paragraph text. Fixed by reading these fields directly from `$_POST` with `wp_unslash()` + `sanitize_textarea_field()`, bypassing the pre-sanitized `$data` array.
+- **Terms & Conditions still one block**: The T&C regex used `preg_match` with the `s` (DOTALL) modifier and `.+?` non-greedy — the heading capture was grabbing only the first character. Fixed by splitting each `\n\n`-delimited chunk on its first `\n` to cleanly separate "heading line" from "body text". Now numbered sections render as bold heading + paragraph body as intended.
+- **Print PDF shows blank page**: The `@media print` CSS was using `body > *:not(.el-es-portal)` to hide the page — but the portal content is nested inside WordPress theme wrapper elements, so all ancestor elements were also hidden, resulting in a blank page. Fixed by using the `* { visibility: hidden }` + `.el-es-proposal-document, .el-es-proposal-document * { visibility: visible }` pattern, which correctly reveals only the proposal document regardless of DOM nesting depth.
+
+---
+
+
 ### Fixed
 - **Bug 1 — Empty-state "New Proposal" button**: The button in the Phase 3 data table empty state was using `data-modal-open` instead of the `.el-es-new-proposal-btn` class+`data-project-id`. Now wired to the same JS handler as the header button.
 - **Bug 2 — Proposal payment terms**: Replaced free-text payment terms textarea with structured fields: `final_price`, `annual_platform_fee`, `first_payment_amount` (25%), `final_payment_amount` (75%). DB migration v11 adds the three new DECIMAL columns. AI generation prompt now uses actual dollar amounts. Modal auto-calculates split from final price. Portal shows a structured payment breakdown.

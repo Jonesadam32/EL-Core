@@ -1122,11 +1122,13 @@ function el_es_render_proposal_document( $proposal ): string {
 		foreach ( $paragraphs as $para ) {
 			$para = trim( $para );
 			if ( empty( $para ) ) continue;
-			if ( preg_match( '/^(\d+\.\s+)(.+?)(\n|$)/s', $para, $m ) ) {
-				$heading = rtrim( $m[1] . $m[2] );
-				$body = trim( substr( $para, strlen( $heading ) ) );
-				$html .= '<div class="el-es-tc-section"><p class="el-es-tc-heading">' . esc_html( $heading ) . '</p>';
-				if ( $body ) $html .= '<p class="el-es-tc-body">' . nl2br( esc_html( $body ) ) . '</p>';
+			// Split on first newline: line 0 = heading candidate, rest = body
+			$lines = explode( "\n", $para, 2 );
+			$first_line = trim( $lines[0] );
+			$rest       = isset( $lines[1] ) ? trim( $lines[1] ) : '';
+			if ( preg_match( '/^\d+\./', $first_line ) ) {
+				$html .= '<div class="el-es-tc-section"><p class="el-es-tc-heading">' . esc_html( $first_line ) . '</p>';
+				if ( $rest ) $html .= '<p class="el-es-tc-body">' . nl2br( esc_html( $rest ) ) . '</p>';
 				$html .= '</div>';
 			} else {
 				$html .= '<p class="el-es-tc-para">' . nl2br( esc_html( $para ) ) . '</p>';

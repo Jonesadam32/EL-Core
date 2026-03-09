@@ -2792,40 +2792,36 @@
 
 /* ─── Print Styles ─────────────────────────────────────────────────── */
 @media print {
-    /* Hide everything except the proposal document */
-    body > *:not(.el-es-portal),
-    .el-es-portal > *:not(.el-es-global-sections),
-    .el-es-stage-bar,
-    .el-es-stage-content-wrapper,
-    .el-es-portal-header,
-    .el-es-stage-nav,
-    .admin-bar,
-    #wpadminbar,
-    .el-es-proposal-toolbar,
-    .el-es-proposal-actions,
-    .no-print {
-        display: none !important;
+    /* Hide everything on the page, then reveal the proposal document */
+    * {
+        visibility: hidden !important;
     }
 
-    .el-es-global-sections {
-        margin: 0;
-        padding: 0;
-    }
-
-    .el-es-proposal-section:not(.el-es-proposal-section) {
-        display: block !important;
+    .el-es-proposal-document,
+    .el-es-proposal-document * {
+        visibility: visible !important;
     }
 
     .el-es-proposal-document {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
         box-shadow: none !important;
         border: none !important;
         padding: 0 !important;
         max-width: 100% !important;
         margin: 0 !important;
+        background: #fff !important;
+    }
+
+    .el-es-proposal-toolbar {
+        display: none !important;
+        visibility: hidden !important;
     }
 
     .el-es-proposal-header {
-        display: flex;
+        display: flex !important;
         justify-content: space-between;
         align-items: flex-start;
         border-bottom: 2px solid #000;
@@ -2840,7 +2836,6 @@
         color: #000;
     }
 
-    body,
     .el-es-proposal-document,
     .el-es-proposal-document h1,
     .el-es-proposal-document h2,
@@ -2883,17 +2878,19 @@
         padding: 4pt 0;
     }
 
-    .el-es-proposal-social-proof,
-    .el-es-proposal-terms details summary::after {
+    .el-es-proposal-social-proof {
         display: none !important;
     }
 
-    .el-es-proposal-terms details {
-        display: block !important;
-    }
-
+    /* Force T&C details open for print */
+    .el-es-proposal-terms details,
     .el-es-proposal-terms details > * {
         display: block !important;
+        visibility: visible !important;
+    }
+
+    .el-es-proposal-terms details summary {
+        display: none !important;
     }
 
     .el-es-tc-heading {

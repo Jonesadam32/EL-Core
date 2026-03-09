@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 8, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.31.1 — uploaded to staging, end-to-end test run. **Next session:** BUILD v1.32.0 — Proposal overhaul + portal fixes. Read `NEXT-SESSION-PROMPT-v1.32.0.md` for the full bug list before starting.
+> **Current Plugin Version:** v1.32.0 — built and committed. Ready for upload to staging. **Next session:** Continue Phase 4 (User Journey) — Step C: portal guided questions form + AI Round 1 trigger. Read `SPEC-USER-JOURNEY-PHASE.md` before starting.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -205,7 +205,8 @@
 | v1.30.1 | Bug fixes: qualification form AJAX save, HTTP 400 WAF block on role change, double checkmark verdict display, stacked event listeners (comment/reply need refresh) | Built ✅ |
 | v1.30.2 | Bug fixes: phase bar tab auto-activation, verdict checkmark display, verdict button rename (Approve Field/Flag for changes), Client contacts Role column, definition editable in approved state, draft-state helper notice | Built ✅ |
 | v1.30.3 | Fix verdict active state not persisting after loadReview() (localVerdicts cache); tighten verdict button height | Built ✅ — **CURRENT** |
-| v1.31.0 | User Journey Phase (Phase 4) — 9-phase pipeline, guided questions, AI workflow, consensus review | **PLANNED** — spec in `SPEC-USER-JOURNEY-PHASE.md` |
+| v1.31.0 | User Journey Phase (Phase 4) — 9-phase pipeline, guided questions, AI workflow, consensus review | Built ✅ |
+| v1.32.0 | Proposal overhaul + portal fixes: structured payment fields (DB migration v11), New Proposal empty-state button fix, T&C paragraph formatting, PDF print button, accepted proposal → info card + modal, Stage 4 journey placeholder | Built ✅ — **CURRENT** |
 
 ---
 
