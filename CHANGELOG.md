@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.5] — 2026-03-09
+
+### Fixed
+- **Admin: Edit and Delete buttons on Phase 4 cards now work**: The `onclick="event.stopPropagation()"` on the `.el-es-uj-card__actions` wrapper was killing all click bubbling to `document`, preventing the delegated JS handlers from ever firing. Removed the inline handler — the individual button JS handlers already call `e.stopPropagation()` correctly.
+- **Portal: DM Assign button now works (JS always loads)**: The `expand-site.js` was conditionally enqueued only when `has_shortcode()` detected `[el_expand_site_portal]` in `$post->post_content`. Page builders (Elementor, etc.) store shortcodes in serialized data that `has_shortcode()` cannot read, so the script was silently not loading. The enqueue is now unconditional on all frontend pages — the JS is inert unless the portal markup exists in the DOM.
+
+---
+
 ## [1.33.4] — 2026-03-09
 
 ### Fixed

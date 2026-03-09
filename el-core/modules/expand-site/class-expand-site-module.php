@@ -274,33 +274,22 @@ class EL_Expand_Site_Module {
     // ═══════════════════════════════════════════
 
     public function enqueue_frontend_assets(): void {
-        global $post;
-        if ( ! $post ) return;
-
-        $shortcodes = [ 'el_expand_site_portal', 'el_project_status', 'el_page_review', 'el_feedback_form' ];
-        $has_shortcode = false;
-        foreach ( $shortcodes as $sc ) {
-            if ( has_shortcode( $post->post_content, $sc ) ) {
-                $has_shortcode = true;
-                break;
-            }
-        }
-
-        if ( $has_shortcode ) {
-            wp_enqueue_style(
-                'el-expand-site',
-                EL_CORE_URL . 'modules/expand-site/assets/css/expand-site.css',
-                [ 'el-core' ],
-                EL_CORE_VERSION
-            );
-            wp_enqueue_script(
-                'el-expand-site',
-                EL_CORE_URL . 'modules/expand-site/assets/js/expand-site.js',
-                [ 'el-core' ],
-                EL_CORE_VERSION,
-                true
-            );
-        }
+        // Always enqueue on frontend pages — page builders (Elementor, Divi, etc.)
+        // store shortcodes in serialized data that has_shortcode() cannot detect.
+        // The JS is inert unless .el-es-portal or related elements exist in the DOM.
+        wp_enqueue_style(
+            'el-expand-site',
+            EL_CORE_URL . 'modules/expand-site/assets/css/expand-site.css',
+            [ 'el-core' ],
+            EL_CORE_VERSION
+        );
+        wp_enqueue_script(
+            'el-expand-site',
+            EL_CORE_URL . 'modules/expand-site/assets/js/expand-site.js',
+            [ 'el-core' ],
+            EL_CORE_VERSION,
+            true
+        );
     }
 
     public function enqueue_admin_assets( string $hook ): void {

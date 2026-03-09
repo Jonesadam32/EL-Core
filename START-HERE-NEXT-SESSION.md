@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 9, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.33.4 — Portal DM assign button now shows inline errors instead of silent alert. Next: test v1.33.4 to confirm the exact error message surfaces when DM clicks Assign; if still failing, check browser console for JS errors and verify the DM user is properly added as a stakeholder on the project.
+> **Current Plugin Version:** v1.33.5 — Two root-cause fixes: (1) Admin edit/delete buttons broken because `onclick="event.stopPropagation()"` on the actions wrapper was killing event bubbling to document — removed. (2) Portal DM Assign button broken because `expand-site.js` wasn't loading on page-builder pages (`has_shortcode()` can't read builder-serialized content) — enqueue is now unconditional on all frontend pages.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

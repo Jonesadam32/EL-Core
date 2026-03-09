@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Admin View: Expand Site — Project Detail
  *
@@ -942,7 +942,7 @@ foreach ( $journeys as $jny ) {
         'variant' => $uj_status_variants[ $jstatus ] ?? 'default',
     ] );
     if ( in_array( $jstatus, [ 'pending_assignment', 'awaiting_input' ], true ) ) {
-        $p_uj .= '<div class="el-es-uj-card__actions" onclick="event.stopPropagation();">';
+        $p_uj .= '<div class="el-es-uj-card__actions">';
         $p_uj .= '<button type="button" class="el-es-uj-icon-btn el-es-uj-edit-type-btn" title="' . esc_attr__( 'Rename user type', 'el-core' ) . '" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '"><span class="dashicons dashicons-edit"></span></button>';
         if ( $jstatus === 'pending_assignment' ) {
             $p_uj .= '<button type="button" class="el-es-uj-icon-btn el-es-uj-icon-btn--danger el-es-uj-delete-type-btn" title="' . esc_attr__( 'Delete user type', 'el-core' ) . '" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" data-user-type="' . esc_attr( $jny->user_type ) . '"><span class="dashicons dashicons-trash"></span></button>';
