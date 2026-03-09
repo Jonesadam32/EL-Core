@@ -998,7 +998,14 @@
             confirmBtn.textContent = '✓ Confirm Style Direction';
         });
     });
+})();
 
+// ===========================================
+// USER JOURNEY -- Portal (Stage 4)
+// ===========================================
+
+(function() {
+    'use strict';
 
     // === User Journey â€” Portal (Stage 4) ===
 
@@ -1112,4 +1119,5 @@
                 if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit My Input'; }
             });
     });
+
 })();

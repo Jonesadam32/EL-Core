@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.6] — 2026-03-09
+
+### Fixed
+- **Portal: DM Assign button — actual root cause fixed**: The User Journey handlers (Assign, Reassign, answer form, submit) were accidentally nested inside the Mood Board IIFE, which exits immediately with `if (!moodBoard) return` when `#el-es-mood-board` isn't on the page. Since the DM portal for Stage 4 has no mood board, the entire block of User Journey handlers was never registered. Moved all User Journey handlers into their own standalone IIFE, fully independent of the Mood Board section.
+
+---
+
 ## [1.33.5] — 2026-03-09
 
 ### Fixed
