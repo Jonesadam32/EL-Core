@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.9] — 2026-03-09
+
+### Added
+- **Refine with AI (Round 2)** — `handle_refine_journey` PHP handler now exists. Takes saved Q&A answers + current `ai_workflow` + admin notes, runs a second AI pass, stores result in `admin_workflow`, advances status to `admin_refined`. Also added `run_journey_ai_round2()` private helper.
+- **Portal: Full consensus review UI** — `in_review` state now renders the complete workflow (summary + numbered steps), per-step verdict buttons (✓ Looks good / ⚑ Flag for changes), per-step threaded comments, overall comment box, and DM decision section (Accept / Needs Revision). Previously showed only "under review" placeholder text.
+- **Portal: `approved` / `locked` read-only banners** — green "approved" and blue "finalized" banners now render correctly.
+- **Stage 4→5 advance gate** — `handle_advance_stage` now rejects the advance if any journey in the project is not yet `locked`, with a clear error message showing how many are locked vs total.
+- **New AJAX handlers** — `es_post_journey_comment`, `es_journey_step_verdict`, `es_dm_journey_decision` (all with `nopriv` variants for portal-logged-in users).
+
+### Fixed
+- **Portal: `awaiting_ai`/`ai_generated`/`admin_refined` states** — these correctly show "Our team is reviewing…" placeholder. (Previously `in_review` was catching all three too early.)
+
+---
+
 ## [1.33.8] — 2026-03-09
 
 ### Fixed

@@ -603,15 +603,198 @@ function el_shortcode_expand_site_portal( $atts ): string {
 						$html .= '</p>';
 
 					} elseif ( in_array( $jstatus, [ 'in_review', 'approved', 'locked' ], true ) ) {
-						$html .= '<p class="el-es-journey-card-info">';
-						if ( $jstatus === 'locked' ) {
-							$html .= el_es_icon( 'lock', 16 ) . ' ' . esc_html__( 'This journey has been finalized.', 'el-core' );
-						} elseif ( $jstatus === 'approved' ) {
-							$html .= el_es_icon( 'yes-alt', 16 ) . ' ' . esc_html__( 'This journey has been approved by the team.', 'el-core' );
-						} else {
-							$html .= el_es_icon( 'visibility', 16 ) . ' ' . esc_html__( 'This journey is currently under team review.', 'el-core' );
+
+						// Fetch active review row
+						$jreviews_table  = $wpdb->prefix . 'el_es_journey_reviews';
+						$jcomments_table = $wpdb->prefix . 'el_es_journey_comments';
+						$active_review   = $wpdb->get_row( $wpdb->prepare(
+							"SELECT * FROM {$jreviews_table} WHERE journey_id = %d ORDER BY id DESC LIMIT 1",
+							$jid
+						) );
+						$review_id = $active_review ? (int) $active_review->id : 0;
+
+						// Workflow to display — prefer admin_workflow, fall back to ai_workflow
+						$wf_raw = $j->admin_workflow ?: $j->ai_workflow;
+						$wf     = $wf_raw ? json_decode( $wf_raw, true ) : null;
+
+						// DM revision banner
+						if ( $jstatus === 'in_review' && $active_review && $active_review->dm_decision === 'needs_revision' ) {
+							$html .= '<div class="el-es-journey-revision-banner">';
+							$html .= el_es_icon( 'flag', 16 );
+							$html .= ' <strong>' . esc_html__( 'Revision Requested', 'el-core' ) . '</strong>';
+							if ( $active_review->dm_note ) {
+								$html .= '<p class="el-es-journey-revision-note">' . esc_html( $active_review->dm_note ) . '</p>';
+							}
+							$html .= '</div>';
 						}
-						$html .= '</p>';
+
+						if ( $wf ) {
+							$html .= '<div class="el-es-journey-review-content" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">';
+
+							// Summary
+							if ( ! empty( $wf['summary'] ) ) {
+								$html .= '<p class="el-es-journey-review-summary">' . esc_html( $wf['summary'] ) . '</p>';
+							}
+
+							// Steps with per-step comments + verdicts
+							if ( ! empty( $wf['steps'] ) ) {
+								// Load all comments for this review
+								$all_comments = $review_id ? $wpdb->get_results( $wpdb->prepare(
+									"SELECT jc.*, u.display_name FROM {$jcomments_table} jc
+									 LEFT JOIN {$wpdb->users} u ON u.ID = jc.user_id
+									 WHERE jc.review_id = %d AND jc.comment != '__verdict__'
+									 ORDER BY jc.created_at ASC",
+									$review_id
+								) ) : [];
+
+								// Load this user's verdicts
+								$my_verdicts = [];
+								if ( $review_id && $current_user_id ) {
+									$vrows = $wpdb->get_results( $wpdb->prepare(
+										"SELECT step_key, verdict FROM {$jcomments_table}
+										 WHERE review_id = %d AND journey_id = %d AND user_id = %d AND comment = '__verdict__'",
+										$review_id, $jid, $current_user_id
+									) );
+									foreach ( $vrows as $vr ) {
+										$my_verdicts[ $vr->step_key ] = $vr->verdict;
+									}
+								}
+
+								$html .= '<ol class="el-es-journey-review-steps">';
+								foreach ( $wf['steps'] as $step ) {
+									$sk          = $step['id'] ?? '';
+									$my_verdict  = $my_verdicts[ $sk ] ?? '';
+									$step_comments = array_filter( $all_comments, fn( $c ) => $c->step_key === $sk && ! $c->parent_id );
+
+									$html .= '<li class="el-es-journey-review-step" data-step-key="' . esc_attr( $sk ) . '">';
+									$html .= '<div class="el-es-journey-step-header">';
+									$html .= '<span class="el-es-journey-step-label"><strong>' . esc_html( $step['label'] ?? '' ) . '</strong></span>';
+									$html .= '<span class="el-es-journey-step-desc">' . esc_html( $step['description'] ?? '' ) . '</span>';
+
+									// Verdict buttons (only when in_review)
+									if ( $jstatus === 'in_review' ) {
+										$html .= '<div class="el-es-journey-verdict-row">';
+										$html .= '<button type="button" class="el-es-journey-verdict-btn' . ( $my_verdict === 'approved' ? ' el-es-journey-verdict-btn--active' : '' ) . '" data-verdict="approved" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">';
+										$html .= '&#10003; ' . esc_html__( 'Looks good', 'el-core' );
+										$html .= '</button>';
+										$html .= '<button type="button" class="el-es-journey-verdict-btn el-es-journey-verdict-btn--flag' . ( $my_verdict === 'needs_revision' ? ' el-es-journey-verdict-btn--active' : '' ) . '" data-verdict="needs_revision" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">';
+										$html .= '&#9872; ' . esc_html__( 'Flag for changes', 'el-core' );
+										$html .= '</button>';
+										$html .= '</div>';
+									}
+
+									$html .= '</div>'; // .step-header
+
+									// Step comments
+									if ( ! empty( $step_comments ) ) {
+										$html .= '<ul class="el-es-journey-step-comments">';
+										foreach ( $step_comments as $sc ) {
+											$html .= '<li class="el-es-journey-comment" data-comment-id="' . esc_attr( $sc->id ) . '">';
+											$html .= '<span class="el-es-journey-comment-author">' . esc_html( $sc->display_name ) . '</span>';
+											$html .= '<span class="el-es-journey-comment-text">' . esc_html( $sc->comment ) . '</span>';
+											// Replies
+											$replies = array_filter( $all_comments, fn( $r ) => (int) $r->parent_id === (int) $sc->id );
+											if ( ! empty( $replies ) ) {
+												$html .= '<ul class="el-es-journey-comment-replies">';
+												foreach ( $replies as $reply ) {
+													$html .= '<li><span class="el-es-journey-comment-author">' . esc_html( $reply->display_name ) . '</span> ';
+													$html .= '<span class="el-es-journey-comment-text">' . esc_html( $reply->comment ) . '</span></li>';
+												}
+												$html .= '</ul>';
+											}
+											if ( $jstatus === 'in_review' ) {
+												$html .= '<button type="button" class="el-es-journey-reply-toggle" data-comment-id="' . esc_attr( $sc->id ) . '">' . esc_html__( 'Reply', 'el-core' ) . '</button>';
+												$html .= '<div class="el-es-journey-reply-form" data-comment-id="' . esc_attr( $sc->id ) . '" style="display:none;">';
+												$html .= '<textarea class="el-es-journey-reply-input" rows="2" placeholder="' . esc_attr__( 'Reply…', 'el-core' ) . '"></textarea>';
+												$html .= '<button type="button" class="el-btn el-btn-secondary el-es-journey-reply-submit" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '" data-parent-id="' . esc_attr( $sc->id ) . '">' . esc_html__( 'Post', 'el-core' ) . '</button>';
+												$html .= '</div>';
+											}
+											$html .= '</li>';
+										}
+										$html .= '</ul>';
+									}
+
+									// Add comment toggle (in_review only)
+									if ( $jstatus === 'in_review' ) {
+										$html .= '<div class="el-es-journey-add-comment">';
+										$html .= '<button type="button" class="el-es-journey-comment-toggle" data-journey-id="' . esc_attr( $jid ) . '" data-step-key="' . esc_attr( $sk ) . '">' . esc_html__( '+ Add comment', 'el-core' ) . '</button>';
+										$html .= '<div class="el-es-journey-comment-form" data-step-key="' . esc_attr( $sk ) . '" style="display:none;">';
+										$html .= '<textarea class="el-es-journey-comment-input" rows="2" placeholder="' . esc_attr__( 'Your comment…', 'el-core' ) . '"></textarea>';
+										$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-comment-submit" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">' . esc_html__( 'Post', 'el-core' ) . '</button>';
+										$html .= '</div>';
+										$html .= '</div>';
+									}
+
+									$html .= '</li>';
+								}
+								$html .= '</ol>';
+							}
+
+							// Implied pages
+							if ( ! empty( $wf['implied_pages'] ) ) {
+								$html .= '<p class="el-es-journey-implied-pages"><strong>' . esc_html__( 'Implied pages:', 'el-core' ) . '</strong> ' . esc_html( implode( ', ', $wf['implied_pages'] ) ) . '</p>';
+							}
+
+							$html .= '</div>'; // .el-es-journey-review-content
+						}
+
+						// Overall comment box + DM decision (in_review only)
+						if ( $jstatus === 'in_review' ) {
+							// Overall comment
+							$overall_comments = $review_id ? $wpdb->get_results( $wpdb->prepare(
+								"SELECT jc.*, u.display_name FROM {$jcomments_table} jc
+								 LEFT JOIN {$wpdb->users} u ON u.ID = jc.user_id
+								 WHERE jc.review_id = %d AND jc.step_key IS NULL AND jc.comment != '__verdict__'
+								 ORDER BY jc.created_at ASC",
+								$review_id
+							) ) : [];
+
+							$html .= '<div class="el-es-journey-overall-comments">';
+							$html .= '<h5>' . esc_html__( 'Overall comments', 'el-core' ) . '</h5>';
+							if ( ! empty( $overall_comments ) ) {
+								$html .= '<ul class="el-es-journey-step-comments">';
+								foreach ( $overall_comments as $oc ) {
+									$html .= '<li><span class="el-es-journey-comment-author">' . esc_html( $oc->display_name ) . '</span> <span class="el-es-journey-comment-text">' . esc_html( $oc->comment ) . '</span></li>';
+								}
+								$html .= '</ul>';
+							}
+							$html .= '<textarea class="el-es-journey-comment-input el-es-journey-overall-comment-input" rows="2" placeholder="' . esc_attr__( 'Add an overall comment…', 'el-core' ) . '"></textarea>';
+							$html .= '<button type="button" class="el-btn el-btn-secondary el-es-journey-comment-submit" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="">' . esc_html__( 'Post Comment', 'el-core' ) . '</button>';
+							$html .= '</div>';
+
+							// DM decision section
+							if ( $is_decision_maker ) {
+								$dm_decided   = $active_review && $active_review->dm_decision;
+								$html .= '<div class="el-es-journey-dm-decision">';
+								$html .= '<h5>' . esc_html__( 'Make Final Decision', 'el-core' ) . '</h5>';
+								if ( $dm_decided ) {
+									$html .= '<p class="el-es-journey-dm-decided">' . ( $active_review->dm_decision === 'approved'
+										? esc_html__( 'You approved this journey.', 'el-core' )
+										: esc_html__( 'You requested revisions.', 'el-core' ) ) . '</p>';
+								} else {
+									$html .= '<textarea class="el-es-journey-dm-note" rows="2" placeholder="' . esc_attr__( 'Optional note for the project manager…', 'el-core' ) . '"></textarea>';
+									$html .= '<div class="el-es-journey-dm-btns">';
+									$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-dm-decision-btn" data-decision="approved" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">' . esc_html__( 'Accept', 'el-core' ) . '</button>';
+									$html .= '<button type="button" class="el-btn el-btn-danger el-es-journey-dm-decision-btn" data-decision="needs_revision" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">' . esc_html__( 'Needs Revision', 'el-core' ) . '</button>';
+									$html .= '</div>';
+								}
+								$html .= '</div>';
+							}
+						}
+
+						// Approved / locked read-only banner
+						if ( $jstatus === 'approved' ) {
+							$html .= '<div class="el-es-journey-approved-banner">';
+							$html .= el_es_icon( 'yes-alt', 18 );
+							$html .= ' <strong>' . esc_html__( 'This journey has been approved by the team.', 'el-core' ) . '</strong>';
+							$html .= '</div>';
+						} elseif ( $jstatus === 'locked' ) {
+							$html .= '<div class="el-es-journey-locked-banner">';
+							$html .= el_es_icon( 'lock', 18 );
+							$html .= ' <strong>' . esc_html__( 'This journey has been finalized.', 'el-core' ) . '</strong>';
+							$html .= '</div>';
+						}
+
 					}
 
 					$html .= '</div>'; // .el-es-journey-card-body

@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 9, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.33.8 — Fixed AI call: wrong argument type caused PHP warning that corrupted AJAX response ("Unexpected token <"). Fixed response parsing. Added Retry AI button for stuck awaiting_ai journeys in admin.
+> **Current Plugin Version:** v1.33.9 — Built missing Refine with AI handler (Round 2), full portal consensus review UI (steps, comments, verdicts, DM decision), approved/locked read-only states, and Stage 4→5 advance gate.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 

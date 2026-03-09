@@ -3048,6 +3048,196 @@
     margin: 0;
 }
 
+/* ── Journey Review UI ── */
+.el-es-journey-review-content {
+    padding: 12px 0;
+}
+.el-es-journey-review-summary {
+    font-size: 14px;
+    color: #374151;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    background: #F0F9FF;
+    border-left: 3px solid #0EA5E9;
+    border-radius: 4px;
+}
+.el-es-journey-review-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+}
+.el-es-journey-review-step {
+    padding: 12px 0;
+    border-bottom: 1px solid #E5E7EB;
+}
+.el-es-journey-review-step:last-child {
+    border-bottom: none;
+}
+.el-es-journey-step-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+}
+.el-es-journey-step-label {
+    font-size: 14px;
+    color: #111827;
+}
+.el-es-journey-step-desc {
+    font-size: 13px;
+    color: #6B7280;
+}
+.el-es-journey-verdict-row {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0;
+}
+.el-es-journey-verdict-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    color: #374151;
+    transition: background 0.15s, border-color 0.15s;
+}
+.el-es-journey-verdict-btn:hover { background: #F3F4F6; }
+.el-es-journey-verdict-btn--active { background: #D1FAE5; border-color: #10B981; color: #065F46; font-weight: 600; }
+.el-es-journey-verdict-btn--flag.el-es-journey-verdict-btn--active { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+.el-es-journey-step-comments {
+    list-style: none;
+    padding: 0 0 0 12px;
+    margin: 8px 0;
+    border-left: 2px solid #E5E7EB;
+}
+.el-es-journey-step-comments li {
+    padding: 4px 0;
+    font-size: 13px;
+}
+.el-es-journey-comment-author {
+    font-weight: 600;
+    margin-right: 6px;
+    color: #374151;
+}
+.el-es-journey-comment-text { color: #4B5563; }
+.el-es-journey-comment-replies {
+    list-style: none;
+    padding: 4px 0 0 14px;
+    margin: 4px 0 0;
+    border-left: 2px solid #F3F4F6;
+}
+.el-es-journey-reply-toggle {
+    background: none;
+    border: none;
+    color: #6B7280;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 0;
+    text-decoration: underline;
+}
+.el-es-journey-reply-form {
+    margin-top: 6px;
+}
+.el-es-journey-reply-form textarea,
+.el-es-journey-comment-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    font-size: 13px;
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: 6px;
+}
+.el-es-journey-add-comment { margin-top: 8px; }
+.el-es-journey-comment-toggle {
+    background: none;
+    border: none;
+    color: #2563EB;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+}
+.el-es-journey-comment-form { margin-top: 8px; }
+.el-es-journey-implied-pages {
+    font-size: 13px;
+    color: #6B7280;
+    margin: 12px 0 0;
+}
+.el-es-journey-overall-comments {
+    border-top: 1px solid #E5E7EB;
+    margin-top: 16px;
+    padding-top: 14px;
+}
+.el-es-journey-overall-comments h5 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6B7280;
+}
+.el-es-journey-dm-decision {
+    border-top: 2px solid #E5E7EB;
+    margin-top: 18px;
+    padding-top: 14px;
+}
+.el-es-journey-dm-decision h5 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+.el-es-journey-dm-btns {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+.el-es-journey-dm-note {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    font-size: 13px;
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+}
+.el-es-journey-dm-decided {
+    color: #065F46;
+    font-weight: 600;
+    padding: 8px 12px;
+    background: #D1FAE5;
+    border-radius: 4px;
+    margin: 0;
+}
+.el-es-journey-revision-banner {
+    background: #FEF3C7;
+    border: 1px solid #F59E0B;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: #92400E;
+}
+.el-es-journey-revision-note {
+    margin: 6px 0 0;
+    font-style: italic;
+    color: #78350F;
+}
+.el-es-journey-approved-banner,
+.el-es-journey-locked-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-top: 16px;
+}
+.el-es-journey-approved-banner { background: #D1FAE5; color: #065F46; }
+.el-es-journey-locked-banner   { background: #F0F9FF; color: #0369A1; }
+
 .el-es-placeholder-notice {
     display: flex;
     align-items: flex-start;

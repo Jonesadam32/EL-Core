@@ -162,6 +162,7 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_rename_user_type',      [ $this, 'handle_rename_user_type' ] );
         add_action( 'el_core_ajax_es_delete_user_type',      [ $this, 'handle_delete_user_type' ] );
         add_action( 'el_core_ajax_es_assign_journey',        [ $this, 'handle_assign_journey' ] );
+        add_action( 'el_core_ajax_es_refine_journey',        [ $this, 'handle_refine_journey' ] );
         add_action( 'el_core_ajax_es_send_journey_review',   [ $this, 'handle_send_journey_review' ] );
         add_action( 'el_core_ajax_es_reset_journey_review',  [ $this, 'handle_reset_journey_review' ] );
         add_action( 'el_core_ajax_es_lock_journey',          [ $this, 'handle_lock_journey' ] );
@@ -169,6 +170,12 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_retry_journey_ai',      [ $this, 'handle_retry_journey_ai' ] );
         add_action( 'el_core_ajax_nopriv_es_dm_assign_journey',      [ $this, 'handle_dm_assign_journey' ] );
         add_action( 'el_core_ajax_nopriv_es_submit_journey_answers', [ $this, 'handle_submit_journey_answers' ] );
+        add_action( 'el_core_ajax_es_post_journey_comment',          [ $this, 'handle_post_journey_comment' ] );
+        add_action( 'el_core_ajax_nopriv_es_post_journey_comment',   [ $this, 'handle_post_journey_comment' ] );
+        add_action( 'el_core_ajax_es_journey_step_verdict',          [ $this, 'handle_journey_step_verdict' ] );
+        add_action( 'el_core_ajax_nopriv_es_journey_step_verdict',   [ $this, 'handle_journey_step_verdict' ] );
+        add_action( 'el_core_ajax_es_dm_journey_decision',           [ $this, 'handle_dm_journey_decision' ] );
+        add_action( 'el_core_ajax_nopriv_es_dm_journey_decision',    [ $this, 'handle_dm_journey_decision' ] );
         add_action( 'el_core_ajax_es_dm_assign_journey',             [ $this, 'handle_dm_assign_journey' ] );
         add_action( 'el_core_ajax_es_submit_journey_answers',        [ $this, 'handle_submit_journey_answers' ] );
         // Guest (portal) access for stakeholders
@@ -1176,8 +1183,25 @@ class EL_Expand_Site_Module {
             return;
         }
 
-        $notes  = sanitize_text_field( $data['notes'] ?? '' );
+        $notes    = sanitize_text_field( $data['notes'] ?? '' );
         $deadline = sanitize_text_field( $data['deadline'] ?? '' );
+
+        // Gate: all journeys must be locked before advancing from Stage 4
+        $project = $this->get_project( $project_id );
+        if ( $project && (int) $project->current_stage === 4 ) {
+            global $wpdb;
+            $jt    = $wpdb->prefix . 'el_es_user_journeys';
+            $total  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$jt} WHERE project_id = %d", $project_id ) );
+            $locked = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$jt} WHERE project_id = %d AND status = 'locked'", $project_id ) );
+            if ( $total > 0 && $locked < $total ) {
+                EL_AJAX_Handler::error( sprintf(
+                    __( 'All user journeys must be locked before advancing. %d of %d are locked.', 'el-core' ),
+                    $locked, $total
+                ) );
+                return;
+            }
+        }
+
         $result = $this->advance_stage( $project_id, $notes, $deadline );
 
         if ( $result ) {
@@ -2225,6 +2249,58 @@ class EL_Expand_Site_Module {
     }
 
     /**
+     * AJAX: Admin runs AI Round 2 — refines workflow using admin notes.
+     * Saves result to admin_workflow, advances status to admin_refined.
+     */
+    public function handle_refine_journey( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id  = absint( $data['journey_id'] ?? 0 );
+        $project_id  = absint( $data['project_id'] ?? 0 );
+        $admin_notes = sanitize_textarea_field( wp_unslash( $_POST['admin_notes'] ?? '' ) );
+        if ( ! $journey_id || ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt      = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d AND project_id = %d", $journey_id, $project_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ), 404 );
+            return;
+        }
+        if ( ! in_array( $journey->status, [ 'ai_generated', 'admin_refined' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Journey must be in ai_generated or admin_refined status to refine.', 'el-core' ) );
+            return;
+        }
+
+        // Save admin notes first
+        $wpdb->update( $jt, [ 'admin_notes' => $admin_notes ], [ 'id' => $journey_id ] );
+
+        $guided_answers = $journey->guided_answers ? json_decode( $journey->guided_answers, true ) : [];
+        $existing_wf    = $journey->ai_workflow    ? json_decode( $journey->ai_workflow, true ) : null;
+
+        $ai_result = $this->run_journey_ai_round2( $project_id, $journey, $guided_answers, $existing_wf, $admin_notes );
+        if ( is_wp_error( $ai_result ) ) {
+            EL_AJAX_Handler::error( $ai_result->get_error_message() );
+            return;
+        }
+
+        $wpdb->update( $jt, [
+            'admin_workflow' => wp_json_encode( $ai_result ),
+            'status'         => 'admin_refined',
+        ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success(
+            [ 'status' => 'admin_refined', 'workflow' => $ai_result ],
+            __( 'Workflow refined successfully.', 'el-core' )
+        );
+    }
+
+    /**
      * AJAX: Admin sends a journey for stakeholder consensus review.
      * Creates a row in el_es_journey_reviews, sets status → in_review.
      */
@@ -2352,7 +2428,154 @@ class EL_Expand_Site_Module {
     }
 
     /**
-     * AJAX: Admin marks the journey user-type list as ready for the DM to view.
+     * AJAX: Post a comment on a journey step (or overall journey if step_key is empty).
+     * Callable by any authenticated stakeholder (nopriv variant for logged-in portal users).
+     */
+    public function handle_post_journey_comment( array $data ): void {
+        $user_id    = get_current_user_id();
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $review_id  = absint( $data['review_id'] ?? 0 );
+        $step_key   = sanitize_text_field( $data['step_key'] ?? '' );
+        $comment    = sanitize_textarea_field( wp_unslash( $_POST['comment'] ?? '' ) );
+        $parent_id  = absint( $data['parent_id'] ?? 0 );
+
+        if ( ! $user_id || ! $journey_id || ! $review_id || trim( $comment ) === '' ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt  = $wpdb->prefix . 'el_es_user_journeys';
+        $jrt = $wpdb->prefix . 'el_es_journey_reviews';
+        $jct = $wpdb->prefix . 'el_es_journey_comments';
+
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d", $journey_id ) );
+        if ( ! $journey || $journey->status !== 'in_review' ) {
+            EL_AJAX_Handler::error( __( 'Journey is not currently in review.', 'el-core' ) );
+            return;
+        }
+        if ( ! $this->is_stakeholder( (int) $journey->project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $wpdb->insert( $jct, [
+            'review_id'  => $review_id,
+            'journey_id' => $journey_id,
+            'step_key'   => $step_key ?: null,
+            'parent_id'  => $parent_id ?: 0,
+            'user_id'    => $user_id,
+            'comment'    => $comment,
+            'created_at' => current_time( 'mysql' ),
+        ] );
+
+        $user = get_userdata( $user_id );
+        EL_AJAX_Handler::success( [
+            'comment_id'   => $wpdb->insert_id,
+            'comment'      => $comment,
+            'author'       => $user ? $user->display_name : __( 'Unknown', 'el-core' ),
+            'created_at'   => current_time( 'mysql' ),
+        ], __( 'Comment posted.', 'el-core' ) );
+    }
+
+    /**
+     * AJAX: Upsert a step verdict for the current user on a journey step.
+     */
+    public function handle_journey_step_verdict( array $data ): void {
+        $user_id    = get_current_user_id();
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $review_id  = absint( $data['review_id'] ?? 0 );
+        $step_key   = sanitize_text_field( $data['step_key'] ?? '' );
+        $verdict    = sanitize_text_field( $data['verdict'] ?? '' );
+
+        if ( ! $user_id || ! $journey_id || ! $review_id || ! in_array( $verdict, [ 'approved', 'needs_revision' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid verdict data.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt  = $wpdb->prefix . 'el_es_user_journeys';
+        $jct = $wpdb->prefix . 'el_es_journey_comments';
+
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d", $journey_id ) );
+        if ( ! $journey || $journey->status !== 'in_review' ) {
+            EL_AJAX_Handler::error( __( 'Journey is not currently in review.', 'el-core' ) );
+            return;
+        }
+        if ( ! $this->is_stakeholder( (int) $journey->project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        // Upsert: update existing verdict comment for this user+step, or insert new one
+        $existing = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id FROM {$jct} WHERE review_id = %d AND journey_id = %d AND step_key = %s AND user_id = %d AND comment = '__verdict__' LIMIT 1",
+            $review_id, $journey_id, $step_key, $user_id
+        ) );
+
+        if ( $existing ) {
+            $wpdb->update( $jct, [ 'verdict' => $verdict ], [ 'id' => $existing->id ] );
+        } else {
+            $wpdb->insert( $jct, [
+                'review_id'  => $review_id,
+                'journey_id' => $journey_id,
+                'step_key'   => $step_key,
+                'parent_id'  => 0,
+                'user_id'    => $user_id,
+                'comment'    => '__verdict__',
+                'verdict'    => $verdict,
+                'created_at' => current_time( 'mysql' ),
+            ] );
+        }
+
+        EL_AJAX_Handler::success( [ 'verdict' => $verdict ], __( 'Verdict saved.', 'el-core' ) );
+    }
+
+    /**
+     * AJAX: DM submits final decision (approved / needs_revision) on active journey review.
+     */
+    public function handle_dm_journey_decision( array $data ): void {
+        $user_id    = get_current_user_id();
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $review_id  = absint( $data['review_id'] ?? 0 );
+        $decision   = sanitize_text_field( $data['decision'] ?? '' );
+        $dm_note    = sanitize_textarea_field( wp_unslash( $_POST['dm_note'] ?? '' ) );
+
+        if ( ! $user_id || ! $journey_id || ! $review_id || ! in_array( $decision, [ 'approved', 'needs_revision' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid decision data.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt  = $wpdb->prefix . 'el_es_user_journeys';
+        $jrt = $wpdb->prefix . 'el_es_journey_reviews';
+
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d", $journey_id ) );
+        if ( ! $journey || $journey->status !== 'in_review' ) {
+            EL_AJAX_Handler::error( __( 'Journey is not currently in review.', 'el-core' ) );
+            return;
+        }
+        if ( ! $this->is_decision_maker( (int) $journey->project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Only the Decision Maker can submit the final decision.', 'el-core' ), 403 );
+            return;
+        }
+
+        $wpdb->update( $jrt, [
+            'dm_decision'   => $decision,
+            'dm_note'       => $dm_note,
+            'dm_decided_at' => current_time( 'mysql' ),
+        ], [ 'id' => $review_id ] );
+
+        if ( $decision === 'approved' ) {
+            $wpdb->update( $jt, [ 'status' => 'approved' ], [ 'id' => $journey_id ] );
+        }
+        // 'needs_revision' keeps status as in_review — admin resets to admin_refined to make changes
+
+        EL_AJAX_Handler::success(
+            [ 'decision' => $decision, 'status' => $decision === 'approved' ? 'approved' : 'in_review' ],
+            $decision === 'approved' ? __( 'Journey approved!', 'el-core' ) : __( 'Revision requested. The project manager will make changes and re-send.', 'el-core' )
+        );
+    }
      * Sets journey_list_approved_at on the project.
      */
     public function handle_approve_journey_list( array $data ): void {
@@ -2604,6 +2827,63 @@ class EL_Expand_Site_Module {
 
         $raw = $response['content'] ?? '';
         // Strip markdown fences if AI wraps response despite instructions
+        $raw = preg_replace( '/^```(?:json)?\s*/i', '', trim( $raw ) );
+        $raw = preg_replace( '/\s*```$/', '', $raw );
+
+        $decoded = json_decode( $raw, true );
+        if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
+            return new WP_Error( 'ai_parse_error', __( 'AI returned an invalid workflow structure.', 'el-core' ) );
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Run Round 2 AI for a journey: refines workflow using admin notes.
+     * Returns decoded array on success, WP_Error on failure.
+     */
+    private function run_journey_ai_round2( int $project_id, object $journey, array $guided_answers, ?array $existing_wf, string $admin_notes ): array|WP_Error {
+        if ( ! $this->core->ai->is_configured() ) {
+            return new WP_Error( 'ai_not_configured', __( 'AI is not configured.', 'el-core' ) );
+        }
+
+        $definition       = $this->get_project_definition( $project_id );
+        $site_description = $definition->site_description ?? 'N/A';
+        $primary_goal     = $definition->primary_goal ?? 'N/A';
+        $site_type        = $definition->site_type ?? 'N/A';
+        $user_type        = $journey->user_type;
+
+        $qa_text = '';
+        foreach ( $guided_answers as $i => $qa ) {
+            $qa_text .= 'Q' . ( $i + 1 ) . ': ' . $qa['question'] . "\n";
+            $qa_text .= 'A: ' . $qa['answer'] . "\n\n";
+        }
+
+        $existing_json = $existing_wf ? wp_json_encode( $existing_wf ) : 'N/A';
+
+        $prompt  = "You are a UX designer refining a user journey workflow based on additional instructions from the project manager.\n";
+        $prompt .= "Produce a more detailed, complete version that incorporates the admin's notes and resolves open questions where possible.\n\n";
+        $prompt .= "Project Context:\n";
+        $prompt .= "- Site Description: {$site_description}\n";
+        $prompt .= "- Primary Goal: {$primary_goal}\n";
+        $prompt .= "- Site Type: {$site_type}\n";
+        $prompt .= "- User Type: {$user_type}\n\n";
+        $prompt .= "Original Client Answers:\n{$qa_text}\n";
+        $prompt .= "Existing Workflow (Round 1):\n{$existing_json}\n\n";
+        $prompt .= "Admin Instructions:\n{$admin_notes}\n\n";
+        $prompt .= "Produce ONLY valid JSON (no markdown fences, no explanation) with this exact shape:\n";
+        $prompt .= '{"summary":"string","steps":[{"id":"step_1","label":"string","description":"string","branch":null}],"implied_pages":["string"],"open_questions":["string"]}' . "\n";
+        $prompt .= "A step with a branch looks like: {\"branch\":{\"condition\":\"Has account?\",\"yes\":\"step_2a\",\"no\":\"step_2b\"}}\n";
+        $prompt .= "Use 5–12 steps. Keep labels short (3–5 words). Descriptions are 1 sentence. open_questions should be empty or minimal.\n";
+
+        $response = $this->core->ai->complete( [
+            'prompt' => $prompt,
+        ] );
+        if ( empty( $response['success'] ) ) {
+            return new WP_Error( 'ai_error', $response['error'] ?? __( 'AI request failed.', 'el-core' ) );
+        }
+
+        $raw = $response['content'] ?? '';
         $raw = preg_replace( '/^```(?:json)?\s*/i', '', trim( $raw ) );
         $raw = preg_replace( '/\s*```$/', '', $raw );
 

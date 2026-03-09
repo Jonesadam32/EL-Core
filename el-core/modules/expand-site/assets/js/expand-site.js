@@ -1121,3 +1121,167 @@
     });
 
 })();
+
+// ===========================================
+// USER JOURNEY — Review (in_review state)
+// ===========================================
+
+(function() {
+    'use strict';
+
+    // Verdict buttons (Looks good / Flag for changes per step)
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-journey-verdict-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var reviewId  = btn.dataset.reviewId;
+        var stepKey   = btn.dataset.stepKey;
+        var verdict   = btn.dataset.verdict;
+        var row       = btn.closest('.el-es-journey-verdict-row');
+
+        ELCore.ajax('es_journey_step_verdict', { journey_id: journeyId, review_id: reviewId, step_key: stepKey, verdict: verdict })
+            .then(function() {
+                if (row) {
+                    row.querySelectorAll('.el-es-journey-verdict-btn').forEach(function(b) {
+                        b.classList.toggle('el-es-journey-verdict-btn--active', b.dataset.verdict === verdict);
+                    });
+                }
+            })
+            .catch(function(err) { alert(err.message || 'Failed to save verdict.'); });
+    });
+
+    // Comment toggle (+ Add comment per step)
+    document.addEventListener('click', function(e) {
+        var toggle = e.target.closest('.el-es-journey-comment-toggle');
+        if (!toggle) return;
+        var stepKey = toggle.dataset.stepKey || '';
+        var step    = toggle.closest('.el-es-journey-review-step, .el-es-journey-overall-comments');
+        if (!step) return;
+        var form = step.querySelector('.el-es-journey-comment-form[data-step-key="' + stepKey + '"]');
+        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Reply toggle
+    document.addEventListener('click', function(e) {
+        var toggle = e.target.closest('.el-es-journey-reply-toggle');
+        if (!toggle) return;
+        var commentId = toggle.dataset.commentId;
+        var form = document.querySelector('.el-es-journey-reply-form[data-comment-id="' + commentId + '"]');
+        if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Post comment (step comment or overall)
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-journey-comment-submit');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var reviewId  = btn.dataset.reviewId;
+        var stepKey   = btn.dataset.stepKey;
+        var container = btn.closest('.el-es-journey-comment-form, .el-es-journey-overall-comments');
+        var textarea  = container ? container.querySelector('.el-es-journey-comment-input') : null;
+        var comment   = textarea ? textarea.value.trim() : '';
+        if (!comment) { alert('Please enter a comment.'); return; }
+
+        var originalText = btn.textContent;
+        btn.disabled = true;
+
+        ELCore.ajax('es_post_journey_comment', { journey_id: journeyId, review_id: reviewId, step_key: stepKey, comment: comment })
+            .then(function(result) {
+                // Append comment to the list
+                var list = container ? container.querySelector('.el-es-journey-step-comments') : null;
+                if (!list) {
+                    list = document.createElement('ul');
+                    list.className = 'el-es-journey-step-comments';
+                    container.insertBefore(list, btn.previousElementSibling || btn);
+                }
+                var li = document.createElement('li');
+                li.innerHTML = '<span class="el-es-journey-comment-author">' + (result.author || 'You') + '</span> '
+                    + '<span class="el-es-journey-comment-text">' + comment + '</span>';
+                list.appendChild(li);
+                if (textarea) textarea.value = '';
+                btn.disabled = false;
+                btn.textContent = originalText;
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to post comment.');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+    });
+
+    // Post reply
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-journey-reply-submit');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var reviewId  = btn.dataset.reviewId;
+        var stepKey   = btn.dataset.stepKey;
+        var parentId  = btn.dataset.parentId;
+        var form      = btn.closest('.el-es-journey-reply-form');
+        var textarea  = form ? form.querySelector('.el-es-journey-reply-input') : null;
+        var comment   = textarea ? textarea.value.trim() : '';
+        if (!comment) { alert('Please enter a reply.'); return; }
+
+        var originalText = btn.textContent;
+        btn.disabled = true;
+
+        ELCore.ajax('es_post_journey_comment', { journey_id: journeyId, review_id: reviewId, step_key: stepKey, parent_id: parentId, comment: comment })
+            .then(function(result) {
+                var commentLi = document.querySelector('.el-es-journey-comment[data-comment-id="' + parentId + '"]');
+                var replies = commentLi ? commentLi.querySelector('.el-es-journey-comment-replies') : null;
+                if (!replies && commentLi) {
+                    replies = document.createElement('ul');
+                    replies.className = 'el-es-journey-comment-replies';
+                    commentLi.appendChild(replies);
+                }
+                if (replies) {
+                    var li = document.createElement('li');
+                    li.innerHTML = '<span class="el-es-journey-comment-author">' + (result.author || 'You') + '</span> '
+                        + '<span class="el-es-journey-comment-text">' + comment + '</span>';
+                    replies.appendChild(li);
+                }
+                if (textarea) textarea.value = '';
+                if (form) form.style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = originalText;
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to post reply.');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+    });
+
+    // DM decision (Accept / Needs Revision)
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-journey-dm-decision-btn');
+        if (!btn) return;
+        var decision  = btn.dataset.decision;
+        var journeyId = btn.dataset.journeyId;
+        var reviewId  = btn.dataset.reviewId;
+        var dmSection = btn.closest('.el-es-journey-dm-decision');
+        var noteEl    = dmSection ? dmSection.querySelector('.el-es-journey-dm-note') : null;
+        var dm_note   = noteEl ? noteEl.value.trim() : '';
+
+        if (decision === 'needs_revision' && !confirm('Request revision on this journey? The project manager will be notified.')) return;
+        if (decision === 'approved' && !confirm('Approve this journey? This cannot be undone.')) return;
+
+        var originalText = btn.textContent;
+        btn.disabled = true;
+
+        ELCore.ajax('es_dm_journey_decision', { journey_id: journeyId, review_id: reviewId, decision: decision, dm_note: dm_note })
+            .then(function(result) {
+                if (dmSection) {
+                    dmSection.innerHTML = '<p class="el-es-journey-dm-decided">'
+                        + (decision === 'approved' ? 'You approved this journey.' : 'Revision requested. The project manager will make changes and re-send.')
+                        + '</p>';
+                }
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to submit decision.');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+    });
+
+})();
