@@ -160,6 +160,7 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_init_user_journeys',    [ $this, 'handle_init_user_journeys' ] );
         add_action( 'el_core_ajax_es_add_user_type',         [ $this, 'handle_add_user_type' ] );
         add_action( 'el_core_ajax_es_rename_user_type',      [ $this, 'handle_rename_user_type' ] );
+        add_action( 'el_core_ajax_es_delete_user_type',      [ $this, 'handle_delete_user_type' ] );
         add_action( 'el_core_ajax_es_assign_journey',        [ $this, 'handle_assign_journey' ] );
         add_action( 'el_core_ajax_es_send_journey_review',   [ $this, 'handle_send_journey_review' ] );
         add_action( 'el_core_ajax_es_reset_journey_review',  [ $this, 'handle_reset_journey_review' ] );
@@ -2158,6 +2159,35 @@ class EL_Expand_Site_Module {
         $wpdb->update( $table, [ 'user_type' => $user_type ], [ 'id' => $journey_id ] );
         EL_AJAX_Handler::success( [ 'user_type' => $user_type ], __( 'User type renamed.', 'el-core' ) );
     }
+
+    /**
+     * AJAX: Admin deletes a user type row (only allowed while still pending_assignment).
+     */
+    public function handle_delete_user_type( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        if ( ! $journey_id ) {
+            EL_AJAX_Handler::error( __( 'Journey ID required.', 'el-core' ) );
+            return;
+        }
+        global $wpdb;
+        $table   = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $journey_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ) );
+            return;
+        }
+        if ( $journey->status !== 'pending_assignment' ) {
+            EL_AJAX_Handler::error( __( 'Only unassigned user types can be deleted.', 'el-core' ) );
+            return;
+        }
+        $wpdb->delete( $table, [ 'id' => $journey_id ] );
+        EL_AJAX_Handler::success( [], __( 'User type deleted.', 'el-core' ) );
+    }
+
     public function get_user_journeys( int $project_id ): array {
         global $wpdb;
         $table = $wpdb->prefix . 'el_es_user_journeys';

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Expand Site — Client Portal JavaScript
  *
  * Vanilla JS only. Uses ELCore.ajax(). Event delegation on document.
@@ -1008,7 +1008,11 @@
         if (!btn) return;
         var journeyId = btn.dataset.journeyId;
         var projectId = btn.dataset.projectId;
-        var select    = document.querySelector('.el-es-journey-assign-select[data-journey-id="' + journeyId + '"]');
+        // Scope to the card so we get the right select when multiple cards exist
+        var card   = btn.closest('.el-es-journey-card');
+        var select = card
+            ? card.querySelector('.el-es-journey-assign-select[data-journey-id="' + journeyId + '"]')
+            : document.querySelector('.el-es-journey-assign-select[data-journey-id="' + journeyId + '"]');
         if (!select || !select.value) {
             alert('Please select a team member first.');
             return;

@@ -1884,6 +1884,29 @@
             });
     });
 
+    // -- Delete user type button (trash icon, only on pending_assignment cards) --
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-delete-type-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var userType  = btn.dataset.userType || 'this user type';
+        if (!confirm('Delete "' + userType + '"? This cannot be undone.')) return;
+        btn.disabled = true;
+
+        ujAjax('es_delete_user_type', { journey_id: journeyId, project_id: projectId })
+            .then(function() {
+                // Remove the card from the DOM without a full reload
+                var card = btn.closest('.el-es-uj-card');
+                if (card) card.remove();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to delete user type.');
+                btn.disabled = false;
+            });
+    });
+
     // -- Send List to Client button --
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-approve-list-btn');

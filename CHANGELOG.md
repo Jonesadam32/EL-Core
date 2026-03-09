@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.2] — 2026-03-09
+### Fixed
+- **Portal "Assign" button did nothing when multiple journey cards existed**: The JS handler was using `document.querySelector('.el-es-journey-assign-select[data-journey-id="..."]')` which always found the first matching select on the page, not the one in the card that was clicked. Fixed by scoping the lookup to `btn.closest('.el-es-journey-card')` first.
+
+### Added
+- **Delete user type** (admin Phase 4 panel): A red trash icon button appears on `pending_assignment` cards (i.e. user types that have not yet been assigned to anyone). Clicking it prompts for confirmation, then calls `es_delete_user_type`, removes the row from the DB, and removes the card from the DOM immediately without a full page reload. Cannot delete once a stakeholder has been assigned.
+
+---
+
 ## [1.33.1] — 2026-03-09
 ### Fixed
 - **"Send List to Client" button did nothing**: Button was rendering without the `.el-es-uj-approve-list-btn` CSS class because `EL_Admin_UI::btn()` reads `class` but the call was passing `classes` (plural). Fixed — button now correctly sends the AJAX call and reloads.
