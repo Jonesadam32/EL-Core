@@ -860,7 +860,7 @@ if ( ! $journey_list_approved && $total_journeys > 0 ) {
         'variant' => 'primary',
         'icon'    => 'email-alt',
         'data'    => [ 'action' => 'approve_journey_list', 'project-id' => $project_id ],
-        'classes' => 'el-es-uj-approve-list-btn',
+        'class'   => 'el-es-uj-approve-list-btn',
     ] );
 } elseif ( $journey_list_approved ) {
     $p_uj .= '<span style="font-size:12px;color:#059669;font-weight:500;">' . esc_html__( 'List sent to client', 'el-core' ) . '</span>';
@@ -920,7 +920,18 @@ foreach ( $journeys as $jny ) {
     // Card header — always visible
     $p_uj .= '<div class="el-es-uj-card__header" data-toggle="el-es-uj-card-body-' . esc_attr( $jid ) . '">';
     $p_uj .= '<div class="el-es-uj-card__title">';
-    $p_uj .= '<strong>' . esc_html( $jny->user_type ) . '</strong>';
+    $p_uj .= '<strong class="el-es-uj-type-display">' . esc_html( $jny->user_type ) . '</strong>';
+    // Inline edit — only available before stakeholder has submitted (pending_assignment or awaiting_input)
+    if ( in_array( $jstatus, [ 'pending_assignment', 'awaiting_input' ], true ) ) {
+        $p_uj .= '<button type="button" class="el-es-uj-edit-type-btn" title="' . esc_attr__( 'Edit user type name', 'el-core' ) . '" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '">';
+        $p_uj .= '<span class="dashicons dashicons-edit" style="font-size:14px;width:14px;height:14px;"></span>';
+        $p_uj .= '</button>';
+        $p_uj .= '<span class="el-es-uj-edit-type-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;">';
+        $p_uj .= '<input type="text" class="el-es-uj-edit-type-input" value="' . esc_attr( $jny->user_type ) . '" style="font-size:13px;padding:3px 6px;border:1px solid #CBD5E1;border-radius:4px;width:180px;" />';
+        $p_uj .= '<button type="button" class="el-btn el-btn-primary el-es-uj-save-type-btn" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '" style="padding:3px 10px;font-size:12px;margin-left:4px;">' . esc_html__( 'Save', 'el-core' ) . '</button>';
+        $p_uj .= '<button type="button" class="el-btn el-btn-secondary el-es-uj-cancel-edit-type-btn" data-journey-id="' . esc_attr( $jid ) . '" style="padding:3px 8px;font-size:12px;margin-left:2px;">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
+        $p_uj .= '</span>';
+    }
     $p_uj .= '<span class="el-es-uj-card__assigned">' . ( $assigned_name ? esc_html( $assigned_name ) : '<em>' . __( 'Unassigned', 'el-core' ) . '</em>' ) . '</span>';
     $p_uj .= '</div>';
     $p_uj .= EL_Admin_UI::badge( [

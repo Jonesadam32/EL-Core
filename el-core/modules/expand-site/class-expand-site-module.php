@@ -159,6 +159,7 @@ class EL_Expand_Site_Module {
         // User Journey phase
         add_action( 'el_core_ajax_es_init_user_journeys',    [ $this, 'handle_init_user_journeys' ] );
         add_action( 'el_core_ajax_es_add_user_type',         [ $this, 'handle_add_user_type' ] );
+        add_action( 'el_core_ajax_es_rename_user_type',      [ $this, 'handle_rename_user_type' ] );
         add_action( 'el_core_ajax_es_assign_journey',        [ $this, 'handle_assign_journey' ] );
         add_action( 'el_core_ajax_es_send_journey_review',   [ $this, 'handle_send_journey_review' ] );
         add_action( 'el_core_ajax_es_reset_journey_review',  [ $this, 'handle_reset_journey_review' ] );
@@ -2130,8 +2131,33 @@ class EL_Expand_Site_Module {
     }
 
     /**
-     * Query: Get all journey rows for a project.
+     * AJAX: Admin renames a user type (only allowed before stakeholder has submitted answers).
      */
+    public function handle_rename_user_type( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $user_type  = sanitize_text_field( wp_unslash( $data['user_type'] ?? '' ) );
+        if ( ! $journey_id || ! $user_type ) {
+            EL_AJAX_Handler::error( __( 'Journey ID and user type name are required.', 'el-core' ) );
+            return;
+        }
+        global $wpdb;
+        $table   = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $journey_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ) );
+            return;
+        }
+        if ( ! in_array( $journey->status, [ 'pending_assignment', 'awaiting_input' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'User type name cannot be changed after the stakeholder has submitted their answers.', 'el-core' ) );
+            return;
+        }
+        $wpdb->update( $table, [ 'user_type' => $user_type ], [ 'id' => $journey_id ] );
+        EL_AJAX_Handler::success( [ 'user_type' => $user_type ], __( 'User type renamed.', 'el-core' ) );
+    }
     public function get_user_journeys( int $project_id ): array {
         global $wpdb;
         $table = $wpdb->prefix . 'el_es_user_journeys';

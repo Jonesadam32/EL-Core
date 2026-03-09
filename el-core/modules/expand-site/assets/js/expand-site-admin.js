@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Expand Site Module — Admin JavaScript
  * 
  * Handles project creation form submission via AJAX
@@ -1816,14 +1816,82 @@
             });
     });
 
-    // ── Send List to Client button ──
+    // -- Edit user type name: pencil button toggles inline edit form --
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-edit-type-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        var journeyId = btn.dataset.journeyId;
+        var card = btn.closest('.el-es-uj-card');
+        if (!card) return;
+        var displayEl = card.querySelector('.el-es-uj-type-display');
+        var formEl    = card.querySelector('.el-es-uj-edit-type-form[data-journey-id="' + journeyId + '"]');
+        if (!formEl) return;
+        if (displayEl) displayEl.style.display = 'none';
+        btn.style.display = 'none';
+        formEl.style.display = 'inline-flex';
+        formEl.style.alignItems = 'center';
+        var input = formEl.querySelector('.el-es-uj-edit-type-input');
+        if (input) { input.focus(); input.select(); }
+    });
+
+    // -- Edit user type name: cancel --
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-cancel-edit-type-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        var journeyId = btn.dataset.journeyId;
+        var card = btn.closest('.el-es-uj-card');
+        if (!card) return;
+        var displayEl = card.querySelector('.el-es-uj-type-display');
+        var formEl    = card.querySelector('.el-es-uj-edit-type-form[data-journey-id="' + journeyId + '"]');
+        var pencilBtn = card.querySelector('.el-es-uj-edit-type-btn[data-journey-id="' + journeyId + '"]');
+        if (formEl) formEl.style.display = 'none';
+        if (displayEl) displayEl.style.display = '';
+        if (pencilBtn) pencilBtn.style.display = '';
+    });
+
+    // -- Edit user type name: save --
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-save-type-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var card = btn.closest('.el-es-uj-card');
+        if (!card) return;
+        var input   = card.querySelector('.el-es-uj-edit-type-input');
+        var newName = input ? input.value.trim() : '';
+        if (!newName) { alert('Please enter a user type name.'); return; }
+        var originalText = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Saving...';
+
+        ujAjax('es_rename_user_type', { journey_id: journeyId, project_id: projectId, user_type: newName })
+            .then(function(result) {
+                var displayEl = card.querySelector('.el-es-uj-type-display');
+                if (displayEl) displayEl.textContent = result.user_type || newName;
+                if (input) input.value = result.user_type || newName;
+                var formEl    = card.querySelector('.el-es-uj-edit-type-form[data-journey-id="' + journeyId + '"]');
+                var pencilBtn = card.querySelector('.el-es-uj-edit-type-btn[data-journey-id="' + journeyId + '"]');
+                if (formEl) formEl.style.display = 'none';
+                if (displayEl) displayEl.style.display = '';
+                if (pencilBtn) pencilBtn.style.display = '';
+                btn.disabled = false; btn.textContent = originalText;
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to rename user type.');
+                btn.disabled = false; btn.textContent = originalText;
+            });
+    });
+
+    // -- Send List to Client button --
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-approve-list-btn');
         if (!btn) return;
         var projectId = btn.dataset.projectId;
         if (!confirm('Send the user type list to the client? The Decision Maker will be able to assign team members once you confirm.')) return;
         var originalText = btn.textContent;
-        btn.disabled = true; btn.textContent = 'Sending…';
+        btn.disabled = true; btn.textContent = 'Sending...';
 
         ujAjax('es_approve_journey_list', { project_id: projectId })
             .then(function() {

@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.1] — 2026-03-09
+### Fixed
+- **"Send List to Client" button did nothing**: Button was rendering without the `.el-es-uj-approve-list-btn` CSS class because `EL_Admin_UI::btn()` reads `class` but the call was passing `classes` (plural). Fixed — button now correctly sends the AJAX call and reloads.
+
+### Added
+- **Edit user type name** (admin Phase 4 panel): A small pencil icon appears next to each user type name on cards that are in `pending_assignment` or `awaiting_input` status. Clicking it reveals an inline text input with Save/Cancel buttons. Save calls `es_rename_user_type` which updates the `user_type` column in `el_es_user_journeys` without a page reload. Cannot rename after the stakeholder has submitted their answers.
+
+---
+
 ## [1.33.0] — 2026-03-09
 ### Added
 - **DB migration v12**: Added `journey_list_approved_at DATETIME NULL` column to `el_es_projects`. Admin sets this when they're satisfied with the user type list and ready for the DM to begin assignments.
