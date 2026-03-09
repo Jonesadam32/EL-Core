@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 8, 2026
+> **Last Updated:** March 9, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.32.1 — uploaded to staging, tested. **Next session:** BUILD v1.33.0 — User Journey assignment flow redesign + portal Step C. Read `NEXT-SESSION-PROMPT-v1.33.0.md` before starting.
+> **Current Plugin Version:** v1.33.0 — built and committed. **Next session:** Continue with User Journey consensus review portal (portal `in_review` state: step-by-step comments, DM decision, verdicts — same pattern as definition review). Read `NEXT-SESSION-PROMPT-v1.33.0.md` for context.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -206,7 +206,9 @@
 | v1.30.2 | Bug fixes: phase bar tab auto-activation, verdict checkmark display, verdict button rename (Approve Field/Flag for changes), Client contacts Role column, definition editable in approved state, draft-state helper notice | Built ✅ |
 | v1.30.3 | Fix verdict active state not persisting after loadReview() (localVerdicts cache); tighten verdict button height | Built ✅ — **CURRENT** |
 | v1.31.0 | User Journey Phase (Phase 4) — 9-phase pipeline, guided questions, AI workflow, consensus review | Built ✅ |
-| v1.32.0 | Proposal overhaul + portal fixes: structured payment fields (DB migration v11), New Proposal empty-state button fix, T&C paragraph formatting, PDF print button, accepted proposal → info card + modal, Stage 4 journey placeholder | Built ✅ — **CURRENT** |
+| v1.32.0 | Proposal overhaul + portal fixes: structured payment fields (DB migration v11), New Proposal empty-state button fix, T&C paragraph formatting, PDF print button, accepted proposal → info card + modal, Stage 4 journey placeholder | Built ✅ |
+| v1.32.1 | Fix phantom slashes in proposal narrative prose, T&C section splitting, PDF print blank page | Built ✅ |
+| v1.33.0 | User Journey assignment flow: DB migration v12, admin "Send List to Client" button, 3 new AJAX handlers + AI Round 1, portal Stage 4 DM assignment UI + stakeholder 5-question form | Built ✅ — **CURRENT** |
 
 ---
 
