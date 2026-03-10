@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.13] — 2026-03-10
+
+### Changed
+- **Manual workflow editor — no more JSON.** Both `ai_generated` and `admin_refined` states now show a structured form: an editable Summary textarea followed by one card per step, each with a Label text input and a Description textarea. No raw JSON visible anywhere.
+- **Textarea resize — both directions.** All textareas in the Expand Site module (admin notes, step descriptions, portal answer fields) can now be resized both vertically and horizontally. Previously only vertical resize was allowed.
+
+### Fixed
+- **"Refine with AI" using stale context.** When the admin clicked "Refine with AI Again" from `admin_refined` state, the PHP handler was always passing the original `ai_workflow` to the AI prompt instead of the most recent `admin_workflow`. It now prefers `admin_workflow` when available, falling back to `ai_workflow` only if no refined version exists yet.
+
+---
+
 ## [1.33.12] — 2026-03-10
 
 ### Fixed

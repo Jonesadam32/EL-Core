@@ -1748,15 +1748,26 @@
         var journeyId = btn.dataset.journeyId;
         var projectId = btn.dataset.projectId;
         var card      = btn.closest('.el-es-uj-card');
-        var editor    = card ? card.querySelector('.el-es-uj-workflow-json-editor[data-journey-id="' + journeyId + '"]') : null;
+        var form      = card ? card.querySelector('.el-es-uj-manual-edit-form[data-journey-id="' + journeyId + '"]') : null;
         var statusEl  = btn.parentElement ? btn.parentElement.querySelector('.el-es-uj-save-workflow-status') : null;
-        if (!editor) return;
+        if (!form) return;
 
-        var jsonStr = editor.value.trim();
-        try { JSON.parse(jsonStr); } catch(ex) {
-            alert('Invalid JSON. Please check your edits and try again.\n\n' + ex.message);
-            return;
-        }
+        // Collect structured form fields into a workflow object
+        var summaryEl = form.querySelector('.el-es-uj-edit-summary');
+        var summary   = summaryEl ? summaryEl.value.trim() : '';
+        var steps     = [];
+        form.querySelectorAll('.el-es-uj-edit-step').forEach(function(stepEl, idx) {
+            var labelEl = stepEl.querySelector('.el-es-uj-edit-step-label');
+            var descEl  = stepEl.querySelector('.el-es-uj-edit-step-desc');
+            steps.push({
+                id:          'step_' + (idx + 1),
+                label:       labelEl ? labelEl.value.trim() : '',
+                description: descEl  ? descEl.value.trim()  : '',
+                branch:      null
+            });
+        });
+        var workflow = { summary: summary, steps: steps, implied_pages: [], open_questions: [] };
+        var jsonStr  = JSON.stringify(workflow);
 
         var originalText = btn.textContent;
         btn.disabled = true; btn.textContent = 'Saving…';

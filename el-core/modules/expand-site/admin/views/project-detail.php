@@ -1136,22 +1136,35 @@ foreach ( $journeys as $jny ) {
         $p_uj .= '</div>';
         $p_uj .= '</div>';
 
-        // Manual edit section
-        $ai_wf_for_edit = $jny->ai_workflow ? json_encode( json_decode( $jny->ai_workflow, true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) : '';
+        // Manual edit section (structured form — no raw JSON)
+        $ai_wf_edit = $jny->ai_workflow ? json_decode( $jny->ai_workflow, true ) : [];
         $p_uj .= '<div class="el-es-uj-section el-es-uj-manual-edit-section">';
         $p_uj .= '<button type="button" class="el-es-uj-manual-edit-toggle" data-journey-id="' . esc_attr( $jid ) . '">';
         $p_uj .= el_es_icon( 'edit', 14 ) . ' ' . esc_html__( 'Manually edit workflow', 'el-core' );
         $p_uj .= '</button>';
         $p_uj .= '<div class="el-es-uj-manual-edit-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;margin-top:12px;">';
-        $p_uj .= '<p class="el-es-uj-manual-edit-hint">' . esc_html__( 'Edit the JSON below to manually adjust the workflow. Changes will be saved as the refined version.', 'el-core' ) . '</p>';
-        $p_uj .= '<textarea class="el-textarea el-es-uj-workflow-json-editor" data-journey-id="' . esc_attr( $jid ) . '" rows="18" style="font-family:monospace;font-size:12px;">' . esc_textarea( $ai_wf_for_edit ) . '</textarea>';
-        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:8px;">';
+        $p_uj .= '<p class="el-es-uj-manual-edit-hint">' . esc_html__( 'Edit the summary and steps below. Each step has a short label and a one-sentence description.', 'el-core' ) . '</p>';
+        $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Summary', 'el-core' ) . '</label>';
+        $p_uj .= '<div class="el-form-field"><textarea class="el-textarea el-es-uj-edit-summary" data-journey-id="' . esc_attr( $jid ) . '" rows="3" style="resize:both;width:100%;">' . esc_textarea( $ai_wf_edit['summary'] ?? '' ) . '</textarea></div></div>';
+        $p_uj .= '<div class="el-es-uj-edit-steps" data-journey-id="' . esc_attr( $jid ) . '">';
+        foreach ( ( $ai_wf_edit['steps'] ?? [] ) as $sidx => $step ) {
+            $snum = $sidx + 1;
+            $p_uj .= '<div class="el-es-uj-edit-step" data-step-index="' . esc_attr( $sidx ) . '">';
+            $p_uj .= '<p class="el-es-uj-edit-step-num">' . sprintf( esc_html__( 'Step %d', 'el-core' ), $snum ) . '</p>';
+            $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Label', 'el-core' ) . '</label>';
+            $p_uj .= '<div class="el-form-field"><input type="text" class="el-input el-es-uj-edit-step-label" value="' . esc_attr( $step['label'] ?? '' ) . '" style="width:100%;"></div></div>';
+            $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Description', 'el-core' ) . '</label>';
+            $p_uj .= '<div class="el-form-field"><textarea class="el-textarea el-es-uj-edit-step-desc" rows="2" style="resize:both;width:100%;">' . esc_textarea( $step['description'] ?? '' ) . '</textarea></div></div>';
+            $p_uj .= '</div>';
+        }
+        $p_uj .= '</div>';
+        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:12px;">';
         $p_uj .= EL_Admin_UI::btn( [
             'label'   => __( 'Save Manual Edits', 'el-core' ),
             'variant' => 'secondary',
             'icon'    => 'yes',
             'class'   => 'el-es-uj-save-workflow-btn',
-            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id, 'source' => 'ai' ],
         ] );
         $p_uj .= '<span class="el-es-uj-save-workflow-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
         $p_uj .= '</div>';
@@ -1215,22 +1228,35 @@ foreach ( $journeys as $jny ) {
         $p_uj .= '</div>';
         $p_uj .= '</div>';
 
-        // Manual edit section
-        $admin_wf_for_edit = $jny->admin_workflow ? json_encode( json_decode( $jny->admin_workflow, true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) : '';
+        // Manual edit section (structured form — no raw JSON)
+        $admin_wf_edit = $jny->admin_workflow ? json_decode( $jny->admin_workflow, true ) : [];
         $p_uj .= '<div class="el-es-uj-section el-es-uj-manual-edit-section">';
         $p_uj .= '<button type="button" class="el-es-uj-manual-edit-toggle" data-journey-id="' . esc_attr( $jid ) . '">';
         $p_uj .= el_es_icon( 'edit', 14 ) . ' ' . esc_html__( 'Manually edit workflow', 'el-core' );
         $p_uj .= '</button>';
         $p_uj .= '<div class="el-es-uj-manual-edit-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;margin-top:12px;">';
-        $p_uj .= '<p class="el-es-uj-manual-edit-hint">' . esc_html__( 'Edit the JSON below to manually adjust the workflow. Changes will be saved as the refined version.', 'el-core' ) . '</p>';
-        $p_uj .= '<textarea class="el-textarea el-es-uj-workflow-json-editor" data-journey-id="' . esc_attr( $jid ) . '" rows="18" style="font-family:monospace;font-size:12px;">' . esc_textarea( $admin_wf_for_edit ) . '</textarea>';
-        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:8px;">';
+        $p_uj .= '<p class="el-es-uj-manual-edit-hint">' . esc_html__( 'Edit the summary and steps below. Each step has a short label and a one-sentence description.', 'el-core' ) . '</p>';
+        $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Summary', 'el-core' ) . '</label>';
+        $p_uj .= '<div class="el-form-field"><textarea class="el-textarea el-es-uj-edit-summary" data-journey-id="' . esc_attr( $jid ) . '" rows="3" style="resize:both;width:100%;">' . esc_textarea( $admin_wf_edit['summary'] ?? '' ) . '</textarea></div></div>';
+        $p_uj .= '<div class="el-es-uj-edit-steps" data-journey-id="' . esc_attr( $jid ) . '">';
+        foreach ( ( $admin_wf_edit['steps'] ?? [] ) as $sidx => $step ) {
+            $snum = $sidx + 1;
+            $p_uj .= '<div class="el-es-uj-edit-step" data-step-index="' . esc_attr( $sidx ) . '">';
+            $p_uj .= '<p class="el-es-uj-edit-step-num">' . sprintf( esc_html__( 'Step %d', 'el-core' ), $snum ) . '</p>';
+            $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Label', 'el-core' ) . '</label>';
+            $p_uj .= '<div class="el-form-field"><input type="text" class="el-input el-es-uj-edit-step-label" value="' . esc_attr( $step['label'] ?? '' ) . '" style="width:100%;"></div></div>';
+            $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Description', 'el-core' ) . '</label>';
+            $p_uj .= '<div class="el-form-field"><textarea class="el-textarea el-es-uj-edit-step-desc" rows="2" style="resize:both;width:100%;">' . esc_textarea( $step['description'] ?? '' ) . '</textarea></div></div>';
+            $p_uj .= '</div>';
+        }
+        $p_uj .= '</div>';
+        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:12px;">';
         $p_uj .= EL_Admin_UI::btn( [
             'label'   => __( 'Save Manual Edits', 'el-core' ),
             'variant' => 'secondary',
             'icon'    => 'yes',
             'class'   => 'el-es-uj-save-workflow-btn',
-            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id, 'source' => 'admin' ],
         ] );
         $p_uj .= '<span class="el-es-uj-save-workflow-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
         $p_uj .= '</div>';

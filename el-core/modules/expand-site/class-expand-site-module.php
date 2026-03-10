@@ -2285,7 +2285,8 @@ class EL_Expand_Site_Module {
         $wpdb->update( $jt, [ 'admin_notes' => $admin_notes ], [ 'id' => $journey_id ] );
 
         $guided_answers = $journey->guided_answers ? json_decode( $journey->guided_answers, true ) : [];
-        $existing_wf    = $journey->ai_workflow    ? json_decode( $journey->ai_workflow, true ) : null;
+        // Use the most recent refined workflow as context if available; fall back to round 1 output
+        $existing_wf    = $journey->admin_workflow ? json_decode( $journey->admin_workflow, true ) : ( $journey->ai_workflow ? json_decode( $journey->ai_workflow, true ) : null );
 
         $ai_result = $this->run_journey_ai_round2( $project_id, $journey, $guided_answers, $existing_wf, $admin_notes );
         if ( is_wp_error( $ai_result ) ) {
