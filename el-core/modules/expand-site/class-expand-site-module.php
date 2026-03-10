@@ -2993,7 +2993,11 @@ class EL_Expand_Site_Module {
 
         $decoded = json_decode( $raw, true );
         if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
-            return new WP_Error( 'ai_parse_error', __( 'AI returned an invalid workflow structure.', 'el-core' ) );
+            return new WP_Error( 'ai_parse_error', sprintf(
+                /* translators: %s raw AI response for debugging */
+                __( 'AI returned an invalid workflow structure. Raw response: %s', 'el-core' ),
+                substr( $raw, 0, 500 )
+            ) );
         }
 
         return $decoded;
