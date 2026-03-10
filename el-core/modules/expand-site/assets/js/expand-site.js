@@ -1144,7 +1144,12 @@
         btn.disabled = true;
         btn.textContent = 'Sending…';
 
-        ELCore.ajax('es_dm_send_to_admin', { journey_id: journeyId, project_id: projectId, dm_notes: notes })
+        var answers = {};
+        wrapper.querySelectorAll('.el-es-journey-pdm-answer-edit').forEach(function(ta, idx) {
+            answers['answer_' + (idx + 1)] = ta.value;
+        });
+
+        ELCore.ajax('es_dm_send_to_admin', Object.assign({ journey_id: journeyId, project_id: projectId, dm_notes: notes }, answers))
             .then(function() {
                 var dmSection = btn.closest('.el-es-journey-pdm-dm-section');
                 if (dmSection) {

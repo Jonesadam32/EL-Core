@@ -603,16 +603,21 @@ function el_shortcode_expand_site_portal( $atts ): string {
 						$html .= '<div class="el-es-journey-pdm-wrapper">';
 						$html .= '<h5 class="el-es-journey-pdm-heading">' . esc_html__( 'Submitted answers — awaiting Decision Maker review', 'el-core' ) . '</h5>';
 
-						if ( ! empty( $pdm_answers ) ) {
-							$html .= '<ol class="el-es-journey-pdm-answers">';
-							foreach ( $pdm_answers as $qa ) {
-								$html .= '<li class="el-es-journey-pdm-answer">';
-								$html .= '<p class="el-es-journey-pdm-q"><strong>' . esc_html( $qa['question'] ?? '' ) . '</strong></p>';
+					if ( ! empty( $pdm_answers ) ) {
+						$html .= '<ol class="el-es-journey-pdm-answers">';
+						foreach ( $pdm_answers as $n => $qa ) {
+							$q_index = $n + 1;
+							$html .= '<li class="el-es-journey-pdm-answer">';
+							$html .= '<p class="el-es-journey-pdm-q"><strong>' . esc_html( $qa['question'] ?? '' ) . '</strong></p>';
+							if ( $is_decision_maker ) {
+								$html .= '<textarea class="el-es-journey-pdm-answer-edit" name="answer_' . esc_attr( $q_index ) . '" data-question-index="' . esc_attr( $q_index ) . '" rows="3">' . esc_textarea( $qa['answer'] ?? '' ) . '</textarea>';
+							} else {
 								$html .= '<p class="el-es-journey-pdm-a">' . esc_html( $qa['answer'] ?? '' ) . '</p>';
-								$html .= '</li>';
 							}
-							$html .= '</ol>';
+							$html .= '</li>';
 						}
+						$html .= '</ol>';
+					}
 
 						// DM send-to-admin section
 						if ( $is_decision_maker ) {

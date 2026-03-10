@@ -5,8 +5,8 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 10, 2026
-> **Plugin Version:** v1.33.11 — deployed to staging
-> **Next Build:** v1.33.12 — see `NEXT-SESSION-PROMPT-v1.33.12.md` for exactly what to fix
+> **Plugin Version:** v1.33.12 — deployed to staging
+> **Next Build:** TBD
 > **Deployed Version:** v1.33.11 on staging (qd19d0iehj-staging.wpdns.site)
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
@@ -732,8 +732,8 @@ pending_assignment → awaiting_input → pending_dm_review → awaiting_ai
 
 ### Outstanding bugs (v1.33.12 — next session)
 
-- [ ] **Bug 1:** Portal `pending_dm_review` — DM answer fields are read-only; should be editable textareas so DM can correct answers before sending
-- [ ] **Bug 2:** Admin "Generate with AI" returns "AI returned an invalid workflow structure" — markdown fence stripping regex needs to be more robust (handle leading whitespace/newlines before ``` fence)
+- [x] **Bug 1:** Portal `pending_dm_review` — DM answer fields are read-only; should be editable textareas so DM can correct answers before sending
+- [x] **Bug 2:** Admin "Generate with AI" returns "AI returned an invalid workflow structure" — markdown fence stripping regex needs to be more robust (handle leading whitespace/newlines before ``` fence)
 
 ---
 

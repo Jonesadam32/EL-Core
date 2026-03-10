@@ -2613,6 +2613,30 @@ class EL_Expand_Site_Module {
             return;
         }
 
+        // If the DM submitted edited answers, save them back to guided_answers
+        $questions = [
+            1 => 'How does this person first find or arrive at the website?',
+            2 => 'Do they need to create an account or log in to use the site — or can they get what they need without one?',
+            3 => 'Once they\'re in, what is the first thing they need to do?',
+            4 => 'What are the main things this person will do on the site on a regular basis?',
+            5 => 'What does success look like for this person — what have they accomplished when they leave the site happy?',
+            6 => 'Is there anything this person should NOT be able to do, or any frustration you want to prevent?',
+        ];
+        $has_edited_answers = false;
+        $edited_answers     = [];
+        for ( $n = 1; $n <= 6; $n++ ) {
+            if ( isset( $_POST[ 'answer_' . $n ] ) ) {
+                $has_edited_answers = true;
+                $edited_answers[]   = [
+                    'question' => $questions[ $n ],
+                    'answer'   => sanitize_textarea_field( wp_unslash( $_POST[ 'answer_' . $n ] ) ),
+                ];
+            }
+        }
+        if ( $has_edited_answers && ! empty( $edited_answers ) ) {
+            $wpdb->update( $jt, [ 'guided_answers' => wp_json_encode( $edited_answers ) ], [ 'id' => $journey_id ] );
+        }
+
         $wpdb->update( $jt, [
             'status'     => 'awaiting_ai',
             'admin_notes' => $dm_notes ?: $journey->admin_notes,
@@ -2922,6 +2946,9 @@ class EL_Expand_Site_Module {
         if ( ! $this->core->ai->is_configured() ) {
             return new WP_Error( 'ai_not_configured', __( 'AI is not configured.', 'el-core' ) );
         }
+        if ( empty( $guided_answers ) ) {
+            return new WP_Error( 'no_answers', __( 'No answers have been saved for this journey yet.', 'el-core' ) );
+        }
 
         $definition = $this->get_project_definition( $project_id );
         $project    = $this->get_project( $project_id );
@@ -2958,9 +2985,11 @@ class EL_Expand_Site_Module {
         }
 
         $raw = $response['content'] ?? '';
-        // Strip markdown fences if AI wraps response despite instructions
-        $raw = preg_replace( '/^```(?:json)?\s*/i', '', trim( $raw ) );
-        $raw = preg_replace( '/\s*```$/', '', $raw );
+        // Robustly strip markdown code fences regardless of leading/trailing whitespace
+        $raw = trim( $raw );
+        $raw = preg_replace( '/^```(?:json)?\s*/im', '', $raw );
+        $raw = preg_replace( '/\s*```\s*$/im', '', $raw );
+        $raw = trim( $raw );
 
         $decoded = json_decode( $raw, true );
         if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
@@ -3016,8 +3045,11 @@ class EL_Expand_Site_Module {
         }
 
         $raw = $response['content'] ?? '';
-        $raw = preg_replace( '/^```(?:json)?\s*/i', '', trim( $raw ) );
-        $raw = preg_replace( '/\s*```$/', '', $raw );
+        // Robustly strip markdown code fences regardless of leading/trailing whitespace
+        $raw = trim( $raw );
+        $raw = preg_replace( '/^```(?:json)?\s*/im', '', $raw );
+        $raw = preg_replace( '/\s*```\s*$/im', '', $raw );
+        $raw = trim( $raw );
 
         $decoded = json_decode( $raw, true );
         if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {

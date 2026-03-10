@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.12] — 2026-03-10
+
+### Fixed
+- **Bug 1 — DM editable answers in `pending_dm_review`:** In the portal, when the viewer is the Decision Maker, submitted answers are now rendered as pre-filled `<textarea>` elements instead of read-only `<p>` tags. When the DM clicks "Send to Project Manager", the JS collects the current textarea values and POSTs them as updated answers. The PHP handler saves the edited answers back to `guided_answers` before advancing status to `awaiting_ai`.
+- **Bug 2 — AI fence stripping regex:** `run_journey_ai_round1()` and `run_journey_ai_round2()` now use the `m` (multiline) flag on the code-fence regex so `^` and `$` match at line boundaries, not just the absolute start/end of the string. This handles AI responses where the JSON is preceded by a blank line or the ` ``` ` fence appears on its own line. Added an empty-answers guard in `run_journey_ai_round1()` that returns a clear error rather than passing an empty array to the AI prompt.
+
+---
+
 ## [1.33.11] — 2026-03-10
 
 ### Changed

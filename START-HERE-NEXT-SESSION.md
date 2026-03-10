@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 10, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.33.11 — Full User Journey flow rebuild: pending_dm_review state, deliberate AI trigger, manual workflow editor, portal consensus review UI, Stage 4 gate.
+> **Current Plugin Version:** v1.33.12 — Bug fixes: DM editable answers in pending_dm_review portal state; AI fence-stripping regex made multiline-safe.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -208,7 +208,9 @@
 | v1.31.0 | User Journey Phase (Phase 4) — 9-phase pipeline, guided questions, AI workflow, consensus review | Built ✅ |
 | v1.32.0 | Proposal overhaul + portal fixes: structured payment fields (DB migration v11), New Proposal empty-state button fix, T&C paragraph formatting, PDF print button, accepted proposal → info card + modal, Stage 4 journey placeholder | Built ✅ |
 | v1.32.1 | Fix phantom slashes in proposal narrative prose, T&C section splitting, PDF print blank page | Built ✅ |
-| v1.33.0 | User Journey assignment flow: DB migration v12, admin "Send List to Client" button, 3 new AJAX handlers + AI Round 1, portal Stage 4 DM assignment UI + stakeholder 5-question form | Built ✅ — **CURRENT** |
+| v1.33.0 | User Journey assignment flow: DB migration v12, admin "Send List to Client" button, 3 new AJAX handlers + AI Round 1, portal Stage 4 DM assignment UI + stakeholder 5-question form | Built ✅ |
+| v1.33.11 | Full User Journey flow rebuild: pending_dm_review state, deliberate AI trigger, manual workflow editor, portal consensus review UI, Stage 4 gate | Built ✅ |
+| v1.33.12 | Bug fixes: DM editable answer textareas in portal pending_dm_review; AI fence-stripping regex multiline-safe + empty-answers guard | Built ✅ — **CURRENT** |
 
 ---
 
