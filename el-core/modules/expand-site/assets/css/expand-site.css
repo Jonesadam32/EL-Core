@@ -3069,6 +3069,102 @@
     margin: 0;
 }
 
+/* ── Pending DM Review state ── */
+.el-es-journey-pdm-wrapper {
+    padding: 4px 0;
+}
+.el-es-journey-pdm-heading {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #92400E;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.el-es-journey-pdm-answers {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+}
+.el-es-journey-pdm-answer {
+    padding: 10px 0;
+    border-bottom: 1px solid #F3F4F6;
+}
+.el-es-journey-pdm-answer:last-child { border-bottom: none; }
+.el-es-journey-pdm-q {
+    margin: 0 0 4px;
+    font-size: 13px;
+    color: #111827;
+}
+.el-es-journey-pdm-a {
+    margin: 0;
+    font-size: 13px;
+    color: #4B5563;
+    line-height: 1.5;
+}
+.el-es-journey-pdm-dm-section {
+    border-top: 2px solid #FED7AA;
+    padding-top: 14px;
+    margin-top: 8px;
+}
+.el-es-journey-pdm-dm-intro {
+    font-size: 13px;
+    color: #374151;
+    margin: 0 0 10px;
+    line-height: 1.5;
+}
+.el-es-journey-pdm-dm-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #374151;
+}
+.el-es-journey-pdm-dm-notes {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    font-size: 13px;
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+/* ── Admin manual edit section ── */
+.el-es-uj-manual-edit-section {
+    border-top: 1px dashed #D1D5DB;
+    padding-top: 12px;
+    margin-top: 12px;
+}
+.el-es-uj-manual-edit-toggle {
+    background: none;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: #374151;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.el-es-uj-manual-edit-toggle:hover { background: #F9FAFB; }
+.el-es-uj-manual-edit-hint {
+    font-size: 12px;
+    color: #6B7280;
+    margin: 0 0 8px;
+    font-style: italic;
+}
+.el-es-uj-workflow-json-editor {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    padding: 8px;
+    background: #F9FAFB;
+}
+
 /* ── Journey Review UI ── */
 .el-es-journey-review-content {
     padding: 12px 0;

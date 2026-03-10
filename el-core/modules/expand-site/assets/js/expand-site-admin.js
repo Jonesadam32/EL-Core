@@ -1706,6 +1706,73 @@
             });
     });
 
+    // ── Generate with AI button (awaiting_ai state) ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-generate-ai-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var card      = btn.closest('.el-es-uj-card');
+        var statusEl  = card ? card.querySelector('.el-es-uj-generate-status') : null;
+
+        btn.disabled = true; btn.textContent = 'Generating…';
+        if (statusEl) statusEl.textContent = 'Calling AI…';
+
+        ujAjax('es_generate_journey_ai', { journey_id: journeyId, project_id: projectId })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'AI generation failed. Please try again.');
+                btn.disabled = false; btn.textContent = 'Generate with AI';
+                if (statusEl) statusEl.textContent = '';
+            });
+    });
+
+    // ── Manual edit toggle ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-manual-edit-toggle');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var form = document.querySelector('.el-es-uj-manual-edit-form[data-journey-id="' + journeyId + '"]');
+        if (!form) return;
+        var isVisible = form.style.display !== 'none';
+        form.style.display = isVisible ? 'none' : 'block';
+        btn.textContent = isVisible ? '✎ Manually edit workflow' : '✎ Hide manual editor';
+    });
+
+    // ── Save Manual Edits button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-save-workflow-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var card      = btn.closest('.el-es-uj-card');
+        var editor    = card ? card.querySelector('.el-es-uj-workflow-json-editor[data-journey-id="' + journeyId + '"]') : null;
+        var statusEl  = btn.parentElement ? btn.parentElement.querySelector('.el-es-uj-save-workflow-status') : null;
+        if (!editor) return;
+
+        var jsonStr = editor.value.trim();
+        try { JSON.parse(jsonStr); } catch(ex) {
+            alert('Invalid JSON. Please check your edits and try again.\n\n' + ex.message);
+            return;
+        }
+
+        var originalText = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Saving…';
+        if (statusEl) statusEl.textContent = '';
+
+        ujAjax('es_save_journey_workflow', { journey_id: journeyId, project_id: projectId, workflow_json: jsonStr })
+            .then(function() {
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to save workflow.');
+                btn.disabled = false; btn.textContent = originalText;
+                if (statusEl) statusEl.textContent = '';
+            });
+    });
+
     // ── Refine with AI button ──
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-refine-btn');

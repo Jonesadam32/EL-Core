@@ -885,6 +885,7 @@ if ( empty( $journeys ) ) {
 $uj_status_variants = [
     'pending_assignment' => 'default',
     'awaiting_input'     => 'info',
+    'pending_dm_review'  => 'warning',
     'awaiting_ai'        => 'warning',
     'ai_generated'       => 'warning',
     'admin_refined'      => 'warning',
@@ -895,7 +896,8 @@ $uj_status_variants = [
 $uj_status_labels = [
     'pending_assignment' => __( 'Pending Assignment', 'el-core' ),
     'awaiting_input'     => __( 'Awaiting Input', 'el-core' ),
-    'awaiting_ai'        => __( 'Processing AI', 'el-core' ),
+    'pending_dm_review'  => __( 'DM Review', 'el-core' ),
+    'awaiting_ai'        => __( 'Ready for AI', 'el-core' ),
     'ai_generated'       => __( 'AI Generated', 'el-core' ),
     'admin_refined'      => __( 'Admin Refined', 'el-core' ),
     'in_review'          => __( 'In Review', 'el-core' ),
@@ -1010,12 +1012,12 @@ foreach ( $journeys as $jny ) {
         $p_uj .= '</div>';
     }
 
-    // ── awaiting_ai — AI is processing (or got stuck due to a prior error) ──
-    if ( $jstatus === 'awaiting_ai' ) {
+    // ── pending_dm_review — answers submitted, DM hasn't sent to admin yet ──
+    if ( $jstatus === 'pending_dm_review' ) {
         $guided = $jny->guided_answers ? json_decode( $jny->guided_answers, true ) : [];
         if ( ! empty( $guided ) ) {
             $p_uj .= '<div class="el-es-uj-section">';
-            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'What the team described', 'el-core' ) . '</h4>';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'Answers submitted — awaiting DM review', 'el-core' ) . '</h4>';
             foreach ( $guided as $qa ) {
                 $p_uj .= '<div class="el-es-uj-qa">';
                 $p_uj .= '<p class="el-es-uj-qa__q"><strong>' . esc_html( $qa['question'] ?? '' ) . '</strong></p>';
@@ -1025,18 +1027,40 @@ foreach ( $journeys as $jny ) {
             $p_uj .= '</div>';
         }
         $p_uj .= EL_Admin_UI::notice( [
-            'message' => __( 'AI generation is pending or may have failed on a previous attempt. Click "Retry AI" to regenerate the workflow from the saved answers.', 'el-core' ),
-            'type'    => 'warning',
+            'message' => __( 'The Decision Maker is reviewing these answers. Once they send them forward, you will be able to generate the AI workflow.', 'el-core' ),
+            'type'    => 'info',
         ] );
+    }
+
+    // ── awaiting_ai — DM has sent answers forward; admin generates AI ──
+    if ( $jstatus === 'awaiting_ai' ) {
+        $guided = $jny->guided_answers ? json_decode( $jny->guided_answers, true ) : [];
+        if ( ! empty( $guided ) ) {
+            $p_uj .= '<div class="el-es-uj-section">';
+            $p_uj .= '<h4 class="el-es-uj-section-title">' . __( 'What the team described', 'el-core' ) . '</h4>';
+            if ( ! empty( $jny->admin_notes ) ) {
+                $p_uj .= EL_Admin_UI::notice( [
+                    'message' => '<strong>' . __( 'DM notes:', 'el-core' ) . '</strong> ' . esc_html( $jny->admin_notes ),
+                    'type'    => 'info',
+                ] );
+            }
+            foreach ( $guided as $qa ) {
+                $p_uj .= '<div class="el-es-uj-qa">';
+                $p_uj .= '<p class="el-es-uj-qa__q"><strong>' . esc_html( $qa['question'] ?? '' ) . '</strong></p>';
+                $p_uj .= '<p class="el-es-uj-qa__a">' . esc_html( $qa['answer'] ?? '' ) . '</p>';
+                $p_uj .= '</div>';
+            }
+            $p_uj .= '</div>';
+        }
         $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:12px;">';
         $p_uj .= EL_Admin_UI::btn( [
-            'label'   => __( 'Retry AI', 'el-core' ),
+            'label'   => __( 'Generate with AI', 'el-core' ),
             'variant' => 'primary',
-            'icon'    => 'update',
-            'class'   => 'el-es-uj-retry-ai-btn',
+            'icon'    => 'admin-generic',
+            'class'   => 'el-es-uj-generate-ai-btn',
             'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
         ] );
-        $p_uj .= '<span class="el-es-uj-retry-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
+        $p_uj .= '<span class="el-es-uj-generate-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
         $p_uj .= '</div>';
     }
 
@@ -1111,6 +1135,28 @@ foreach ( $journeys as $jny ) {
         $p_uj .= '<span class="el-es-uj-refine-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
         $p_uj .= '</div>';
         $p_uj .= '</div>';
+
+        // Manual edit section
+        $ai_wf_for_edit = $jny->ai_workflow ? json_encode( json_decode( $jny->ai_workflow, true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) : '';
+        $p_uj .= '<div class="el-es-uj-section el-es-uj-manual-edit-section">';
+        $p_uj .= '<button type="button" class="el-es-uj-manual-edit-toggle" data-journey-id="' . esc_attr( $jid ) . '">';
+        $p_uj .= el_es_icon( 'edit', 14 ) . ' ' . esc_html__( 'Manually edit workflow', 'el-core' );
+        $p_uj .= '</button>';
+        $p_uj .= '<div class="el-es-uj-manual-edit-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;margin-top:12px;">';
+        $p_uj .= '<p class="el-es-uj-manual-edit-hint">' . esc_html__( 'Edit the JSON below to manually adjust the workflow. Changes will be saved as the refined version.', 'el-core' ) . '</p>';
+        $p_uj .= '<textarea class="el-textarea el-es-uj-workflow-json-editor" data-journey-id="' . esc_attr( $jid ) . '" rows="18" style="font-family:monospace;font-size:12px;">' . esc_textarea( $ai_wf_for_edit ) . '</textarea>';
+        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:8px;">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Save Manual Edits', 'el-core' ),
+            'variant' => 'secondary',
+            'icon'    => 'yes',
+            'class'   => 'el-es-uj-save-workflow-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '<span class="el-es-uj-save-workflow-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
+        $p_uj .= '</div>';
+        $p_uj .= '</div>';
+        $p_uj .= '</div>';
     }
 
     // ── admin_refined ──
@@ -1166,6 +1212,28 @@ foreach ( $journeys as $jny ) {
             'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
         ] );
         $p_uj .= '<span class="el-es-uj-refine-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
+        $p_uj .= '</div>';
+        $p_uj .= '</div>';
+
+        // Manual edit section
+        $admin_wf_for_edit = $jny->admin_workflow ? json_encode( json_decode( $jny->admin_workflow, true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) : '';
+        $p_uj .= '<div class="el-es-uj-section el-es-uj-manual-edit-section">';
+        $p_uj .= '<button type="button" class="el-es-uj-manual-edit-toggle" data-journey-id="' . esc_attr( $jid ) . '">';
+        $p_uj .= el_es_icon( 'edit', 14 ) . ' ' . esc_html__( 'Manually edit workflow', 'el-core' );
+        $p_uj .= '</button>';
+        $p_uj .= '<div class="el-es-uj-manual-edit-form" data-journey-id="' . esc_attr( $jid ) . '" style="display:none;margin-top:12px;">';
+        $p_uj .= '<p class="el-es-uj-manual-edit-hint">' . esc_html__( 'Edit the JSON below to manually adjust the workflow. Changes will be saved as the refined version.', 'el-core' ) . '</p>';
+        $p_uj .= '<textarea class="el-textarea el-es-uj-workflow-json-editor" data-journey-id="' . esc_attr( $jid ) . '" rows="18" style="font-family:monospace;font-size:12px;">' . esc_textarea( $admin_wf_for_edit ) . '</textarea>';
+        $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:8px;">';
+        $p_uj .= EL_Admin_UI::btn( [
+            'label'   => __( 'Save Manual Edits', 'el-core' ),
+            'variant' => 'secondary',
+            'icon'    => 'yes',
+            'class'   => 'el-es-uj-save-workflow-btn',
+            'data'    => [ 'journey-id' => $jid, 'project-id' => $project_id ],
+        ] );
+        $p_uj .= '<span class="el-es-uj-save-workflow-status" style="margin-left:10px;color:#6b7280;font-size:13px;"></span>';
+        $p_uj .= '</div>';
         $p_uj .= '</div>';
         $p_uj .= '</div>';
 

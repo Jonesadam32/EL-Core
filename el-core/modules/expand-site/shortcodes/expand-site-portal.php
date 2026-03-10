@@ -596,7 +596,47 @@ function el_shortcode_expand_site_portal( $atts ): string {
 							}
 						}
 
-					} elseif ( in_array( $jstatus, [ 'awaiting_ai', 'ai_generated', 'admin_refined' ], true ) ) {
+					} elseif ( $jstatus === 'pending_dm_review' ) {
+						// Load the submitted answers
+						$pdm_answers = $j->guided_answers ? json_decode( $j->guided_answers, true ) : [];
+
+						$html .= '<div class="el-es-journey-pdm-wrapper">';
+						$html .= '<h5 class="el-es-journey-pdm-heading">' . esc_html__( 'Submitted answers — awaiting Decision Maker review', 'el-core' ) . '</h5>';
+
+						if ( ! empty( $pdm_answers ) ) {
+							$html .= '<ol class="el-es-journey-pdm-answers">';
+							foreach ( $pdm_answers as $qa ) {
+								$html .= '<li class="el-es-journey-pdm-answer">';
+								$html .= '<p class="el-es-journey-pdm-q"><strong>' . esc_html( $qa['question'] ?? '' ) . '</strong></p>';
+								$html .= '<p class="el-es-journey-pdm-a">' . esc_html( $qa['answer'] ?? '' ) . '</p>';
+								$html .= '</li>';
+							}
+							$html .= '</ol>';
+						}
+
+						// DM send-to-admin section
+						if ( $is_decision_maker ) {
+							$html .= '<div class="el-es-journey-pdm-dm-section">';
+							$html .= '<p class="el-es-journey-pdm-dm-intro">' . esc_html__( 'Review the answers above. Add any notes for the project manager, then send them forward to generate the workflow.', 'el-core' ) . '</p>';
+							$html .= '<label class="el-es-journey-pdm-dm-label">' . esc_html__( 'Notes for the project manager (optional):', 'el-core' ) . '</label>';
+							$html .= '<textarea class="el-es-journey-pdm-dm-notes" data-journey-id="' . esc_attr( $jid ) . '" rows="3" placeholder="' . esc_attr__( 'e.g. The contributor forgot to mention the login step. Please add a branch for new vs returning users.', 'el-core' ) . '"></textarea>';
+							$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-pdm-send-btn" data-journey-id="' . esc_attr( $jid ) . '" data-project-id="' . esc_attr( $project_id ) . '">';
+							$html .= esc_html__( 'Send to Project Manager', 'el-core' );
+							$html .= '</button>';
+							$html .= '</div>';
+						} else {
+							$html .= '<p class="el-es-journey-card-info">' . esc_html__( 'Waiting for the Decision Maker to review these answers and send them to the project manager.', 'el-core' ) . '</p>';
+						}
+
+						$html .= '</div>'; // .el-es-journey-pdm-wrapper
+
+					} elseif ( $jstatus === 'awaiting_ai' ) {
+						$html .= '<p class="el-es-journey-card-info el-es-journey-card-info--processing">';
+						$html .= el_es_icon( 'update', 16 );
+						$html .= ' ' . esc_html__( 'The project manager is generating the workflow. Check back soon.', 'el-core' );
+						$html .= '</p>';
+
+					} elseif ( in_array( $jstatus, [ 'ai_generated', 'admin_refined' ], true ) ) {
 						$html .= '<p class="el-es-journey-card-info el-es-journey-card-info--processing">';
 						$html .= el_es_icon( 'update', 16 );
 						$html .= ' ' . esc_html__( 'Our team is reviewing and building out this workflow. Check back soon.', 'el-core' );

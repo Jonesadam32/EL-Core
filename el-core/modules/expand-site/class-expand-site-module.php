@@ -176,6 +176,10 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_nopriv_es_journey_step_verdict',   [ $this, 'handle_journey_step_verdict' ] );
         add_action( 'el_core_ajax_es_dm_journey_decision',           [ $this, 'handle_dm_journey_decision' ] );
         add_action( 'el_core_ajax_nopriv_es_dm_journey_decision',    [ $this, 'handle_dm_journey_decision' ] );
+        add_action( 'el_core_ajax_es_dm_send_to_admin',              [ $this, 'handle_dm_send_to_admin' ] );
+        add_action( 'el_core_ajax_nopriv_es_dm_send_to_admin',       [ $this, 'handle_dm_send_to_admin' ] );
+        add_action( 'el_core_ajax_es_generate_journey_ai',           [ $this, 'handle_generate_journey_ai' ] );
+        add_action( 'el_core_ajax_es_save_journey_workflow',         [ $this, 'handle_save_journey_workflow' ] );
         add_action( 'el_core_ajax_es_dm_assign_journey',             [ $this, 'handle_dm_assign_journey' ] );
         add_action( 'el_core_ajax_es_submit_journey_answers',        [ $this, 'handle_submit_journey_answers' ] );
         // Guest (portal) access for stakeholders
@@ -2578,6 +2582,143 @@ class EL_Expand_Site_Module {
     }
 
     /**
+     * AJAX: DM sends the reviewed answers forward to the admin for AI generation.
+     * Status: pending_dm_review → awaiting_ai (admin will trigger AI manually).
+     * DM can also attach notes for the admin.
+     */
+    public function handle_dm_send_to_admin( array $data ): void {
+        $user_id    = get_current_user_id();
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $project_id = absint( $data['project_id'] ?? 0 );
+        $dm_notes   = sanitize_textarea_field( wp_unslash( $_POST['dm_notes'] ?? '' ) );
+
+        if ( ! $user_id || ! $journey_id || ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt      = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d AND project_id = %d", $journey_id, $project_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ), 404 );
+            return;
+        }
+        if ( $journey->status !== 'pending_dm_review' ) {
+            EL_AJAX_Handler::error( __( 'Journey is not awaiting DM review.', 'el-core' ) );
+            return;
+        }
+        if ( ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Only the Decision Maker can send answers to the project manager.', 'el-core' ), 403 );
+            return;
+        }
+
+        $wpdb->update( $jt, [
+            'status'     => 'awaiting_ai',
+            'admin_notes' => $dm_notes ?: $journey->admin_notes,
+        ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success(
+            [ 'status' => 'awaiting_ai' ],
+            __( 'Answers sent to the project manager. They will generate the workflow shortly.', 'el-core' )
+        );
+    }
+
+    /**
+     * AJAX: Admin manually triggers Round 1 AI generation.
+     * Status: awaiting_ai → ai_generated.
+     */
+    public function handle_generate_journey_ai( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $journey_id || ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt      = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d AND project_id = %d", $journey_id, $project_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ), 404 );
+            return;
+        }
+        if ( ! in_array( $journey->status, [ 'awaiting_ai', 'ai_generated' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Journey must be in awaiting_ai or ai_generated status to generate.', 'el-core' ) );
+            return;
+        }
+
+        $guided_answers = $journey->guided_answers ? json_decode( $journey->guided_answers, true ) : [];
+        $ai_result      = $this->run_journey_ai_round1( $project_id, $journey, $guided_answers );
+
+        if ( is_wp_error( $ai_result ) ) {
+            EL_AJAX_Handler::error( $ai_result->get_error_message() );
+            return;
+        }
+
+        $wpdb->update( $jt, [
+            'ai_workflow' => wp_json_encode( $ai_result ),
+            'status'      => 'ai_generated',
+        ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success(
+            [ 'status' => 'ai_generated', 'workflow' => $ai_result ],
+            __( 'Workflow generated successfully.', 'el-core' )
+        );
+    }
+
+    /**
+     * AJAX: Admin saves a manually edited version of the workflow.
+     * Accepts a full workflow JSON string and saves to admin_workflow, status → admin_refined.
+     */
+    public function handle_save_journey_workflow( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $journey_id    = absint( $data['journey_id'] ?? 0 );
+        $project_id    = absint( $data['project_id'] ?? 0 );
+        $workflow_json = wp_unslash( $_POST['workflow_json'] ?? '' );
+
+        if ( ! $journey_id || ! $project_id || ! $workflow_json ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        $decoded = json_decode( $workflow_json, true );
+        if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid workflow JSON.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt      = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d AND project_id = %d", $journey_id, $project_id ) );
+        if ( ! $journey ) {
+            EL_AJAX_Handler::error( __( 'Journey not found.', 'el-core' ), 404 );
+            return;
+        }
+        if ( ! in_array( $journey->status, [ 'ai_generated', 'admin_refined' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Cannot edit workflow in current status.', 'el-core' ) );
+            return;
+        }
+
+        $wpdb->update( $jt, [
+            'admin_workflow' => wp_json_encode( $decoded ),
+            'status'         => 'admin_refined',
+        ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success(
+            [ 'status' => 'admin_refined' ],
+            __( 'Workflow saved.', 'el-core' )
+        );
+    }
+
+    /**
      * AJAX: Admin marks the journey user-type list as ready for the DM to view.
      * Sets journey_list_approved_at on the project.
      */
@@ -2764,25 +2905,13 @@ class EL_Expand_Site_Module {
         $guided_answers_json = wp_json_encode( $guided_answers );
         $wpdb->update( $journeys_table, [
             'guided_answers' => $guided_answers_json,
-            'status'         => 'awaiting_ai',
+            'status'         => 'pending_dm_review',
         ], [ 'id' => $journey_id ] );
 
-        // Fire Round 1 AI
-        $ai_result = $this->run_journey_ai_round1( $project_id, $journey, $guided_answers );
-
-        if ( is_wp_error( $ai_result ) ) {
-            // Answers saved; AI failed — still advance but flag it
-            $wpdb->update( $journeys_table, [ 'status' => 'ai_generated', 'ai_workflow' => null ], [ 'id' => $journey_id ] );
-            EL_AJAX_Handler::success( [ 'status' => 'ai_generated', 'ai_error' => $ai_result->get_error_message() ], __( 'Answers saved. AI generation failed — your project manager will review.', 'el-core' ) );
-            return;
-        }
-
-        $wpdb->update( $journeys_table, [
-            'ai_workflow' => wp_json_encode( $ai_result ),
-            'status'      => 'ai_generated',
-        ], [ 'id' => $journey_id ] );
-
-        EL_AJAX_Handler::success( [ 'status' => 'ai_generated' ], __( 'Thank you! Our team will review and build out this workflow.', 'el-core' ) );
+        EL_AJAX_Handler::success(
+            [ 'status' => 'pending_dm_review' ],
+            __( 'Thank you — your answers have been saved. The Decision Maker will review them before sending to the project manager.', 'el-core' )
+        );
     }
 
     /**

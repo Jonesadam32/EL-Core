@@ -1123,6 +1123,46 @@
 })();
 
 // ===========================================
+// USER JOURNEY — Pending DM Review state
+// ===========================================
+
+(function() {
+    'use strict';
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-journey-pdm-send-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var projectId = btn.dataset.projectId;
+        var wrapper   = btn.closest('.el-es-journey-pdm-wrapper');
+        var notesEl   = wrapper ? wrapper.querySelector('.el-es-journey-pdm-dm-notes') : null;
+        var notes     = notesEl ? notesEl.value.trim() : '';
+
+        if (!confirm('Send these answers to the project manager? They will generate the workflow from this point.')) return;
+
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+
+        ELCore.ajax('es_dm_send_to_admin', { journey_id: journeyId, project_id: projectId, dm_notes: notes })
+            .then(function() {
+                var dmSection = btn.closest('.el-es-journey-pdm-dm-section');
+                if (dmSection) {
+                    dmSection.innerHTML = '<p class="el-es-journey-card-info">'
+                        + '✓ Sent to the project manager. They will generate the workflow shortly.'
+                        + '</p>';
+                }
+            })
+            .catch(function(err) {
+                alert(err.message || 'Failed to send. Please try again.');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+    });
+
+})();
+
+// ===========================================
 // USER JOURNEY — Review (in_review state)
 // ===========================================
 

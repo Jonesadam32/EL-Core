@@ -6,6 +6,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.11] — 2026-03-10
+
+### Changed
+- **New status: `pending_dm_review`** — inserted between `awaiting_input` and `awaiting_ai`. After a contributor submits their 6 answers, the journey now pauses here instead of firing AI automatically.
+- **Auto-AI removed from submit handler** — `handle_submit_journey_answers` no longer calls AI at all. Answers save cleanly and stop. The contributor sees a clear success message with no mention of AI or technical processes.
+- **Portal: `pending_dm_review` state** — All stakeholders see the submitted answers. The DM sees an optional "Notes for project manager" textarea and a "Send to Project Manager" button. Contributors see a waiting message.
+- **Portal: `awaiting_ai` state** — Now shows "The project manager is generating the workflow. Check back soon." instead of the old processing spinner.
+- **Admin: `pending_dm_review` state** — Admin sees the answers and an info notice that the DM is reviewing. No action needed from admin at this stage.
+- **Admin: `awaiting_ai` state** — Replaced the old "Retry AI" flow with a deliberate **"Generate with AI"** button. Admin reviews answers (and DM's notes if any) then clicks to trigger AI manually.
+- **Admin: manual workflow editor** — Both `ai_generated` and `admin_refined` states now have a collapsible "Manually edit workflow" section with a JSON textarea. Admin can directly edit any field and click "Save Manual Edits" — saves to `admin_workflow`, advances status to `admin_refined`.
+
+### Added
+- `handle_dm_send_to_admin` AJAX handler — DM sends answers forward with optional notes; status → `awaiting_ai`
+- `handle_generate_journey_ai` AJAX handler — admin triggers Round 1 AI deliberately; status → `ai_generated`
+- `handle_save_journey_workflow` AJAX handler — admin saves manually edited workflow JSON; status → `admin_refined`
+
+---
+
 ## [1.33.10] — 2026-03-09
 
 ### Changed
