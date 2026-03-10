@@ -692,87 +692,156 @@ function el_shortcode_expand_site_portal( $atts ): string {
 									$review_id
 								) ) : [];
 
-								// Load this user's verdicts
-								$my_verdicts = [];
-								if ( $review_id && $current_user_id ) {
-									$vrows = $wpdb->get_results( $wpdb->prepare(
-										"SELECT step_key, verdict FROM {$jcomments_table}
-										 WHERE review_id = %d AND journey_id = %d AND user_id = %d AND comment = '__verdict__'",
-										$review_id, $jid, $current_user_id
-									) );
-									foreach ( $vrows as $vr ) {
-										$my_verdicts[ $vr->step_key ] = $vr->verdict;
-									}
+							// Load this user's verdicts
+							$my_verdicts = [];
+							if ( $review_id && $current_user_id ) {
+								$vrows = $wpdb->get_results( $wpdb->prepare(
+									"SELECT step_key, verdict FROM {$jcomments_table}
+									 WHERE review_id = %d AND journey_id = %d AND user_id = %d AND comment = '__verdict__'",
+									$review_id, $jid, $current_user_id
+								) );
+								foreach ( $vrows as $vr ) {
+									$my_verdicts[ $vr->step_key ] = $vr->verdict;
 								}
+							}
 
-								$html .= '<ol class="el-es-journey-review-steps">';
-								foreach ( $wf['steps'] as $step ) {
-									$sk          = $step['id'] ?? '';
-									$my_verdict  = $my_verdicts[ $sk ] ?? '';
-									$step_comments = array_filter( $all_comments, fn( $c ) => $c->step_key === $sk && ! $c->parent_id );
+							// Load ALL verdicts for every stakeholder (for team consensus display)
+							$all_verdicts = [];
+							if ( $review_id ) {
+								$avrows = $wpdb->get_results( $wpdb->prepare(
+									"SELECT jc.step_key, jc.verdict, jc.created_at, u.display_name
+									 FROM {$jcomments_table} jc
+									 LEFT JOIN {$wpdb->users} u ON u.ID = jc.user_id
+									 WHERE jc.review_id = %d AND jc.journey_id = %d AND jc.comment = '__verdict__'
+									 ORDER BY jc.created_at ASC",
+									$review_id, $jid
+								) );
+								foreach ( $avrows as $av ) {
+									$all_verdicts[ $av->step_key ][] = $av;
+								}
+							}
 
-									$html .= '<li class="el-es-journey-review-step" data-step-key="' . esc_attr( $sk ) . '">';
-									$html .= '<div class="el-es-journey-step-header">';
+							$html .= '<ol class="el-es-journey-review-steps" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">';
+							foreach ( $wf['steps'] as $sidx => $step ) {
+								$sk            = $step['id'] ?? ( 'step_' . ( $sidx + 1 ) );
+								$my_verdict    = $my_verdicts[ $sk ] ?? '';
+								$step_verdicts = $all_verdicts[ $sk ] ?? [];
+								$step_comments = array_filter( $all_comments, fn( $c ) => $c->step_key === $sk && ! $c->parent_id );
+
+								$html .= '<li class="el-es-journey-review-step" data-step-key="' . esc_attr( $sk ) . '" data-step-index="' . esc_attr( $sidx ) . '">';
+
+								// ── Step header (label + description, editable for in_review) ──
+								$html .= '<div class="el-es-journey-step-header">';
+								if ( $jstatus === 'in_review' ) {
+									$html .= '<div class="el-es-journey-step-content" data-step-key="' . esc_attr( $sk ) . '">';
+									$html .= '<div class="el-es-journey-step-view">';
 									$html .= '<span class="el-es-journey-step-label"><strong>' . esc_html( $step['label'] ?? '' ) . '</strong></span>';
 									$html .= '<span class="el-es-journey-step-desc">' . esc_html( $step['description'] ?? '' ) . '</span>';
-
-									// Verdict buttons (only when in_review)
-									if ( $jstatus === 'in_review' ) {
-										$html .= '<div class="el-es-journey-verdict-row">';
-										$html .= '<button type="button" class="el-es-journey-verdict-btn' . ( $my_verdict === 'approved' ? ' el-es-journey-verdict-btn--active' : '' ) . '" data-verdict="approved" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">';
-										$html .= '&#10003; ' . esc_html__( 'Looks good', 'el-core' );
-										$html .= '</button>';
-										$html .= '<button type="button" class="el-es-journey-verdict-btn el-es-journey-verdict-btn--flag' . ( $my_verdict === 'needs_revision' ? ' el-es-journey-verdict-btn--active' : '' ) . '" data-verdict="needs_revision" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">';
-										$html .= '&#9872; ' . esc_html__( 'Flag for changes', 'el-core' );
-										$html .= '</button>';
-										$html .= '</div>';
-									}
-
-									$html .= '</div>'; // .step-header
-
-									// Step comments
-									if ( ! empty( $step_comments ) ) {
-										$html .= '<ul class="el-es-journey-step-comments">';
-										foreach ( $step_comments as $sc ) {
-											$html .= '<li class="el-es-journey-comment" data-comment-id="' . esc_attr( $sc->id ) . '">';
-											$html .= '<span class="el-es-journey-comment-author">' . esc_html( $sc->display_name ) . '</span>';
-											$html .= '<span class="el-es-journey-comment-text">' . esc_html( $sc->comment ) . '</span>';
-											// Replies
-											$replies = array_filter( $all_comments, fn( $r ) => (int) $r->parent_id === (int) $sc->id );
-											if ( ! empty( $replies ) ) {
-												$html .= '<ul class="el-es-journey-comment-replies">';
-												foreach ( $replies as $reply ) {
-													$html .= '<li><span class="el-es-journey-comment-author">' . esc_html( $reply->display_name ) . '</span> ';
-													$html .= '<span class="el-es-journey-comment-text">' . esc_html( $reply->comment ) . '</span></li>';
-												}
-												$html .= '</ul>';
-											}
-											if ( $jstatus === 'in_review' ) {
-												$html .= '<button type="button" class="el-es-journey-reply-toggle" data-comment-id="' . esc_attr( $sc->id ) . '">' . esc_html__( 'Reply', 'el-core' ) . '</button>';
-												$html .= '<div class="el-es-journey-reply-form" data-comment-id="' . esc_attr( $sc->id ) . '" style="display:none;">';
-												$html .= '<textarea class="el-es-journey-reply-input" rows="2" placeholder="' . esc_attr__( 'Reply…', 'el-core' ) . '"></textarea>';
-												$html .= '<button type="button" class="el-btn el-btn-secondary el-es-journey-reply-submit" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '" data-parent-id="' . esc_attr( $sc->id ) . '">' . esc_html__( 'Post', 'el-core' ) . '</button>';
-												$html .= '</div>';
-											}
-											$html .= '</li>';
-										}
-										$html .= '</ul>';
-									}
-
-									// Add comment toggle (in_review only)
-									if ( $jstatus === 'in_review' ) {
-										$html .= '<div class="el-es-journey-add-comment">';
-										$html .= '<button type="button" class="el-es-journey-comment-toggle" data-journey-id="' . esc_attr( $jid ) . '" data-step-key="' . esc_attr( $sk ) . '">' . esc_html__( '+ Add comment', 'el-core' ) . '</button>';
-										$html .= '<div class="el-es-journey-comment-form" data-step-key="' . esc_attr( $sk ) . '" style="display:none;">';
-										$html .= '<textarea class="el-es-journey-comment-input" rows="2" placeholder="' . esc_attr__( 'Your comment…', 'el-core' ) . '"></textarea>';
-										$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-comment-submit" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">' . esc_html__( 'Post', 'el-core' ) . '</button>';
-										$html .= '</div>';
-										$html .= '</div>';
-									}
-
-									$html .= '</li>';
+									$html .= '<button type="button" class="el-es-journey-step-edit-toggle" data-step-key="' . esc_attr( $sk ) . '" style="margin-left:8px;font-size:12px;color:#6366F1;background:none;border:none;cursor:pointer;text-decoration:underline;">' . esc_html__( 'Edit', 'el-core' ) . '</button>';
+									$html .= '</div>'; // .step-view
+									$html .= '<div class="el-es-journey-step-edit-form" data-step-key="' . esc_attr( $sk ) . '" style="display:none;margin-top:8px;">';
+									$html .= '<input type="text" class="el-es-journey-step-edit-label" value="' . esc_attr( $step['label'] ?? '' ) . '" placeholder="' . esc_attr__( 'Step label (3–5 words)', 'el-core' ) . '" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;">';
+									$html .= '<textarea class="el-es-journey-step-edit-desc" rows="2" placeholder="' . esc_attr__( 'Step description (1 sentence)', 'el-core' ) . '" style="width:100%;resize:both;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;">' . esc_textarea( $step['description'] ?? '' ) . '</textarea>';
+									$html .= '<div style="margin-top:6px;display:flex;gap:8px;">';
+									$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-step-edit-save" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '" style="font-size:13px;padding:4px 12px;">' . esc_html__( 'Save edit', 'el-core' ) . '</button>';
+									$html .= '<button type="button" class="el-es-journey-step-edit-cancel" data-step-key="' . esc_attr( $sk ) . '" style="font-size:13px;background:none;border:none;cursor:pointer;color:#6B7280;text-decoration:underline;">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
+									$html .= '</div>';
+									$html .= '</div>'; // .step-edit-form
+									$html .= '</div>'; // .step-content
+								} else {
+									$html .= '<span class="el-es-journey-step-label"><strong>' . esc_html( $step['label'] ?? '' ) . '</strong></span>';
+									$html .= '<span class="el-es-journey-step-desc">' . esc_html( $step['description'] ?? '' ) . '</span>';
 								}
-								$html .= '</ol>';
+
+								// ── Verdict buttons ──
+								if ( $jstatus === 'in_review' ) {
+									$html .= '<div class="el-es-journey-verdict-row">';
+									$html .= '<button type="button" class="el-es-journey-verdict-btn' . ( $my_verdict === 'approved' ? ' el-es-journey-verdict-btn--active' : '' ) . '" data-verdict="approved" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">';
+									$html .= '&#10003; ' . esc_html__( 'Looks good', 'el-core' );
+									$html .= '</button>';
+									$html .= '<button type="button" class="el-es-journey-verdict-btn el-es-journey-verdict-btn--flag' . ( $my_verdict === 'needs_revision' ? ' el-es-journey-verdict-btn--active' : '' ) . '" data-verdict="needs_revision" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">';
+									$html .= '&#9872; ' . esc_html__( 'Flag for changes', 'el-core' );
+									$html .= '</button>';
+									$html .= '</div>';
+
+									// ── My verdict banner ──
+									if ( $my_verdict ) {
+										$html .= '<div class="el-es-journey-my-verdict-banner el-es-journey-my-verdict-banner--' . esc_attr( $my_verdict ) . '" data-step-key="' . esc_attr( $sk ) . '">';
+										if ( $my_verdict === 'approved' ) {
+											$html .= '&#10003; ' . sprintf(
+												/* translators: date and time */
+												esc_html__( 'You marked this step "Looks good"', 'el-core' )
+											);
+										} else {
+											$html .= '&#9872; ' . esc_html__( 'You flagged this step for changes', 'el-core' );
+										}
+										$html .= '</div>';
+									}
+
+									// ── Team consensus badges ──
+									if ( ! empty( $step_verdicts ) ) {
+										$html .= '<div class="el-es-journey-team-verdicts">';
+										$html .= '<span class="el-es-journey-team-verdicts-label">' . esc_html__( 'Team:', 'el-core' ) . '</span>';
+										foreach ( $step_verdicts as $tv ) {
+											$tv_class = $tv->verdict === 'approved' ? 'el-es-journey-team-verdict--approved' : 'el-es-journey-team-verdict--flag';
+											$tv_icon  = $tv->verdict === 'approved' ? '&#10003;' : '&#9872;';
+											$tv_time  = wp_date( 'M j g:i a', strtotime( $tv->created_at ) );
+											$html .= '<span class="el-es-journey-team-verdict ' . esc_attr( $tv_class ) . '" title="' . esc_attr( $tv->display_name . ' — ' . $tv_time ) . '">';
+											$html .= $tv_icon . ' ' . esc_html( $tv->display_name );
+											$html .= '</span>';
+										}
+										$html .= '</div>';
+									}
+								}
+								$html .= '</div>'; // .step-header
+
+								// ── Step comments ──
+								if ( ! empty( $step_comments ) ) {
+									$html .= '<ul class="el-es-journey-step-comments">';
+									foreach ( $step_comments as $sc ) {
+										$html .= '<li class="el-es-journey-comment" data-comment-id="' . esc_attr( $sc->id ) . '">';
+										$html .= '<span class="el-es-journey-comment-author">' . esc_html( $sc->display_name ) . '</span>';
+										$html .= '<span class="el-es-journey-comment-text">' . esc_html( $sc->comment ) . '</span>';
+										$replies = array_filter( $all_comments, fn( $r ) => (int) $r->parent_id === (int) $sc->id );
+										if ( ! empty( $replies ) ) {
+											$html .= '<ul class="el-es-journey-comment-replies">';
+											foreach ( $replies as $reply ) {
+												$html .= '<li><span class="el-es-journey-comment-author">' . esc_html( $reply->display_name ) . '</span> ';
+												$html .= '<span class="el-es-journey-comment-text">' . esc_html( $reply->comment ) . '</span></li>';
+											}
+											$html .= '</ul>';
+										}
+										if ( $jstatus === 'in_review' ) {
+											$html .= '<button type="button" class="el-es-journey-reply-toggle" data-comment-id="' . esc_attr( $sc->id ) . '">' . esc_html__( 'Reply', 'el-core' ) . '</button>';
+											$html .= '<div class="el-es-journey-reply-form" data-comment-id="' . esc_attr( $sc->id ) . '" style="display:none;">';
+											$html .= '<textarea class="el-es-journey-reply-input" rows="2" placeholder="' . esc_attr__( 'Reply…', 'el-core' ) . '"></textarea>';
+											$html .= '<button type="button" class="el-btn el-btn-secondary el-es-journey-reply-submit" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '" data-parent-id="' . esc_attr( $sc->id ) . '">' . esc_html__( 'Post', 'el-core' ) . '</button>';
+											$html .= '</div>';
+										}
+										$html .= '</li>';
+									}
+									$html .= '</ul>';
+								}
+
+								// ── Add comment + Insert/Remove step controls (in_review only) ──
+								if ( $jstatus === 'in_review' ) {
+									$html .= '<div class="el-es-journey-add-comment">';
+									$html .= '<button type="button" class="el-es-journey-comment-toggle" data-journey-id="' . esc_attr( $jid ) . '" data-step-key="' . esc_attr( $sk ) . '">' . esc_html__( '+ Add comment', 'el-core' ) . '</button>';
+									$html .= '<div class="el-es-journey-comment-form" data-step-key="' . esc_attr( $sk ) . '" style="display:none;">';
+									$html .= '<textarea class="el-es-journey-comment-input" rows="2" placeholder="' . esc_attr__( 'Your comment…', 'el-core' ) . '"></textarea>';
+									$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-comment-submit" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" data-step-key="' . esc_attr( $sk ) . '">' . esc_html__( 'Post', 'el-core' ) . '</button>';
+									$html .= '</div>';
+									$html .= '</div>';
+									// Insert step below + Remove step
+									$html .= '<div class="el-es-journey-step-actions">';
+									$html .= '<button type="button" class="el-es-portal-insert-step-btn" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" style="font-size:12px;color:#6366F1;background:none;border:1px dashed #6366F1;border-radius:4px;padding:3px 10px;cursor:pointer;margin-right:8px;">+ ' . esc_html__( 'Insert step below', 'el-core' ) . '</button>';
+									$html .= '<button type="button" class="el-es-portal-remove-step-btn" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" style="font-size:12px;color:#EF4444;background:none;border:none;cursor:pointer;">✕ ' . esc_html__( 'Remove step', 'el-core' ) . '</button>';
+									$html .= '</div>';
+								}
+
+								$html .= '</li>';
+							}
+							$html .= '</ol>';
 							}
 
 							// Implied pages

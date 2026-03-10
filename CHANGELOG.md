@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.18] — 2026-03-10
+
+### Added
+- **Portal `in_review` — verdict banners.** After clicking "Looks good" or "Flag for changes", a coloured banner now appears directly below the verdict buttons showing what the current user selected. Green banner for "Looks good", amber for "Flag for changes". The banner is set on page load if the user has already voted, and updates immediately on click without a reload.
+- **Portal `in_review` — team consensus badges.** Each step shows a row of small pill badges labelled with each teammate's name and their verdict (green ✓ = Looks good, amber ⚑ = Flag for changes). Hovering a badge shows the exact date/time of their vote.
+- **Portal `in_review` — inline step editing.** Each step has an "Edit" link that reveals a label input and description textarea pre-filled with the current text. Saving updates the workflow in the DB immediately and refreshes the visible text without a page reload.
+- **Portal `in_review` — Insert step below / Remove step.** Each step card has "+ Insert step below" (indigo dashed) and "✕ Remove step" (red) controls at its bottom. These call the new `es_save_journey_step_edit` AJAX handler which updates the workflow JSON in the DB, then reloads.
+- **New AJAX handler `es_save_journey_step_edit`.** Supports three `edit_action` values: `update` (edit label/desc), `insert_after` (insert blank step after current), `remove` (delete step). Available to all stakeholders during `in_review`. Registered with `nopriv` variant for portal users.
+
+---
+
 ## [1.33.17] — 2026-03-10
 
 ### Fixed

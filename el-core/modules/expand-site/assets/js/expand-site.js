@@ -1185,14 +1185,118 @@
         var row       = btn.closest('.el-es-journey-verdict-row');
 
         ELCore.ajax('es_journey_step_verdict', { journey_id: journeyId, review_id: reviewId, step_key: stepKey, verdict: verdict })
-            .then(function() {
+            .then(function(resp) {
                 if (row) {
                     row.querySelectorAll('.el-es-journey-verdict-btn').forEach(function(b) {
                         b.classList.toggle('el-es-journey-verdict-btn--active', b.dataset.verdict === verdict);
                     });
                 }
+                // Update or create my verdict banner
+                var step = btn.closest('.el-es-journey-review-step');
+                if (step) {
+                    var existing = step.querySelector('.el-es-journey-my-verdict-banner');
+                    if (existing) existing.remove();
+                    var banner = document.createElement('div');
+                    banner.className = 'el-es-journey-my-verdict-banner el-es-journey-my-verdict-banner--' + verdict;
+                    banner.dataset.stepKey = stepKey;
+                    if (verdict === 'approved') {
+                        banner.innerHTML = '&#10003; You marked this step "Looks good"';
+                    } else {
+                        banner.innerHTML = '&#9872; You flagged this step for changes';
+                    }
+                    if (row) row.after(banner);
+                }
             })
             .catch(function(err) { alert(err.message || 'Failed to save verdict.'); });
+    });
+
+    // ── Step inline edit ──
+    document.addEventListener('click', function(e) {
+        // Show edit form
+        var toggleBtn = e.target.closest('.el-es-journey-step-edit-toggle');
+        if (toggleBtn) {
+            var stepKey = toggleBtn.dataset.stepKey;
+            var stepEl  = toggleBtn.closest('.el-es-journey-review-step');
+            if (!stepEl) return;
+            stepEl.querySelector('.el-es-journey-step-view').style.display    = 'none';
+            stepEl.querySelector('.el-es-journey-step-edit-form').style.display = 'block';
+            return;
+        }
+        // Cancel edit
+        var cancelBtn = e.target.closest('.el-es-journey-step-edit-cancel');
+        if (cancelBtn) {
+            var stepEl = cancelBtn.closest('.el-es-journey-review-step');
+            if (!stepEl) return;
+            stepEl.querySelector('.el-es-journey-step-view').style.display    = 'block';
+            stepEl.querySelector('.el-es-journey-step-edit-form').style.display = 'none';
+            return;
+        }
+        // Save edit
+        var saveBtn = e.target.closest('.el-es-journey-step-edit-save');
+        if (saveBtn) {
+            var journeyId = saveBtn.dataset.journeyId;
+            var reviewId  = saveBtn.dataset.reviewId;
+            var stepKey   = saveBtn.dataset.stepKey;
+            var stepEl    = saveBtn.closest('.el-es-journey-review-step');
+            if (!stepEl) return;
+            var labelEl = stepEl.querySelector('.el-es-journey-step-edit-label');
+            var descEl  = stepEl.querySelector('.el-es-journey-step-edit-desc');
+            var newLabel = labelEl ? labelEl.value.trim() : '';
+            var newDesc  = descEl  ? descEl.value.trim()  : '';
+            var orig = saveBtn.textContent;
+            saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+            ELCore.ajax('es_save_journey_step_edit', {
+                journey_id: journeyId, review_id: reviewId, step_key: stepKey,
+                edit_action: 'update', new_label: newLabel, new_desc: newDesc
+            }).then(function() {
+                // Update the visible label/desc without a full reload
+                var viewEl = stepEl.querySelector('.el-es-journey-step-view');
+                if (viewEl) {
+                    viewEl.querySelector('.el-es-journey-step-label').innerHTML = '<strong>' + newLabel + '</strong>';
+                    viewEl.querySelector('.el-es-journey-step-desc').textContent = newDesc;
+                }
+                stepEl.querySelector('.el-es-journey-step-view').style.display    = 'block';
+                stepEl.querySelector('.el-es-journey-step-edit-form').style.display = 'none';
+                saveBtn.disabled = false; saveBtn.textContent = orig;
+            }).catch(function(err) {
+                alert(err.message || 'Failed to save step edit.');
+                saveBtn.disabled = false; saveBtn.textContent = orig;
+            });
+            return;
+        }
+    });
+
+    // ── Portal step list: Insert step below ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-portal-insert-step-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var reviewId  = btn.dataset.reviewId;
+        var stepEl    = btn.closest('.el-es-journey-review-step');
+        var stepKey   = stepEl ? stepEl.dataset.stepKey : '';
+        ELCore.ajax('es_save_journey_step_edit', {
+            journey_id: journeyId, review_id: reviewId, step_key: stepKey,
+            edit_action: 'insert_after', new_label: '', new_desc: ''
+        }).then(function() {
+            window.location.reload();
+        }).catch(function(err) { alert(err.message || 'Failed to insert step.'); });
+    });
+
+    // ── Portal step list: Remove step ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-portal-remove-step-btn');
+        if (!btn) return;
+        if (!confirm('Remove this step from the workflow?')) return;
+        var journeyId = btn.dataset.journeyId;
+        var reviewId  = btn.dataset.reviewId;
+        var stepEl    = btn.closest('.el-es-journey-review-step');
+        var stepKey   = stepEl ? stepEl.dataset.stepKey : '';
+        ELCore.ajax('es_save_journey_step_edit', {
+            journey_id: journeyId, review_id: reviewId, step_key: stepKey,
+            edit_action: 'remove', new_label: '', new_desc: ''
+        }).then(function() {
+            window.location.reload();
+        }).catch(function(err) { alert(err.message || 'Failed to remove step.'); });
     });
 
     // Comment toggle (+ Add comment per step)

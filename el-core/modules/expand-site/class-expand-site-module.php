@@ -176,6 +176,8 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_nopriv_es_journey_step_verdict',   [ $this, 'handle_journey_step_verdict' ] );
         add_action( 'el_core_ajax_es_dm_journey_decision',           [ $this, 'handle_dm_journey_decision' ] );
         add_action( 'el_core_ajax_nopriv_es_dm_journey_decision',    [ $this, 'handle_dm_journey_decision' ] );
+        add_action( 'el_core_ajax_es_save_journey_step_edit',        [ $this, 'handle_save_journey_step_edit' ] );
+        add_action( 'el_core_ajax_nopriv_es_save_journey_step_edit', [ $this, 'handle_save_journey_step_edit' ] );
         add_action( 'el_core_ajax_es_dm_send_to_admin',              [ $this, 'handle_dm_send_to_admin' ] );
         add_action( 'el_core_ajax_nopriv_es_dm_send_to_admin',       [ $this, 'handle_dm_send_to_admin' ] );
         add_action( 'el_core_ajax_es_generate_journey_ai',           [ $this, 'handle_generate_journey_ai' ] );
@@ -2537,10 +2539,92 @@ class EL_Expand_Site_Module {
     }
 
     /**
+     * AJAX: Stakeholder saves an inline edit to a step (label + description) during in_review.
+     * Saves the updated workflow back to admin_workflow on the journey row.
+     */
+    public function handle_save_journey_step_edit( array $data ): void {
+        $user_id    = get_current_user_id();
+        $journey_id = absint( $data['journey_id'] ?? 0 );
+        $review_id  = absint( $data['review_id'] ?? 0 );
+        $step_key   = sanitize_text_field( $data['step_key'] ?? '' );
+        $action     = sanitize_text_field( $data['edit_action'] ?? 'update' ); // update | insert_after | remove
+        $new_label  = sanitize_text_field( wp_unslash( $_POST['new_label'] ?? '' ) );
+        $new_desc   = sanitize_textarea_field( wp_unslash( $_POST['new_desc'] ?? '' ) );
+
+        if ( ! $user_id || ! $journey_id ) {
+            EL_AJAX_Handler::error( __( 'Missing required fields.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $jt      = $wpdb->prefix . 'el_es_user_journeys';
+        $journey = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$jt} WHERE id = %d", $journey_id ) );
+
+        if ( ! $journey || $journey->status !== 'in_review' ) {
+            EL_AJAX_Handler::error( __( 'Journey is not currently in review.', 'el-core' ) );
+            return;
+        }
+        if ( ! $this->is_stakeholder( (int) $journey->project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        // Work on the most recent workflow
+        $wf_raw = $journey->admin_workflow ?: $journey->ai_workflow;
+        $wf     = $wf_raw ? json_decode( $wf_raw, true ) : null;
+        if ( ! $wf || empty( $wf['steps'] ) ) {
+            EL_AJAX_Handler::error( __( 'Workflow not found.', 'el-core' ) );
+            return;
+        }
+
+        $steps    = $wf['steps'];
+        $step_idx = -1;
+        foreach ( $steps as $i => $s ) {
+            if ( ( $s['id'] ?? '' ) === $step_key ) {
+                $step_idx = $i;
+                break;
+            }
+        }
+
+        if ( $action === 'update' ) {
+            if ( $step_idx === -1 ) {
+                EL_AJAX_Handler::error( __( 'Step not found.', 'el-core' ) );
+                return;
+            }
+            $steps[ $step_idx ]['label']       = $new_label;
+            $steps[ $step_idx ]['description'] = $new_desc;
+
+        } elseif ( $action === 'insert_after' ) {
+            $new_step = [
+                'id'          => 'step_' . ( count( $steps ) + 1 ) . '_' . time(),
+                'label'       => $new_label ?: __( 'New step', 'el-core' ),
+                'description' => $new_desc ?: '',
+                'branch'      => null,
+            ];
+            if ( $step_idx === -1 ) {
+                $steps[] = $new_step;
+            } else {
+                array_splice( $steps, $step_idx + 1, 0, [ $new_step ] );
+            }
+
+        } elseif ( $action === 'remove' ) {
+            if ( $step_idx === -1 ) {
+                EL_AJAX_Handler::error( __( 'Step not found.', 'el-core' ) );
+                return;
+            }
+            array_splice( $steps, $step_idx, 1 );
+        }
+
+        $wf['steps'] = array_values( $steps );
+        $wpdb->update( $jt, [ 'admin_workflow' => wp_json_encode( $wf ) ], [ 'id' => $journey_id ] );
+
+        EL_AJAX_Handler::success( [ 'workflow' => $wf ], __( 'Step updated.', 'el-core' ) );
+    }
+
+    /**
      * AJAX: DM submits final decision (approved / needs_revision) on active journey review.
      */
     public function handle_dm_journey_decision( array $data ): void {
-        $user_id    = get_current_user_id();
         $journey_id = absint( $data['journey_id'] ?? 0 );
         $review_id  = absint( $data['review_id'] ?? 0 );
         $decision   = sanitize_text_field( $data['decision'] ?? '' );

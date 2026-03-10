@@ -3237,6 +3237,62 @@
 .el-es-journey-verdict-btn:hover { background: #F3F4F6; }
 .el-es-journey-verdict-btn--active { background: #D1FAE5; border-color: #10B981; color: #065F46; font-weight: 600; }
 .el-es-journey-verdict-btn--flag.el-es-journey-verdict-btn--active { background: #FEF3C7; border-color: #F59E0B; color: #92400E; }
+
+/* My verdict banner */
+.el-es-journey-my-verdict-banner {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin: 4px 0 6px;
+}
+.el-es-journey-my-verdict-banner--approved {
+    background: #D1FAE5;
+    color: #065F46;
+    border: 1px solid #10B981;
+}
+.el-es-journey-my-verdict-banner--needs_revision {
+    background: #FEF3C7;
+    color: #92400E;
+    border: 1px solid #F59E0B;
+}
+
+/* Team consensus verdict badges */
+.el-es-journey-team-verdicts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0 8px;
+    font-size: 12px;
+}
+.el-es-journey-team-verdicts-label {
+    color: #6B7280;
+    font-weight: 600;
+}
+.el-es-journey-team-verdict {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: default;
+}
+.el-es-journey-team-verdict--approved {
+    background: #D1FAE5;
+    color: #065F46;
+}
+.el-es-journey-team-verdict--flag {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+/* Step actions row (insert/remove) */
+.el-es-journey-step-actions {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed #E5E7EB;
+}
 .el-es-journey-step-comments {
     list-style: none;
     padding: 0 0 0 12px;
