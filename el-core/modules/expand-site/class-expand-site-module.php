@@ -2625,6 +2625,7 @@ class EL_Expand_Site_Module {
      * AJAX: DM submits final decision (approved / needs_revision) on active journey review.
      */
     public function handle_dm_journey_decision( array $data ): void {
+        $user_id    = get_current_user_id();
         $journey_id = absint( $data['journey_id'] ?? 0 );
         $review_id  = absint( $data['review_id'] ?? 0 );
         $decision   = sanitize_text_field( $data['decision'] ?? '' );

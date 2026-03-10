@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.19] — 2026-03-10
+
+### Fixed
+- **DM "Accept workflow" always returned "Invalid decision data."** `handle_dm_journey_decision()` was missing `$user_id = get_current_user_id();` — introduced when the method was restructured in v1.33.18. The guard `! $user_id` was always `true` (undefined variable = null), blocking every DM decision attempt.
+
+---
+
 ## [1.33.18] — 2026-03-10
 
 ### Added
