@@ -1385,9 +1385,25 @@ foreach ( $journeys as $jny ) {
             'message' => __( '<strong>Client Approved.</strong> Lock this journey to contribute to the Phase 5 gate.', 'el-core' ),
             'type'    => 'warning',
         ] );
-        $approved_wf = $jny->admin_workflow ? json_decode( $jny->admin_workflow, true ) : null;
-        if ( $approved_wf && ! empty( $approved_wf['summary'] ) ) {
-            $p_uj .= '<p class="el-es-uj-summary">' . esc_html( $approved_wf['summary'] ) . '</p>';
+        $approved_wf = $jny->admin_workflow ? json_decode( $jny->admin_workflow, true ) : ( $jny->ai_workflow ? json_decode( $jny->ai_workflow, true ) : null );
+        if ( $approved_wf ) {
+            if ( ! empty( $approved_wf['summary'] ) ) {
+                $p_uj .= '<p class="el-es-uj-summary">' . esc_html( $approved_wf['summary'] ) . '</p>';
+            }
+            if ( ! empty( $approved_wf['steps'] ) ) {
+                $p_uj .= '<ol class="el-es-uj-steps">';
+                foreach ( $approved_wf['steps'] as $step ) {
+                    $p_uj .= '<li><strong>' . esc_html( $step['label'] ?? '' ) . '</strong>: ' . esc_html( $step['description'] ?? '' );
+                    if ( ! empty( $step['branch'] ) ) {
+                        $p_uj .= ' <em class="el-es-uj-branch">→ ' . sprintf( __( 'Branch: %s', 'el-core' ), esc_html( $step['branch']['condition'] ?? '' ) ) . '</em>';
+                    }
+                    $p_uj .= '</li>';
+                }
+                $p_uj .= '</ol>';
+            }
+            if ( ! empty( $approved_wf['implied_pages'] ) ) {
+                $p_uj .= '<p class="el-es-uj-implied"><strong>' . __( 'Implied pages:', 'el-core' ) . '</strong> ' . esc_html( implode( ', ', $approved_wf['implied_pages'] ) ) . '</p>';
+            }
         }
         $p_uj .= '<div class="el-es-uj-btn-row">';
         $p_uj .= EL_Admin_UI::btn( [

@@ -709,7 +709,7 @@ pending_assignment → awaiting_input → pending_dm_review → awaiting_ai
 - [x] `ai_generated` state: Q&A + AI workflow display + Refine with AI + **manual JSON editor**
 - [x] `admin_refined` state: refined workflow + Refine Again + manual JSON editor + Send for Review
 - [x] `in_review` state: review info, DM decision status, DM notes display, Reset to Draft
-- [x] `approved` state: approval banner + Lock Journey button
+- [x] `approved` state: approval banner + full step list + Lock Journey button (v1.33.20)
 - [x] `locked` state: read-only locked workflow
 - [x] Stage 4→5 advance gate: rejects advance if any journey not locked
 

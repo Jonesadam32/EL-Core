@@ -5,7 +5,7 @@
 >
 > **Last Updated:** March 10, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.33.12 — Bug fixes: DM editable answers in pending_dm_review portal state; AI fence-stripping regex made multiline-safe.
+> **Current Plugin Version:** v1.33.20 — Admin `approved` state now shows full step-by-step journey list before Lock Journey button.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
@@ -37,32 +37,30 @@
 ## CURRENT STATE
 
 ### Deployed
-- **EL Core v1.21.4** on staging (qd19d0iehj-staging.wpdns.site) — uploaded and tested ✅
+- **EL Core v1.33.20** on staging (qd19d0iehj-staging.wpdns.site) — built ✅, ready for upload
 
-### What Was Completed This Session (February 24, 2026)
+### What Was Completed This Session (March 10, 2026)
 
-**Bugfix sprint (v1.21.1 → v1.21.4):**
+**User Journey bug-fix sprint (v1.33.12 → v1.33.20) — Expand Site Phase 4:**
 
-- **v1.21.1**: Bumped version so WordPress would replace files on upload (same-version uploads are ignored)
-- **v1.21.2**: Fixed double-escaping/slashes bug on discovery transcript — `sanitize_text_field()` in the AJAX handler was stripping newlines and adding slashes before the handler ran `sanitize_textarea_field()`. Fixed by reading textarea fields directly from `$_POST` with `wp_unslash()`. Also added `wp_unslash()` when loading transcript into admin textarea.
-- **v1.21.3**: Fixed `site_type` DB error — AI was returning values longer than VARCHAR(50). Widened to VARCHAR(100) via DB migration (schema version 7). Added `substr()` safety cap in PHP handler.
-- **v1.21.4**: Removed debug DB error code from `handle_save_definition` — save definition is now working correctly.
+- **v1.33.12**: DM answer fields made editable (textareas) in portal `pending_dm_review` state; AI fence-stripping regex made multiline-safe; empty-answers guard added; auto-retry on AI parse failure
+- **v1.33.13**: Replaced JSON textarea in admin manual editor with structured form (summary + per-step label/description); "Refine with AI" now uses `admin_workflow` (most recent version) as context; `resize: both` on all textareas
+- **v1.33.14**: Rewrote AI prompts (Round 1 & 2) to produce clean JSON — explicit structure, one-sentence summary, mandatory `steps`; `parse_journey_ai_response()` unwraps extra `workflow` key if present
+- **v1.33.15**: "Add Step" button added to manual editor; "Remove" button on each step
+- **v1.33.16**: Changed "Add Step" to "Insert step below" placed inside each step card (not just at end); `renumberSteps()` helper added
+- **v1.33.17**: Added `max_tokens: 4096` to all AI journey calls — root cause of truncated JSON responses
+- **v1.33.18**: Portal `in_review` state fully rebuilt — stakeholders can edit steps inline, insert/remove steps, verdict banners (name + date/time) after selecting Looks Good / Flag for Changes, all teammates' verdicts visible, consensus badge per step
+- **v1.33.19**: Fixed "Invalid decision data" error when DM accepts workflow — `$user_id = get_current_user_id()` was missing from `handle_dm_journey_decision()`
+- **v1.33.20**: Admin `approved` state now renders full numbered step list (label + description + branch + implied pages) before "Lock Journey" button — was only showing summary
 
-**Design decisions made this session:**
+### What's Next
 
-- **Generic feedback card removed** — feedback must be contextual to each stage, not a global dump
-- **Definition review is a full consensus workflow** — not just "leave a comment"
-- **Silence = abstention** — if a contributor doesn't respond by deadline, DM decides without them
-- **DM verdict = structured button (Accept/Needs Revision) + optional note** — scannable for admin
-- **Per-field inline comments** — not a modal, anchored to the content being reviewed
-- **Scroll-depth gate on Approve** — button disabled until client has scrolled past all fields
-- **Threaded replies per field** — functions like chat but stays anchored to source (Google Docs pattern)
-- **Reminder at 50% of deadline and 24h before** — contributors notified, never block DM
-- **Build in full now** — no simplified first version
+No open bugs. Phase 4 (User Journey) is functionally complete end-to-end.
 
-### What's IN PROGRESS — v1.22.0 (Definition Consensus Review System)
-
-**Half built — pick up here next session.**
+**Possible next work:**
+- Upload v1.33.20 ZIP to staging and do a full end-to-end test of the journey flow
+- Begin Phase 5 (Visual Identity) if Phase 4 passes testing
+- Any outstanding items in `CURSOR-TODO.md`
 
 #### ✅ DONE in this session:
 - **DB schema (version 8)**:
@@ -210,7 +208,15 @@
 | v1.32.1 | Fix phantom slashes in proposal narrative prose, T&C section splitting, PDF print blank page | Built ✅ |
 | v1.33.0 | User Journey assignment flow: DB migration v12, admin "Send List to Client" button, 3 new AJAX handlers + AI Round 1, portal Stage 4 DM assignment UI + stakeholder 5-question form | Built ✅ |
 | v1.33.11 | Full User Journey flow rebuild: pending_dm_review state, deliberate AI trigger, manual workflow editor, portal consensus review UI, Stage 4 gate | Built ✅ |
-| v1.33.12 | Bug fixes: DM editable answer textareas in portal pending_dm_review; AI fence-stripping regex multiline-safe + empty-answers guard | Built ✅ — **CURRENT** |
+| v1.33.12 | Bug fixes: DM editable answer textareas in portal pending_dm_review; AI fence-stripping regex multiline-safe + empty-answers guard | Built ✅ |
+| v1.33.13 | Admin manual editor rewritten as structured form; Refine with AI uses admin_workflow; resize:both textareas | Built ✅ |
+| v1.33.14 | AI prompts rewritten for clean JSON output; parse_journey_ai_response unwraps workflow wrapper key | Built ✅ |
+| v1.33.15 | Add Step + Remove Step buttons in manual editor | Built ✅ |
+| v1.33.16 | Insert step below between each step (not just at end); renumberSteps helper | Built ✅ |
+| v1.33.17 | max_tokens:4096 on all AI journey calls — fixes JSON truncation | Built ✅ |
+| v1.33.18 | Portal in_review rebuilt: inline step editing, insert/remove steps, verdict banners with name+datetime, teammate verdicts visible | Built ✅ |
+| v1.33.19 | Fix "Invalid decision data" — missing $user_id in handle_dm_journey_decision() | Built ✅ |
+| v1.33.20 | Admin approved state shows full step list before Lock Journey button | Built ✅ — **CURRENT** |
 
 ---
 

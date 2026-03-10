@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.20] — 2026-03-10
+
+### Fixed
+- **Admin `approved` state — full step list.** When the DM approves a journey and the admin is about to lock it, the workflow was only showing the summary paragraph. It now renders the full numbered step list (label + description + branch if any) and implied pages — identical to the `locked` state view — so the admin can do a final read-through before clicking "Lock Journey".
+
+---
+
 ## [1.33.19] — 2026-03-10
 
 ### Fixed
