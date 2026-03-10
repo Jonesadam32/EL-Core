@@ -1741,6 +1741,50 @@
         btn.textContent = isVisible ? '✎ Manually edit workflow' : '✎ Hide manual editor';
     });
 
+    // ── Add Step button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-add-step-btn');
+        if (!btn) return;
+        var journeyId = btn.dataset.journeyId;
+        var stepsContainer = document.querySelector('.el-es-uj-edit-steps[data-journey-id="' + journeyId + '"]');
+        if (!stepsContainer) return;
+        var existing = stepsContainer.querySelectorAll('.el-es-uj-edit-step');
+        var newIdx   = existing.length;
+        var stepNum  = newIdx + 1;
+        var div = document.createElement('div');
+        div.className = 'el-es-uj-edit-step';
+        div.dataset.stepIndex = newIdx;
+        div.innerHTML =
+            '<p class="el-es-uj-edit-step-num">Step ' + stepNum + ' <button type="button" class="el-es-uj-remove-step-btn" style="margin-left:8px;font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">✕ Remove</button></p>' +
+            '<div class="el-form-row"><label class="el-form-label">Label</label>' +
+            '<div class="el-form-field"><input type="text" class="el-input el-es-uj-edit-step-label" value="" style="width:100%;"></div></div>' +
+            '<div class="el-form-row"><label class="el-form-label">Description</label>' +
+            '<div class="el-form-field"><textarea class="el-textarea el-es-uj-edit-step-desc" rows="2" style="resize:both;width:100%;"></textarea></div></div>';
+        stepsContainer.appendChild(div);
+        div.querySelector('.el-es-uj-edit-step-label').focus();
+    });
+
+    // ── Remove Step button ──
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-uj-remove-step-btn');
+        if (!btn) return;
+        var stepEl = btn.closest('.el-es-uj-edit-step');
+        if (!stepEl) return;
+        stepEl.remove();
+        // Renumber remaining steps
+        var stepsContainer = btn.closest('.el-es-uj-edit-steps');
+        if (stepsContainer) {
+            stepsContainer.querySelectorAll('.el-es-uj-edit-step').forEach(function(el, idx) {
+                el.dataset.stepIndex = idx;
+                var numEl = el.querySelector('.el-es-uj-edit-step-num');
+                if (numEl) {
+                    var removeBtn = numEl.querySelector('.el-es-uj-remove-step-btn');
+                    numEl.childNodes[0].textContent = 'Step ' + (idx + 1) + ' ';
+                }
+            });
+        }
+    });
+
     // ── Save Manual Edits button ──
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-save-workflow-btn');

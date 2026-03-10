@@ -6,6 +6,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.15] — 2026-03-10
+
+### Added
+- **Manual workflow editor — Add Step / Remove Step.** The structured edit form now has a "+ Add Step" button (indigo dashed border) at the bottom of the step list that appends a new blank step row. Each existing step also has a small "✕ Remove" button in its header. Step numbers renumber automatically after a removal.
+
+---
+
+## [1.33.14] — 2026-03-10
+
+### Fixed
+- **AI prompt rewrite — round 1 and round 2.** Both prompts now put the output format requirement at the very top (before any context), include a concrete JSON example, explicitly cap `summary` to one sentence, and end with a final reminder not to write anything outside the JSON object. This prevents the AI from cramming a long narrative into `summary` while omitting the `steps` array entirely.
+- **`parse_journey_ai_response` — unwrap `workflow` key.** Added a fallback that unwraps `decoded['workflow']` if the AI wraps the object in an extra key.
+
+---
+
 ## [1.33.13] — 2026-03-10
 
 ### Changed

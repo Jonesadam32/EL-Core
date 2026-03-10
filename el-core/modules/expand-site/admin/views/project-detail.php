@@ -1150,7 +1150,8 @@ foreach ( $journeys as $jny ) {
         foreach ( ( $ai_wf_edit['steps'] ?? [] ) as $sidx => $step ) {
             $snum = $sidx + 1;
             $p_uj .= '<div class="el-es-uj-edit-step" data-step-index="' . esc_attr( $sidx ) . '">';
-            $p_uj .= '<p class="el-es-uj-edit-step-num">' . sprintf( esc_html__( 'Step %d', 'el-core' ), $snum ) . '</p>';
+            $p_uj .= '<p class="el-es-uj-edit-step-num">' . sprintf( esc_html__( 'Step %d', 'el-core' ), $snum );
+            $p_uj .= ' <button type="button" class="el-es-uj-remove-step-btn" style="margin-left:8px;font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">✕ ' . esc_html__( 'Remove', 'el-core' ) . '</button></p>';
             $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Label', 'el-core' ) . '</label>';
             $p_uj .= '<div class="el-form-field"><input type="text" class="el-input el-es-uj-edit-step-label" value="' . esc_attr( $step['label'] ?? '' ) . '" style="width:100%;"></div></div>';
             $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Description', 'el-core' ) . '</label>';
@@ -1158,6 +1159,7 @@ foreach ( $journeys as $jny ) {
             $p_uj .= '</div>';
         }
         $p_uj .= '</div>';
+        $p_uj .= '<button type="button" class="el-es-uj-add-step-btn" data-journey-id="' . esc_attr( $jid ) . '" style="margin:8px 0 12px;font-size:13px;color:#6366F1;background:none;border:1px dashed #6366F1;border-radius:4px;padding:4px 12px;cursor:pointer;">+ ' . esc_html__( 'Add Step', 'el-core' ) . '</button>';
         $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:12px;">';
         $p_uj .= EL_Admin_UI::btn( [
             'label'   => __( 'Save Manual Edits', 'el-core' ),
@@ -1242,7 +1244,8 @@ foreach ( $journeys as $jny ) {
         foreach ( ( $admin_wf_edit['steps'] ?? [] ) as $sidx => $step ) {
             $snum = $sidx + 1;
             $p_uj .= '<div class="el-es-uj-edit-step" data-step-index="' . esc_attr( $sidx ) . '">';
-            $p_uj .= '<p class="el-es-uj-edit-step-num">' . sprintf( esc_html__( 'Step %d', 'el-core' ), $snum ) . '</p>';
+            $p_uj .= '<p class="el-es-uj-edit-step-num">' . sprintf( esc_html__( 'Step %d', 'el-core' ), $snum );
+            $p_uj .= ' <button type="button" class="el-es-uj-remove-step-btn" style="margin-left:8px;font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">✕ ' . esc_html__( 'Remove', 'el-core' ) . '</button></p>';
             $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Label', 'el-core' ) . '</label>';
             $p_uj .= '<div class="el-form-field"><input type="text" class="el-input el-es-uj-edit-step-label" value="' . esc_attr( $step['label'] ?? '' ) . '" style="width:100%;"></div></div>';
             $p_uj .= '<div class="el-form-row"><label class="el-form-label">' . esc_html__( 'Description', 'el-core' ) . '</label>';
@@ -1250,6 +1253,7 @@ foreach ( $journeys as $jny ) {
             $p_uj .= '</div>';
         }
         $p_uj .= '</div>';
+        $p_uj .= '<button type="button" class="el-es-uj-add-step-btn" data-journey-id="' . esc_attr( $jid ) . '" style="margin:8px 0 12px;font-size:13px;color:#6366F1;background:none;border:1px dashed #6366F1;border-radius:4px;padding:4px 12px;cursor:pointer;">+ ' . esc_html__( 'Add Step', 'el-core' ) . '</button>';
         $p_uj .= '<div class="el-es-uj-btn-row" style="margin-top:12px;">';
         $p_uj .= EL_Admin_UI::btn( [
             'label'   => __( 'Save Manual Edits', 'el-core' ),

@@ -2949,7 +2949,12 @@ class EL_Expand_Site_Module {
         $raw = preg_replace( '/\s*```\s*$/im', '', $raw );
         $raw = trim( $raw );
 
+        // If the AI wrapped the object in a "workflow" key, unwrap it
         $decoded = json_decode( $raw, true );
+        if ( is_array( $decoded ) && isset( $decoded['workflow'] ) && is_array( $decoded['workflow'] ) ) {
+            $decoded = $decoded['workflow'];
+        }
+
         if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
             return new WP_Error( 'ai_parse_error', sprintf(
                 __( 'AI returned an invalid workflow structure. Raw response: %s', 'el-core' ),
@@ -2986,18 +2991,19 @@ class EL_Expand_Site_Module {
             $qa_text .= 'A: ' . $qa['answer'] . "\n\n";
         }
 
-        $prompt  = "You are a UX designer reading a client's description of how a specific user type interacts with their website.\n";
-        $prompt .= "Based on this information, produce a structured user journey workflow in JSON format.\n\n";
+        $prompt  = "OUTPUT REQUIREMENT: Respond with ONLY a single valid JSON object. No markdown, no code fences, no prose before or after the JSON.\n";
+        $prompt .= "The JSON must have exactly these keys: summary (string, ONE sentence max), steps (array, 5-10 items), implied_pages (array of strings), open_questions (array of strings).\n";
+        $prompt .= "Each step object must have: id (\"step_1\", \"step_2\", ...), label (3-5 words), description (1 sentence), branch (null or object).\n\n";
+        $prompt .= "TASK: You are a UX designer. Read the client answers below and produce a structured user journey workflow for the specified user type.\n\n";
         $prompt .= "Project Context:\n";
         $prompt .= "- Site Description: {$site_description}\n";
         $prompt .= "- Primary Goal: {$primary_goal}\n";
         $prompt .= "- Site Type: {$site_type}\n";
         $prompt .= "- User Type: {$user_type}\n\n";
         $prompt .= "Client's Answers:\n{$qa_text}\n";
-        $prompt .= "Produce ONLY valid JSON (no markdown fences, no explanation) with this exact shape:\n";
-        $prompt .= '{"summary":"string","steps":[{"id":"step_1","label":"string","description":"string","branch":null}],"implied_pages":["string"],"open_questions":["string"]}' . "\n";
-        $prompt .= "A step with a branch looks like: {\"branch\":{\"condition\":\"Has account?\",\"yes\":\"step_2a\",\"no\":\"step_2b\"}}\n";
-        $prompt .= "Use 5–10 steps. Keep labels short (3–5 words). Descriptions are 1 sentence. open_questions lists things the client did NOT clarify.\n";
+        $prompt .= "EXAMPLE of the required JSON shape (replace all values with real content):\n";
+        $prompt .= '{"summary":"One sentence describing the overall journey.","steps":[{"id":"step_1","label":"Arrive at site","description":"User lands on the homepage via a shared link.","branch":null},{"id":"step_2","label":"Log in or sign up","description":"User chooses to log in or create a new account.","branch":{"condition":"Has account?","yes":"step_3","no":"step_2b"}}],"implied_pages":["Homepage","Login"],"open_questions":[]}' . "\n";
+        $prompt .= "Now produce the JSON for the user type above. Remember: summary must be ONE sentence. steps must be a JSON array. Do not write any text outside the JSON object.\n";
 
         $response = $this->core->ai->complete( [
             'prompt' => $prompt,
@@ -3044,20 +3050,21 @@ class EL_Expand_Site_Module {
 
         $existing_json = $existing_wf ? wp_json_encode( $existing_wf ) : 'N/A';
 
-        $prompt  = "You are a UX designer refining a user journey workflow based on additional instructions from the project manager.\n";
-        $prompt .= "Produce a more detailed, complete version that incorporates the admin's notes and resolves open questions where possible.\n\n";
+        $prompt  = "OUTPUT REQUIREMENT: Respond with ONLY a single valid JSON object. No markdown, no code fences, no prose before or after the JSON.\n";
+        $prompt .= "The JSON must have exactly these keys: summary (string, ONE sentence max), steps (array, 5-12 items), implied_pages (array of strings), open_questions (array of strings).\n";
+        $prompt .= "Each step object must have: id (\"step_1\", \"step_2\", ...), label (3-5 words), description (1 sentence), branch (null or object).\n\n";
+        $prompt .= "TASK: You are a UX designer refining a user journey workflow. Incorporate the admin's instructions and resolve open questions where possible.\n\n";
         $prompt .= "Project Context:\n";
         $prompt .= "- Site Description: {$site_description}\n";
         $prompt .= "- Primary Goal: {$primary_goal}\n";
         $prompt .= "- Site Type: {$site_type}\n";
         $prompt .= "- User Type: {$user_type}\n\n";
         $prompt .= "Original Client Answers:\n{$qa_text}\n";
-        $prompt .= "Existing Workflow (Round 1):\n{$existing_json}\n\n";
+        $prompt .= "Existing Workflow:\n{$existing_json}\n\n";
         $prompt .= "Admin Instructions:\n{$admin_notes}\n\n";
-        $prompt .= "Produce ONLY valid JSON (no markdown fences, no explanation) with this exact shape:\n";
-        $prompt .= '{"summary":"string","steps":[{"id":"step_1","label":"string","description":"string","branch":null}],"implied_pages":["string"],"open_questions":["string"]}' . "\n";
-        $prompt .= "A step with a branch looks like: {\"branch\":{\"condition\":\"Has account?\",\"yes\":\"step_2a\",\"no\":\"step_2b\"}}\n";
-        $prompt .= "Use 5–12 steps. Keep labels short (3–5 words). Descriptions are 1 sentence. open_questions should be empty or minimal.\n";
+        $prompt .= "EXAMPLE of the required JSON shape (replace all values with real content):\n";
+        $prompt .= '{"summary":"One sentence describing the overall journey.","steps":[{"id":"step_1","label":"Arrive at site","description":"User lands on the homepage via a shared link.","branch":null}],"implied_pages":["Homepage"],"open_questions":[]}' . "\n";
+        $prompt .= "Now produce the refined JSON. Remember: summary must be ONE sentence. steps must be a JSON array. Do not write any text outside the JSON object.\n";
 
         $response = $this->core->ai->complete( [
             'prompt' => $prompt,
