@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 9, 2026
+> **Last Updated:** March 10, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.33.9 — Built missing Refine with AI handler (Round 2), full portal consensus review UI (steps, comments, verdicts, DM decision), approved/locked read-only states, and Stage 4→5 advance gate.
+> **Current Plugin Version:** v1.33.11 — Full User Journey flow rebuild: pending_dm_review state, deliberate AI trigger, manual workflow editor, portal consensus review UI, Stage 4 gate.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`, then run `.\build-zip.ps1` if you need a fresh ZIP.
 
