@@ -1741,26 +1741,35 @@
         btn.textContent = isVisible ? '✎ Manually edit workflow' : '✎ Hide manual editor';
     });
 
-    // ── Add Step button ──
+    // ── Add Step button (insert after a specific step) ──
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-add-step-btn');
         if (!btn) return;
-        var journeyId = btn.dataset.journeyId;
-        var stepsContainer = document.querySelector('.el-es-uj-edit-steps[data-journey-id="' + journeyId + '"]');
+        var stepsContainer = btn.closest('.el-es-uj-edit-steps');
         if (!stepsContainer) return;
-        var existing = stepsContainer.querySelectorAll('.el-es-uj-edit-step');
-        var newIdx   = existing.length;
-        var stepNum  = newIdx + 1;
+
+        // Find the step this button belongs to (insert after it), or append if standalone
+        var afterStep = btn.closest('.el-es-uj-edit-step');
+
         var div = document.createElement('div');
         div.className = 'el-es-uj-edit-step';
-        div.dataset.stepIndex = newIdx;
         div.innerHTML =
-            '<p class="el-es-uj-edit-step-num">Step ' + stepNum + ' <button type="button" class="el-es-uj-remove-step-btn" style="margin-left:8px;font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">✕ Remove</button></p>' +
+            '<p class="el-es-uj-edit-step-num">Step <span class="el-es-uj-step-num-label"></span> ' +
+            '<button type="button" class="el-es-uj-remove-step-btn" style="margin-left:8px;font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">✕ Remove</button></p>' +
             '<div class="el-form-row"><label class="el-form-label">Label</label>' +
             '<div class="el-form-field"><input type="text" class="el-input el-es-uj-edit-step-label" value="" style="width:100%;"></div></div>' +
             '<div class="el-form-row"><label class="el-form-label">Description</label>' +
-            '<div class="el-form-field"><textarea class="el-textarea el-es-uj-edit-step-desc" rows="2" style="resize:both;width:100%;"></textarea></div></div>';
-        stepsContainer.appendChild(div);
+            '<div class="el-form-field"><textarea class="el-textarea el-es-uj-edit-step-desc" rows="2" style="resize:both;width:100%;"></textarea></div></div>' +
+            '<button type="button" class="el-es-uj-add-step-btn" style="margin:6px 0 0;font-size:12px;color:#6366F1;background:none;border:1px dashed #6366F1;border-radius:4px;padding:3px 10px;cursor:pointer;">+ Insert step below</button>';
+
+        if (afterStep) {
+            afterStep.after(div);
+        } else {
+            stepsContainer.appendChild(div);
+        }
+
+        // Renumber all steps
+        renumberSteps(stepsContainer);
         div.querySelector('.el-es-uj-edit-step-label').focus();
     });
 
@@ -1770,20 +1779,18 @@
         if (!btn) return;
         var stepEl = btn.closest('.el-es-uj-edit-step');
         if (!stepEl) return;
+        var stepsContainer = stepEl.closest('.el-es-uj-edit-steps');
         stepEl.remove();
-        // Renumber remaining steps
-        var stepsContainer = btn.closest('.el-es-uj-edit-steps');
-        if (stepsContainer) {
-            stepsContainer.querySelectorAll('.el-es-uj-edit-step').forEach(function(el, idx) {
-                el.dataset.stepIndex = idx;
-                var numEl = el.querySelector('.el-es-uj-edit-step-num');
-                if (numEl) {
-                    var removeBtn = numEl.querySelector('.el-es-uj-remove-step-btn');
-                    numEl.childNodes[0].textContent = 'Step ' + (idx + 1) + ' ';
-                }
-            });
-        }
+        if (stepsContainer) renumberSteps(stepsContainer);
     });
+
+    function renumberSteps(stepsContainer) {
+        stepsContainer.querySelectorAll('.el-es-uj-edit-step').forEach(function(el, idx) {
+            el.dataset.stepIndex = idx;
+            var numLabel = el.querySelector('.el-es-uj-step-num-label');
+            if (numLabel) numLabel.textContent = (idx + 1);
+        });
+    }
 
     // ── Save Manual Edits button ──
     document.addEventListener('click', function(e) {

@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.16] — 2026-03-10
+
+### Changed
+- **Manual workflow editor — "Insert step below" between every step.** Each step card now has an "+ Insert step below" button at its bottom. Clicking it inserts a new blank step immediately after that card rather than appending to the end. Step numbers update automatically throughout.
+
+---
+
 ## [1.33.15] — 2026-03-10
 
 ### Added
