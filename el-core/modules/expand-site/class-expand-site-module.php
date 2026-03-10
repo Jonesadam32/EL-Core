@@ -2576,6 +2576,9 @@ class EL_Expand_Site_Module {
             $decision === 'approved' ? __( 'Journey approved!', 'el-core' ) : __( 'Revision requested. The project manager will make changes and re-send.', 'el-core' )
         );
     }
+
+    /**
+     * AJAX: Admin marks the journey user-type list as ready for the DM to view.
      * Sets journey_list_approved_at on the project.
      */
     public function handle_approve_journey_list( array $data ): void {
