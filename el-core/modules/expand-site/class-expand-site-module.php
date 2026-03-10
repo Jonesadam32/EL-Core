@@ -3006,7 +3006,8 @@ class EL_Expand_Site_Module {
         $prompt .= "Now produce the JSON for the user type above. Remember: summary must be ONE sentence. steps must be a JSON array. Do not write any text outside the JSON object.\n";
 
         $response = $this->core->ai->complete( [
-            'prompt' => $prompt,
+            'prompt'     => $prompt,
+            'max_tokens' => 4096,
         ] );
         if ( empty( $response['success'] ) ) {
             return new WP_Error( 'ai_error', $response['error'] ?? __( 'AI request failed.', 'el-core' ) );
@@ -3015,7 +3016,7 @@ class EL_Expand_Site_Module {
         $decoded = $this->parse_journey_ai_response( $response['content'] ?? '' );
         if ( is_wp_error( $decoded ) ) {
             // Auto-retry once — AI occasionally returns a non-JSON response on first attempt
-            $response2 = $this->core->ai->complete( [ 'prompt' => $prompt ] );
+            $response2 = $this->core->ai->complete( [ 'prompt' => $prompt, 'max_tokens' => 4096 ] );
             if ( ! empty( $response2['success'] ) ) {
                 $decoded = $this->parse_journey_ai_response( $response2['content'] ?? '' );
             }
@@ -3067,7 +3068,8 @@ class EL_Expand_Site_Module {
         $prompt .= "Now produce the refined JSON. Remember: summary must be ONE sentence. steps must be a JSON array. Do not write any text outside the JSON object.\n";
 
         $response = $this->core->ai->complete( [
-            'prompt' => $prompt,
+            'prompt'     => $prompt,
+            'max_tokens' => 4096,
         ] );
         if ( empty( $response['success'] ) ) {
             return new WP_Error( 'ai_error', $response['error'] ?? __( 'AI request failed.', 'el-core' ) );
@@ -3076,7 +3078,7 @@ class EL_Expand_Site_Module {
         $decoded = $this->parse_journey_ai_response( $response['content'] ?? '' );
         if ( is_wp_error( $decoded ) ) {
             // Auto-retry once — AI occasionally returns a non-JSON response on first attempt
-            $response2 = $this->core->ai->complete( [ 'prompt' => $prompt ] );
+            $response2 = $this->core->ai->complete( [ 'prompt' => $prompt, 'max_tokens' => 4096 ] );
             if ( ! empty( $response2['success'] ) ) {
                 $decoded = $this->parse_journey_ai_response( $response2['content'] ?? '' );
             }

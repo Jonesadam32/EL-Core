@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.17] — 2026-03-10
+
+### Fixed
+- **AI journey generation truncated at 1024 tokens.** Both `run_journey_ai_round1` and `run_journey_ai_round2` (and their auto-retry calls) now explicitly pass `max_tokens: 4096`. The default setting of 1024 was cutting the JSON response mid-string, making it impossible to parse. This was the root cause of all the "AI returned an invalid workflow structure" errors.
+
+---
+
 ## [1.33.16] — 2026-03-10
 
 ### Changed
