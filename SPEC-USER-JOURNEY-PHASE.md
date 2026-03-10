@@ -339,9 +339,14 @@ flowchart TD
 pending_assignment
     ↓ DM assigns a stakeholder
 awaiting_input
-    ↓ Assigned person submits 5 answers → AI Round 1 fires automatically
+    ↓ Assigned person submits 6 answers
+pending_dm_review          ← NEW
+    ↓ DM reviews answers (editable), adds notes, clicks "Send to Project Manager"
+awaiting_ai
+    ↓ Admin clicks "Generate with AI" deliberately
 ai_generated
     ↓ Admin types notes + clicks "Refine with AI" → AI Round 2 fires
+    OR Admin clicks "Manually edit workflow" → edits JSON directly
 admin_refined
     ↓ Admin clicks "Send for Review" (sets deadline)
 in_review
@@ -351,9 +356,16 @@ approved
 locked ✓
 ```
 
-**Escape hatch:** Admin can reset from `in_review` back to `admin_refined` at any time (same pattern as definition "Reset to Draft"). This cancels the active review round and returns the journey to admin control.
+**Key design rules:**
+- AI never fires automatically. The contributor submitting answers does NOT trigger AI. The admin triggers AI deliberately after the DM has reviewed.
+- The `pending_dm_review` step is a mandatory internal review gate. No one but the DM can advance past it.
+- **Symmetric review:** whoever fills out the answers (contributor or DM), the other party always reviews before it goes to the admin. If a contributor fills out answers, the DM reviews them. If the DM fills out answers, contributors can still review the `pending_dm_review` state (read-only) before the DM sends.
+- The DM can edit the submitted answers directly (editable textareas) during `pending_dm_review` before sending to admin.
+- The admin can edit the workflow manually (JSON editor) at any point in `ai_generated` or `admin_refined` states.
 
-**DM "Needs Revision" path:** If DM clicks "Needs Revision" during consensus, the review stays open (status remains `in_review`), DM revision banner shown in portal, stakeholders can continue adding comments. Admin can reset to `admin_refined` to make changes and re-send.
+**Escape hatch:** Admin can reset from `in_review` back to `admin_refined` at any time. This cancels the active review round and returns the journey to admin control.
+
+**DM "Needs Revision" path:** If DM clicks "Needs Revision" during consensus (providing edit notes), the review stays open (status remains `in_review`), DM revision banner shown in portal, stakeholders can continue adding comments. Admin can reset to `admin_refined` to make changes and re-send.
 
 ---
 
@@ -524,16 +536,21 @@ All handlers follow the existing `el_core_action` pattern with `action` field in
 |--------|-------------|-------------|
 | `es_init_user_journeys` | Admin | Seeds journey rows from `user_types` on definition; called when Phase 4 first activated |
 | `es_add_user_type` | Admin | Adds a new journey row manually |
+| `es_rename_user_type` | Admin | Renames an existing user type |
+| `es_delete_user_type` | Admin | Deletes a journey row |
 | `es_assign_journey` | DM (portal), Admin | Sets `assigned_to` on a journey row |
-| `es_submit_journey_answers` | Assigned stakeholder | Saves `guided_answers`, triggers AI Round 1, updates status |
-| `es_refine_journey` | Admin | Saves `admin_notes`, triggers AI Round 2, saves `admin_workflow`, updates status |
-| `es_send_journey_review` | Admin | Creates `el_es_journey_reviews` row, sets deadline, updates status to `in_review` |
-| `es_get_journey_review` | Stakeholders (portal) | Returns journey data + active review + comments + verdicts for portal rendering |
+| `es_submit_journey_answers` | Assigned stakeholder | Saves `guided_answers`, sets status → `pending_dm_review` (no AI fires) |
+| `es_dm_send_to_admin` | DM | DM reviews/edits answers, adds notes, sends forward → status `awaiting_ai` |
+| `es_generate_journey_ai` | Admin | Admin deliberately triggers Round 1 AI → status `ai_generated` |
+| `es_refine_journey` | Admin | Saves `admin_notes`, triggers AI Round 2, saves `admin_workflow` → status `admin_refined` |
+| `es_save_journey_workflow` | Admin | Saves manually edited workflow JSON → status `admin_refined` |
+| `es_send_journey_review` | Admin | Creates `el_es_journey_reviews` row, sets deadline → status `in_review` |
+| `es_reset_journey_review` | Admin | Cancels active review, resets status to `admin_refined` |
+| `es_lock_journey` | Admin | Sets `locked_at`, `locked_by`, status to `locked` |
 | `es_post_journey_comment` | Stakeholders | Posts a comment or reply on a specific step |
 | `es_journey_step_verdict` | Stakeholders | Upserts verdict for a specific step (approved / needs_revision) |
 | `es_dm_journey_decision` | DM | Submits final decision (approved / needs_revision) on active review |
-| `es_reset_journey_review` | Admin | Cancels active review, resets status to `admin_refined` |
-| `es_lock_journey` | Admin | Sets `locked_at`, `locked_by`, status to `locked` |
+| `es_retry_journey_ai` | Admin | Re-triggers Round 1 AI for a stuck journey |
 
 `nopriv` variants needed for all portal-facing handlers (stakeholders are logged-in WP users but may not have `manage_expand_site`).
 
