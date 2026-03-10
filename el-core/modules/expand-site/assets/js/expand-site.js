@@ -1260,11 +1260,17 @@
         var journeyId = btn.dataset.journeyId;
         var reviewId  = btn.dataset.reviewId;
         var dmSection = btn.closest('.el-es-journey-dm-decision');
-        var noteEl    = dmSection ? dmSection.querySelector('.el-es-journey-dm-note') : null;
-        var dm_note   = noteEl ? noteEl.value.trim() : '';
+        // Read suggested edits from the new edit notes textarea
+        var editEl    = dmSection ? dmSection.querySelector('.el-es-journey-dm-edit-notes') : null;
+        var dm_note   = editEl ? editEl.value.trim() : '';
 
-        if (decision === 'needs_revision' && !confirm('Request revision on this journey? The project manager will be notified.')) return;
-        if (decision === 'approved' && !confirm('Approve this journey? This cannot be undone.')) return;
+        if (decision === 'approved') {
+            var confirmMsg = dm_note
+                ? 'You have suggested edits — are you sure you want to Accept? Your notes will be sent to the project manager but the workflow will be marked approved.'
+                : 'Accept this workflow? This cannot be undone.';
+            if (!confirm(confirmMsg)) return;
+        }
+        if (decision === 'needs_revision' && !confirm('Request changes? The project manager will receive your notes and revise the workflow before sending it back.')) return;
 
         var originalText = btn.textContent;
         btn.disabled = true;
@@ -1273,7 +1279,9 @@
             .then(function(result) {
                 if (dmSection) {
                     dmSection.innerHTML = '<p class="el-es-journey-dm-decided">'
-                        + (decision === 'approved' ? 'You approved this journey.' : 'Revision requested. The project manager will make changes and re-send.')
+                        + (decision === 'approved'
+                            ? '✓ You approved this journey. The project manager will lock it shortly.'
+                            : '⚑ Revision requested. The project manager will review your notes and send an updated version.')
                         + '</p>';
                 }
             })

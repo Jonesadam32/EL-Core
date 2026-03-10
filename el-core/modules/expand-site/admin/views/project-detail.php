@@ -1207,6 +1207,13 @@ foreach ( $journeys as $jny ) {
                     ? EL_Admin_UI::badge( [ 'label' => __( 'DM Approved', 'el-core' ), 'variant' => 'success' ] )
                     : EL_Admin_UI::badge( [ 'label' => __( 'DM Requested Revisions', 'el-core' ), 'variant' => 'warning' ] );
                 $p_uj .= EL_Admin_UI::detail_row( [ 'label' => __( 'DM Decision', 'el-core' ), 'value' => $dm_badge, 'icon' => 'yes-alt' ] );
+                // Show DM's edit notes if they left any
+                if ( ! empty( $active_jreview->dm_note ) ) {
+                    $p_uj .= '<div class="el-es-uj-dm-notes-box">';
+                    $p_uj .= '<p class="el-es-uj-dm-notes-label">' . el_es_icon( 'edit', 14 ) . ' <strong>' . esc_html__( 'DM\'s suggested edits:', 'el-core' ) . '</strong></p>';
+                    $p_uj .= '<p class="el-es-uj-dm-notes-text">' . nl2br( esc_html( $active_jreview->dm_note ) ) . '</p>';
+                    $p_uj .= '</div>';
+                }
             } else {
                 $p_uj .= EL_Admin_UI::detail_row( [ 'label' => __( 'DM Decision', 'el-core' ), 'value' => __( 'Awaiting DM decision', 'el-core' ), 'icon' => 'clock' ] );
             }

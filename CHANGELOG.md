@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.33.10] — 2026-03-09
+
+### Changed
+- **Portal: DM review section redesigned** — The `in_review` card for the Decision Maker now shows a "Your suggested edits" textarea above the Accept/Request changes buttons. The DM can write specific notes before making their decision; those notes are saved with the review record and displayed prominently in the admin panel so the project manager knows exactly what to change.
+- **Admin: DM notes now visible on in_review cards** — When the DM submits a "Request changes" decision with notes, the admin panel now shows a highlighted orange box with the DM's suggested edits text directly in the journey card.
+- **Portal: improved decision button labels and confirm messages** — Buttons now read "✓ Accept this workflow" and "⚑ Request changes" with clearer confirmation dialogs explaining what each action means.
+
+### Fixed
+- **Portal: "already submitted" confusion** — The submit error message was surfacing when users double-clicked. The form correctly replaces itself with a success notice after first submission.
+
+---
+
 ## [1.33.9] — 2026-03-09
 
 ### Added

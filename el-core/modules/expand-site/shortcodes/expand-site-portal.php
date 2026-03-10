@@ -766,17 +766,22 @@ function el_shortcode_expand_site_portal( $atts ): string {
 							if ( $is_decision_maker ) {
 								$dm_decided   = $active_review && $active_review->dm_decision;
 								$html .= '<div class="el-es-journey-dm-decision">';
-								$html .= '<h5>' . esc_html__( 'Make Final Decision', 'el-core' ) . '</h5>';
+								$html .= '<h5>' . esc_html__( 'Your Review &amp; Decision', 'el-core' ) . '</h5>';
 								if ( $dm_decided ) {
 									$html .= '<p class="el-es-journey-dm-decided">' . ( $active_review->dm_decision === 'approved'
 										? esc_html__( 'You approved this journey.', 'el-core' )
 										: esc_html__( 'You requested revisions.', 'el-core' ) ) . '</p>';
 								} else {
-									$html .= '<textarea class="el-es-journey-dm-note" rows="2" placeholder="' . esc_attr__( 'Optional note for the project manager…', 'el-core' ) . '"></textarea>';
+									// DM edit section — write suggested changes before deciding
+									$html .= '<p class="el-es-journey-dm-edit-intro">' . esc_html__( 'If you have changes or corrections to suggest, write them below before making your decision. The project manager will incorporate your notes before sending a revised version.', 'el-core' ) . '</p>';
+									$html .= '<label class="el-es-journey-dm-edit-label">' . esc_html__( 'Your suggested edits (optional):', 'el-core' ) . '</label>';
+									$html .= '<textarea class="el-es-journey-dm-edit-notes" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '" rows="4" placeholder="' . esc_attr__( 'e.g. Step 3 should come before step 2. Add a step for email verification. The summary is missing the enrollment step.', 'el-core' ) . '"></textarea>';
+									$html .= '<p class="el-es-journey-dm-decision-intro">' . esc_html__( 'When you\'re ready, choose your decision:', 'el-core' ) . '</p>';
 									$html .= '<div class="el-es-journey-dm-btns">';
-									$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-dm-decision-btn" data-decision="approved" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">' . esc_html__( 'Accept', 'el-core' ) . '</button>';
-									$html .= '<button type="button" class="el-btn el-btn-danger el-es-journey-dm-decision-btn" data-decision="needs_revision" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">' . esc_html__( 'Needs Revision', 'el-core' ) . '</button>';
+									$html .= '<button type="button" class="el-btn el-btn-primary el-es-journey-dm-decision-btn" data-decision="approved" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">' . esc_html__( '✓ Accept this workflow', 'el-core' ) . '</button>';
+									$html .= '<button type="button" class="el-btn el-btn-danger el-es-journey-dm-decision-btn" data-decision="needs_revision" data-journey-id="' . esc_attr( $jid ) . '" data-review-id="' . esc_attr( $review_id ) . '">' . esc_html__( '⚑ Request changes', 'el-core' ) . '</button>';
 									$html .= '</div>';
+									$html .= '<p class="el-es-journey-dm-decision-hint">' . esc_html__( '"Accept" locks in this workflow for approval. "Request changes" sends your notes back to the project manager.', 'el-core' ) . '</p>';
 								}
 								$html .= '</div>';
 							}
