@@ -2939,6 +2939,27 @@ class EL_Expand_Site_Module {
     }
 
     /**
+     * Strip markdown fences from an AI response and JSON-decode it.
+     * Returns the decoded array on success, or WP_Error on parse failure.
+     */
+    private function parse_journey_ai_response( string $raw ): array|WP_Error {
+        $raw = trim( $raw );
+        $raw = preg_replace( '/^```(?:json)?\s*/im', '', $raw );
+        $raw = preg_replace( '/\s*```\s*$/im', '', $raw );
+        $raw = trim( $raw );
+
+        $decoded = json_decode( $raw, true );
+        if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
+            return new WP_Error( 'ai_parse_error', sprintf(
+                __( 'AI returned an invalid workflow structure. Raw response: %s', 'el-core' ),
+                substr( $raw, 0, 500 )
+            ) );
+        }
+
+        return $decoded;
+    }
+
+    /**
      * Run Round 1 AI for a journey: generates structured workflow JSON from 6 guided answers.
      * Returns decoded array on success, WP_Error on failure.
      */
@@ -2984,20 +3005,16 @@ class EL_Expand_Site_Module {
             return new WP_Error( 'ai_error', $response['error'] ?? __( 'AI request failed.', 'el-core' ) );
         }
 
-        $raw = $response['content'] ?? '';
-        // Robustly strip markdown code fences regardless of leading/trailing whitespace
-        $raw = trim( $raw );
-        $raw = preg_replace( '/^```(?:json)?\s*/im', '', $raw );
-        $raw = preg_replace( '/\s*```\s*$/im', '', $raw );
-        $raw = trim( $raw );
-
-        $decoded = json_decode( $raw, true );
-        if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
-            return new WP_Error( 'ai_parse_error', sprintf(
-                /* translators: %s raw AI response for debugging */
-                __( 'AI returned an invalid workflow structure. Raw response: %s', 'el-core' ),
-                substr( $raw, 0, 500 )
-            ) );
+        $decoded = $this->parse_journey_ai_response( $response['content'] ?? '' );
+        if ( is_wp_error( $decoded ) ) {
+            // Auto-retry once — AI occasionally returns a non-JSON response on first attempt
+            $response2 = $this->core->ai->complete( [ 'prompt' => $prompt ] );
+            if ( ! empty( $response2['success'] ) ) {
+                $decoded = $this->parse_journey_ai_response( $response2['content'] ?? '' );
+            }
+        }
+        if ( is_wp_error( $decoded ) ) {
+            return $decoded;
         }
 
         return $decoded;
@@ -3048,16 +3065,16 @@ class EL_Expand_Site_Module {
             return new WP_Error( 'ai_error', $response['error'] ?? __( 'AI request failed.', 'el-core' ) );
         }
 
-        $raw = $response['content'] ?? '';
-        // Robustly strip markdown code fences regardless of leading/trailing whitespace
-        $raw = trim( $raw );
-        $raw = preg_replace( '/^```(?:json)?\s*/im', '', $raw );
-        $raw = preg_replace( '/\s*```\s*$/im', '', $raw );
-        $raw = trim( $raw );
-
-        $decoded = json_decode( $raw, true );
-        if ( ! is_array( $decoded ) || empty( $decoded['steps'] ) ) {
-            return new WP_Error( 'ai_parse_error', __( 'AI returned an invalid workflow structure.', 'el-core' ) );
+        $decoded = $this->parse_journey_ai_response( $response['content'] ?? '' );
+        if ( is_wp_error( $decoded ) ) {
+            // Auto-retry once — AI occasionally returns a non-JSON response on first attempt
+            $response2 = $this->core->ai->complete( [ 'prompt' => $prompt ] );
+            if ( ! empty( $response2['success'] ) ) {
+                $decoded = $this->parse_journey_ai_response( $response2['content'] ?? '' );
+            }
+        }
+        if ( is_wp_error( $decoded ) ) {
+            return $decoded;
         }
 
         return $decoded;
