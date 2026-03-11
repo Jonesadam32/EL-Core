@@ -18,18 +18,17 @@
         "es_decision_maker",
         "es_contributor",
         "es_review_content",
-        "es_close_review",
-        "es_manage_templates"
+        "es_close_review"
     ],
 
     "default_role_mapping": {
-        "administrator": ["manage_expand_site", "view_expand_site", "submit_feedback", "es_decision_maker", "es_contributor", "es_review_content", "es_close_review", "es_manage_templates"],
+        "administrator": ["manage_expand_site", "view_expand_site", "submit_feedback", "es_decision_maker", "es_contributor", "es_review_content", "es_close_review"],
         "editor": ["view_expand_site", "submit_feedback", "es_contributor", "es_review_content"],
         "subscriber": ["view_expand_site", "submit_feedback", "es_contributor", "es_review_content"]
     },
 
     "database": {
-        "version": 12,
+        "version": 13,
         "tables": {
             "el_es_projects": {
                 "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
@@ -258,6 +257,52 @@
                 "verdict": "VARCHAR(20) DEFAULT ''",
                 "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
                 "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+            },
+            "el_es_visual_brief": {
+                "id": "BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY",
+                "project_id": "BIGINT UNSIGNED NOT NULL",
+                "has_logo": "TINYINT(1) NOT NULL DEFAULT 0",
+                "logo_url": "TEXT NULL",
+                "logo_needs_creation": "TINYINT(1) NOT NULL DEFAULT 0",
+                "logo_notes": "TEXT NULL",
+                "has_brand_colors": "TINYINT(1) NOT NULL DEFAULT 0",
+                "color_primary": "VARCHAR(7) DEFAULT ''",
+                "color_secondary": "VARCHAR(7) DEFAULT ''",
+                "color_accent": "VARCHAR(7) DEFAULT ''",
+                "color_neutral": "VARCHAR(7) DEFAULT ''",
+                "color_notes": "TEXT NULL",
+                "has_brand_fonts": "TINYINT(1) NOT NULL DEFAULT 0",
+                "font_heading": "VARCHAR(100) DEFAULT ''",
+                "font_body": "VARCHAR(100) DEFAULT ''",
+                "font_notes": "TEXT NULL",
+                "has_existing_materials": "TINYINT(1) NOT NULL DEFAULT 0",
+                "existing_materials_url": "TEXT NULL",
+                "existing_materials_notes": "TEXT NULL",
+                "audience_description": "TEXT NULL",
+                "tone_feel": "TEXT NULL",
+                "sites_they_like": "TEXT NULL",
+                "sites_to_avoid": "TEXT NULL",
+                "pages_needed": "LONGTEXT NULL",
+                "has_photography": "TINYINT(1) NOT NULL DEFAULT 0",
+                "photography_url": "TEXT NULL",
+                "needs_stock_photography": "TINYINT(1) NOT NULL DEFAULT 0",
+                "photography_notes": "TEXT NULL",
+                "has_parent_org_brand": "TINYINT(1) NOT NULL DEFAULT 0",
+                "parent_org_brand_notes": "TEXT NULL",
+                "accessibility_required": "TINYINT(1) NOT NULL DEFAULT 0",
+                "accessibility_standard": "VARCHAR(50) DEFAULT ''",
+                "multilingual": "TINYINT(1) NOT NULL DEFAULT 0",
+                "languages": "VARCHAR(255) DEFAULT ''",
+                "other_constraints": "TEXT NULL",
+                "additional_notes": "TEXT NULL",
+                "portal_submitted_at": "DATETIME NULL",
+                "portal_submitted_by": "BIGINT UNSIGNED NULL",
+                "generated_brief": "LONGTEXT NULL",
+                "generated_at": "DATETIME NULL",
+                "locked_at": "DATETIME NULL",
+                "locked_by": "BIGINT UNSIGNED NULL",
+                "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"
             }
         },
         "migrations": {
@@ -313,6 +358,9 @@
             ],
             "12": [
                 "ALTER TABLE el_es_projects ADD COLUMN journey_list_approved_at DATETIME NULL"
+            ],
+            "13": [
+                "CREATE TABLE IF NOT EXISTS el_es_visual_brief (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL UNIQUE, has_logo TINYINT(1) NOT NULL DEFAULT 0, logo_url TEXT NULL, logo_needs_creation TINYINT(1) NOT NULL DEFAULT 0, logo_notes TEXT NULL, has_brand_colors TINYINT(1) NOT NULL DEFAULT 0, color_primary VARCHAR(7) DEFAULT '', color_secondary VARCHAR(7) DEFAULT '', color_accent VARCHAR(7) DEFAULT '', color_neutral VARCHAR(7) DEFAULT '', color_notes TEXT NULL, has_brand_fonts TINYINT(1) NOT NULL DEFAULT 0, font_heading VARCHAR(100) DEFAULT '', font_body VARCHAR(100) DEFAULT '', font_notes TEXT NULL, has_existing_materials TINYINT(1) NOT NULL DEFAULT 0, existing_materials_url TEXT NULL, existing_materials_notes TEXT NULL, audience_description TEXT NULL, tone_feel TEXT NULL, sites_they_like TEXT NULL, sites_to_avoid TEXT NULL, pages_needed LONGTEXT NULL, has_photography TINYINT(1) NOT NULL DEFAULT 0, photography_url TEXT NULL, needs_stock_photography TINYINT(1) NOT NULL DEFAULT 0, photography_notes TEXT NULL, has_parent_org_brand TINYINT(1) NOT NULL DEFAULT 0, parent_org_brand_notes TEXT NULL, accessibility_required TINYINT(1) NOT NULL DEFAULT 0, accessibility_standard VARCHAR(50) DEFAULT '', multilingual TINYINT(1) NOT NULL DEFAULT 0, languages VARCHAR(255) DEFAULT '', other_constraints TEXT NULL, additional_notes TEXT NULL, portal_submitted_at DATETIME NULL, portal_submitted_by BIGINT UNSIGNED NULL, generated_brief LONGTEXT NULL, generated_at DATETIME NULL, locked_at DATETIME NULL, locked_by BIGINT UNSIGNED NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, INDEX idx_project (project_id))"
             ],
             "7": [
                 "ALTER TABLE el_es_project_definition MODIFY COLUMN site_type VARCHAR(100) DEFAULT ''"

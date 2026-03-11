@@ -1,5 +1,5 @@
-/**
- * Expand Site Module — Admin JavaScript
+﻿/**
+ * Expand Site Module â€” Admin JavaScript
  * 
  * Handles project creation form submission via AJAX
  */
@@ -569,9 +569,9 @@
         };
     }
 
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // QUALIFICATION INTAKE
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     function handleSaveQualification(e) {
         const form = e.target.closest('#qualification-form');
@@ -583,7 +583,7 @@
 
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Saving…';
+            submitBtn.textContent = 'Savingâ€¦';
         }
 
         const fd = new FormData(form);
@@ -601,7 +601,7 @@
             if (!result.success) throw new Error(result.data?.message || 'Save failed');
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Saved ✓';
+                submitBtn.textContent = 'Saved âœ“';
                 setTimeout(() => { submitBtn.textContent = originalText; }, 2000);
             }
         })
@@ -614,9 +614,9 @@
         });
     }
 
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // DISCOVERY TRANSCRIPT & DEFINITION
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     function handleProcessTranscript(e) {
         const btn = e.target.closest('#process-transcript-btn');
@@ -895,9 +895,9 @@
         });
     }
 
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // PROPOSALS
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     function handleNewProposal(e) {
         const btn = e.target.closest('.el-es-new-proposal-btn');
@@ -1247,387 +1247,9 @@
     }
 
 })();
-
-/* ═══════════════════════════════════════════
-   TEMPLATE LIBRARY
-   ═══════════════════════════════════════════ */
-(function() {
-    'use strict';
-
-    const ajaxUrl = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.ajaxUrl : ajaxurl;
-    const nonce   = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.nonce   : '';
-
-    function domReady(fn) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', fn);
-        } else {
-            fn();
-        }
-    }
-
-    domReady(function() {
-        if (!document.getElementById('btn-add-template') && !document.getElementById('btn-add-template-empty')) {
-            return; // Not on the template library page
-        }
-        initTemplateLibrary();
-    });
-
-    function initTemplateLibrary() {
-
-    // ── Modal helpers ──────────────────────────────────
-    function openModal(id) {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'flex';
-    }
-    function closeModal(id) {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    }
-
-    // Close modals on overlay / close button click
-    document.addEventListener('click', function(e) {
-        if (e.target.dataset.modalClose) {
-            closeModal(e.target.dataset.modalClose);
-        }
-        const closeBtn = e.target.closest('.el-modal-close');
-        if (closeBtn) {
-            const modal = closeBtn.closest('.el-modal');
-            if (modal) modal.style.display = 'none';
-        }
-    });
-
-    // ── Add template button ────────────────────────────
-    function initAddButtons() {
-        ['btn-add-template', 'btn-add-template-empty'].forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) {
-                btn.addEventListener('click', () => {
-                    resetTemplateForm();
-                    document.querySelector('#modal-template .el-modal-title').textContent = 'Add Template';
-                    openModal('modal-template');
-                });
-            }
-        });
-    }
-
-    // ── Edit template ──────────────────────────────────
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('.btn-edit-template');
-        if (!btn) return;
-
-        const d = btn.dataset;
-        document.getElementById('tpl-id').value          = d.id;
-        document.getElementById('tpl-title').value       = d.title;
-        document.getElementById('tpl-category').value    = d.category;
-        document.getElementById('tpl-description').value = d.description || '';
-        document.getElementById('tpl-image-url').value   = d.imageUrl || '';
-        document.getElementById('tpl-active').checked    = d.active === '1';
-
-        const preview = document.getElementById('tpl-image-preview');
-        const img     = document.getElementById('tpl-preview-img');
-        if (d.imageUrl) {
-            img.src = d.imageUrl;
-            preview.style.display = 'block';
-        } else {
-            preview.style.display = 'none';
-        }
-
-        document.querySelector('#modal-template .el-modal-title').textContent = 'Edit Template';
-        openModal('modal-template');
-    });
-
-    // ── Cancel button ──────────────────────────────────
-    const cancelBtn = document.getElementById('btn-tpl-cancel');
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => closeModal('modal-template'));
-    }
-
-    // ── Save template form ─────────────────────────────
-    const form = document.getElementById('form-template');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const saveBtn = document.getElementById('btn-tpl-save');
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving…';
-
-            const formData = new FormData(form);
-            const body = new URLSearchParams();
-            body.append('action', 'el_core_action');
-            body.append('el_action', 'es_save_template');
-            body.append('nonce', nonce);
-            body.append('template_id', document.getElementById('tpl-id').value);
-            body.append('title', document.getElementById('tpl-title').value);
-            body.append('style_category', document.getElementById('tpl-category').value);
-            body.append('description', document.getElementById('tpl-description').value);
-            body.append('image_url', document.getElementById('tpl-image-url').value);
-            body.append('is_active', document.getElementById('tpl-active').checked ? '1' : '0');
-
-            fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-                .then(r => r.json())
-                .then(result => {
-                    if (!result.success) throw new Error(result.data?.message || 'Save failed');
-                    closeModal('modal-template');
-                    window.location.reload();
-                })
-                .catch(err => {
-                    alert(err.message || 'Failed to save template.');
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = 'Save Template';
-                });
-        });
-    }
-
-    // ── Delete template ────────────────────────────────
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('.btn-delete-template');
-        if (!btn) return;
-
-        document.getElementById('delete-tpl-id').value       = btn.dataset.id;
-        document.getElementById('delete-tpl-name').textContent = btn.dataset.title;
-        openModal('modal-delete-template');
-    });
-
-    const confirmDeleteBtn = document.getElementById('btn-confirm-delete-tpl');
-    if (confirmDeleteBtn) {
-        confirmDeleteBtn.addEventListener('click', function() {
-            const id = document.getElementById('delete-tpl-id').value;
-            this.disabled = true;
-            this.textContent = 'Deleting…';
-
-            const body = new URLSearchParams();
-            body.append('action', 'el_core_action');
-            body.append('el_action', 'es_delete_template');
-            body.append('nonce', nonce);
-            body.append('template_id', id);
-
-            fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-                .then(r => r.json())
-                .then(result => {
-                    if (!result.success) throw new Error(result.data?.message || 'Delete failed');
-                    closeModal('modal-delete-template');
-                    window.location.reload();
-                })
-                .catch(err => {
-                    alert(err.message || 'Failed to delete template.');
-                    this.disabled = false;
-                    this.textContent = 'Delete';
-                });
-        });
-    }
-
-    // ── Media uploader ─────────────────────────────────
-    const mediaUploadBtn = document.getElementById('btn-tpl-media-upload');
-    if (mediaUploadBtn && typeof wp !== 'undefined' && wp.media) {
-        let mediaFrame;
-        mediaUploadBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (mediaFrame) { mediaFrame.open(); return; }
-
-            mediaFrame = wp.media({
-                title: 'Select Template Image',
-                button: { text: 'Use this image' },
-                multiple: false,
-                library: { type: 'image' },
-            });
-
-            mediaFrame.on('select', function() {
-                const attachment = mediaFrame.state().get('selection').first().toJSON();
-                document.getElementById('tpl-image-url').value = attachment.url;
-                const preview = document.getElementById('tpl-image-preview');
-                const img     = document.getElementById('tpl-preview-img');
-                img.src = attachment.url;
-                preview.style.display = 'block';
-            });
-
-            mediaFrame.open();
-        });
-    }
-
-    // Update preview when URL is typed manually
-    const imageUrlInput = document.getElementById('tpl-image-url');
-    if (imageUrlInput) {
-        imageUrlInput.addEventListener('blur', function() {
-            const url = this.value.trim();
-            const preview = document.getElementById('tpl-image-preview');
-            const img     = document.getElementById('tpl-preview-img');
-            if (url) {
-                img.src = url;
-                preview.style.display = 'block';
-            } else {
-                preview.style.display = 'none';
-            }
-        });
-    }
-
-    // ── Drag-to-reorder within category ───────────────
-    function initDragReorder() {
-        document.querySelectorAll('.el-tpl-card-grid').forEach(grid => {
-            let dragSrc = null;
-
-            grid.querySelectorAll('.el-tpl-card').forEach(card => {
-                card.setAttribute('draggable', 'true');
-
-                card.addEventListener('dragstart', function() {
-                    dragSrc = this;
-                    this.classList.add('el-tpl-dragging');
-                });
-
-                card.addEventListener('dragend', function() {
-                    this.classList.remove('el-tpl-dragging');
-                    saveOrder(grid);
-                });
-
-                card.addEventListener('dragover', function(e) {
-                    e.preventDefault();
-                    if (dragSrc && dragSrc !== this) {
-                        const rect = this.getBoundingClientRect();
-                        const midX = rect.left + rect.width / 2;
-                        if (e.clientX < midX) {
-                            grid.insertBefore(dragSrc, this);
-                        } else {
-                            grid.insertBefore(dragSrc, this.nextSibling);
-                        }
-                    }
-                });
-            });
-        });
-    }
-
-    function saveOrder(grid) {
-        const cards = grid.querySelectorAll('.el-tpl-card');
-        const order = [];
-        cards.forEach((card, idx) => {
-            order.push({ id: card.dataset.id, sort_order: idx });
-        });
-
-        const body = new URLSearchParams();
-        body.append('action', 'el_core_action');
-        body.append('el_action', 'es_reorder_templates');
-        body.append('nonce', nonce);
-        body.append('order', JSON.stringify(order));
-
-        fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-            .catch(err => console.error('Reorder failed:', err));
-    }
-
-    // ── Reset form helper ──────────────────────────────
-    function resetTemplateForm() {
-        document.getElementById('tpl-id').value          = '';
-        document.getElementById('tpl-title').value       = '';
-        document.getElementById('tpl-category').value    = '';
-        document.getElementById('tpl-description').value = '';
-        document.getElementById('tpl-image-url').value   = '';
-        document.getElementById('tpl-active').checked    = true;
-        document.getElementById('tpl-image-preview').style.display = 'none';
-        document.getElementById('tpl-preview-img').src   = '';
-    }
-
-    // ── Init ───────────────────────────────────────────
-    initAddButtons();
-    initDragReorder();
-
-    } // end initTemplateLibrary
-
-})();
-
-// ═══════════════════════════════════════════
-// BRANDING TAB — Review Management (admin)
-// ═══════════════════════════════════════════
-
-(function() {
-    'use strict';
-
-    var brandingTab = document.getElementById('es-branding-tab');
-    if (!brandingTab) return;
-
-    var ajaxUrl = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.ajaxUrl : '';
-    var nonce   = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.nonce   : '';
-
-    function elAdminAjax(action, data) {
-        var body = new URLSearchParams(Object.assign({
-            action:    'el_core_action',
-            el_action: action,
-            nonce:     nonce
-        }, data));
-        return fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
-            .then(function(r) { return r.json(); })
-            .then(function(r) {
-                if (!r.success) throw new Error(r.data && r.data.message ? r.data.message : 'Request failed');
-                return r.data;
-            });
-    }
-
-    // ── Create Review Session form submit ──
-    document.addEventListener('submit', function(e) {
-        var form = e.target.closest('#create-review-form');
-        if (!form) return;
-        e.preventDefault();
-
-        var projectId  = form.querySelector('[name="project_id"]').value;
-        var reviewType = form.querySelector('[name="review_type"]').value;
-        var title      = form.querySelector('[name="title"]').value;
-        var deadline   = form.querySelector('[name="deadline"]') ? form.querySelector('[name="deadline"]').value : '';
-        var checkboxes = form.querySelectorAll('[name="template_ids[]"]:checked');
-
-        if (checkboxes.length === 0) {
-            alert('Please select at least one template for this review session.');
-            return;
-        }
-
-        var templateIds = [];
-        checkboxes.forEach(function(cb) { templateIds.push(cb.value); });
-
-        var submitBtn = form.querySelector('[type="submit"]');
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Creating…'; }
-
-        var data = {
-            project_id:   projectId,
-            review_type:  reviewType,
-            title:        title,
-            deadline:     deadline
-        };
-        templateIds.forEach(function(id, i) {
-            data['template_ids[' + i + ']'] = id;
-        });
-
-        elAdminAjax('es_create_review_item', data)
-            .then(function(result) {
-                alert(result.message || 'Review session created!');
-                window.location.reload();
-            })
-            .catch(function(err) {
-                alert(err.message || 'Failed to create review session.');
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Review Session'; }
-            });
-    });
-
-    // ── Set Deadline button ──
-    document.addEventListener('click', function(e) {
-        var btn = e.target.closest('[data-action="set-review-deadline"]');
-        if (!btn) return;
-
-        var rid = btn.dataset.reviewItemId;
-        var current = btn.dataset.currentDeadline || '';
-        var newDate = prompt('Enter new deadline (YYYY-MM-DD):', current);
-        if (!newDate) return;
-
-        elAdminAjax('es_set_review_deadline', {
-            review_item_id: rid,
-            deadline:       newDate
-        }).then(function(result) {
-            alert(result.message || 'Deadline updated!');
-            window.location.reload();
-        }).catch(function(err) {
-            alert(err.message || 'Failed to update deadline.');
-        });
-    });
-
-})();
-
-// ═══════════════════════════════════════════
-// USER JOURNEY PHASE — Admin JS (Phase 4)
-// ═══════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// USER JOURNEY PHASE â€” Admin JS (Phase 4)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 (function() {
     'use strict';
@@ -1649,7 +1271,7 @@
             });
     }
 
-    // ── Toggle expand/collapse journey cards ──
+    // â”€â”€ Toggle expand/collapse journey cards â”€â”€
     document.addEventListener('click', function(e) {
         var header = e.target.closest('.el-es-uj-card__header');
         if (!header) return;
@@ -1667,7 +1289,7 @@
         }
     });
 
-    // ── Reassign link toggle ──
+    // â”€â”€ Reassign link toggle â”€â”€
     document.addEventListener('click', function(e) {
         var link = e.target.closest('.el-es-uj-reassign-link');
         if (!link) return;
@@ -1678,7 +1300,7 @@
         if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
     });
 
-    // ── Assign button ──
+    // â”€â”€ Assign button â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-assign-btn');
         if (!btn) return;
@@ -1694,7 +1316,7 @@
         }
         var userId = select.value;
         var originalText = btn.textContent;
-        btn.disabled = true; btn.textContent = 'Assigning…';
+        btn.disabled = true; btn.textContent = 'Assigningâ€¦';
 
         ujAjax('es_assign_journey', { journey_id: journeyId, assigned_to: userId, project_id: projectId })
             .then(function() {
@@ -1706,7 +1328,7 @@
             });
     });
 
-    // ── Generate with AI button (awaiting_ai state) ──
+    // â”€â”€ Generate with AI button (awaiting_ai state) â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-generate-ai-btn');
         if (!btn) return;
@@ -1715,8 +1337,8 @@
         var card      = btn.closest('.el-es-uj-card');
         var statusEl  = card ? card.querySelector('.el-es-uj-generate-status') : null;
 
-        btn.disabled = true; btn.textContent = 'Generating…';
-        if (statusEl) statusEl.textContent = 'Calling AI…';
+        btn.disabled = true; btn.textContent = 'Generatingâ€¦';
+        if (statusEl) statusEl.textContent = 'Calling AIâ€¦';
 
         ujAjax('es_generate_journey_ai', { journey_id: journeyId, project_id: projectId })
             .then(function() {
@@ -1729,7 +1351,7 @@
             });
     });
 
-    // ── Manual edit toggle ──
+    // â”€â”€ Manual edit toggle â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-manual-edit-toggle');
         if (!btn) return;
@@ -1738,10 +1360,10 @@
         if (!form) return;
         var isVisible = form.style.display !== 'none';
         form.style.display = isVisible ? 'none' : 'block';
-        btn.textContent = isVisible ? '✎ Manually edit workflow' : '✎ Hide manual editor';
+        btn.textContent = isVisible ? 'âœŽ Manually edit workflow' : 'âœŽ Hide manual editor';
     });
 
-    // ── Add Step button (insert after a specific step) ──
+    // â”€â”€ Add Step button (insert after a specific step) â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-add-step-btn');
         if (!btn) return;
@@ -1755,7 +1377,7 @@
         div.className = 'el-es-uj-edit-step';
         div.innerHTML =
             '<p class="el-es-uj-edit-step-num">Step <span class="el-es-uj-step-num-label"></span> ' +
-            '<button type="button" class="el-es-uj-remove-step-btn" style="margin-left:8px;font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">✕ Remove</button></p>' +
+            '<button type="button" class="el-es-uj-remove-step-btn" style="margin-left:8px;font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">âœ• Remove</button></p>' +
             '<div class="el-form-row"><label class="el-form-label">Label</label>' +
             '<div class="el-form-field"><input type="text" class="el-input el-es-uj-edit-step-label" value="" style="width:100%;"></div></div>' +
             '<div class="el-form-row"><label class="el-form-label">Description</label>' +
@@ -1773,7 +1395,7 @@
         div.querySelector('.el-es-uj-edit-step-label').focus();
     });
 
-    // ── Remove Step button ──
+    // â”€â”€ Remove Step button â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-remove-step-btn');
         if (!btn) return;
@@ -1792,7 +1414,7 @@
         });
     }
 
-    // ── Save Manual Edits button ──
+    // â”€â”€ Save Manual Edits button â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-save-workflow-btn');
         if (!btn) return;
@@ -1821,7 +1443,7 @@
         var jsonStr  = JSON.stringify(workflow);
 
         var originalText = btn.textContent;
-        btn.disabled = true; btn.textContent = 'Saving…';
+        btn.disabled = true; btn.textContent = 'Savingâ€¦';
         if (statusEl) statusEl.textContent = '';
 
         ujAjax('es_save_journey_workflow', { journey_id: journeyId, project_id: projectId, workflow_json: jsonStr })
@@ -1835,7 +1457,7 @@
             });
     });
 
-    // ── Refine with AI button ──
+    // â”€â”€ Refine with AI button â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-refine-btn');
         if (!btn) return;
@@ -1846,8 +1468,8 @@
         var notes = notesEl ? notesEl.value : '';
         var statusEl = btn.parentElement ? btn.parentElement.querySelector('.el-es-uj-refine-status') : null;
 
-        btn.disabled = true; btn.textContent = 'Refining…';
-        if (statusEl) { statusEl.textContent = 'Calling AI…'; }
+        btn.disabled = true; btn.textContent = 'Refiningâ€¦';
+        if (statusEl) { statusEl.textContent = 'Calling AIâ€¦'; }
 
         ujAjax('es_refine_journey', { journey_id: journeyId, project_id: projectId, admin_notes: notes })
             .then(function() {
@@ -1860,7 +1482,7 @@
             });
     });
 
-    // ── Send for Review form submit (modal form) ──
+    // â”€â”€ Send for Review form submit (modal form) â”€â”€
     document.addEventListener('submit', function(e) {
         var form = e.target.closest('.el-es-uj-send-review-form');
         if (!form) return;
@@ -1870,7 +1492,7 @@
         var deadlineEl = form.querySelector('[name="deadline"]');
         var deadline   = deadlineEl ? deadlineEl.value : '';
         var btn        = form.querySelector('[type="submit"]');
-        if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+        if (btn) { btn.disabled = true; btn.textContent = 'Sendingâ€¦'; }
 
         ujAjax('es_send_journey_review', { journey_id: journeyId, project_id: projectId, deadline: deadline })
             .then(function() {
@@ -1882,7 +1504,7 @@
             });
     });
 
-    // ── Reset to Draft button ──
+    // â”€â”€ Reset to Draft button â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-reset-btn');
         if (!btn) return;
@@ -1890,7 +1512,7 @@
         var journeyId = btn.dataset.journeyId;
         var projectId = btn.dataset.projectId;
         var originalText = btn.textContent;
-        btn.disabled = true; btn.textContent = 'Resetting…';
+        btn.disabled = true; btn.textContent = 'Resettingâ€¦';
 
         ujAjax('es_reset_journey_review', { journey_id: journeyId, project_id: projectId })
             .then(function() {
@@ -1902,14 +1524,14 @@
             });
     });
 
-    // ── Lock Journey button ──
+    // â”€â”€ Lock Journey button â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-uj-lock-btn');
         if (!btn) return;
         if (!confirm('Lock this journey? This cannot be undone.')) return;
         var journeyId = btn.dataset.journeyId;
         var projectId = btn.dataset.projectId;
-        btn.disabled = true; btn.textContent = 'Locking…';
+        btn.disabled = true; btn.textContent = 'Lockingâ€¦';
 
         ujAjax('es_lock_journey', { journey_id: journeyId, project_id: projectId })
             .then(function(result) {
@@ -1924,7 +1546,7 @@
             });
     });
 
-    // ── Add User Type modal form submit ──
+    // â”€â”€ Add User Type modal form submit â”€â”€
     document.addEventListener('submit', function(e) {
         var form = e.target.closest('#add-user-type-form');
         if (!form) return;
@@ -1933,7 +1555,7 @@
         var userType  = form.querySelector('[name="user_type"]').value.trim();
         if (!userType) { alert('Please enter a user type name.'); return; }
         var btn = form.querySelector('[type="submit"]');
-        if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+        if (btn) { btn.disabled = true; btn.textContent = 'Addingâ€¦'; }
 
         ujAjax('es_add_user_type', { project_id: projectId, user_type: userType })
             .then(function() {
@@ -2079,6 +1701,139 @@
                 btn.disabled = false;
                 btn.textContent = originalText;
             });
+    });
+
+})();
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// VISUAL IDENTITY PHASE â€” Admin JS (Phase 5)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+(function() {
+    'use strict';
+
+    var panel = document.getElementById('es-vi-admin-panel');
+    if (!panel) return;
+
+    var ajaxUrl = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.ajaxUrl : '';
+    var nonce   = (typeof elExpandSiteAdmin !== 'undefined') ? elExpandSiteAdmin.nonce   : '';
+
+    function viAdminAjax(action, data) {
+        var body = new URLSearchParams(Object.assign({ action: 'el_core_action', el_action: action, nonce: nonce }, data));
+        return fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
+            .then(function(r) { return r.json(); })
+            .then(function(r) {
+                if (!r.success) throw new Error(r.data && r.data.message ? r.data.message : 'Request failed');
+                return r.data;
+            });
+    }
+
+    // Generate Brand Brief
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-vi-generate-btn');
+        if (!btn || !panel.contains(btn)) return;
+
+        var projectId  = btn.dataset.projectId || panel.dataset.projectId;
+        var regenerate = btn.dataset.regenerate === '1';
+
+        if (regenerate && !confirm('Regenerate will overwrite the current brief. Continue?')) return;
+
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Generating\u2026';
+
+        viAdminAjax('es_generate_visual_brief', { project_id: projectId }).then(function(data) {
+            // Update the brief display
+            var outputWrap = panel.querySelector('.el-es-brief-output-wrap');
+            if (outputWrap) {
+                outputWrap.querySelector('.el-es-brief-output').textContent = data.brief;
+                var dateSpan = outputWrap.querySelector('.el-es-brief-generated-date');
+                if (dateSpan) dateSpan.textContent = 'Brand Brief â€” Generated ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            } else {
+                // First generation â€” reload to render full state
+                window.location.reload();
+                return;
+            }
+            btn.disabled = false;
+            btn.textContent = regenerate ? 'Regenerate' : 'Generate Brand Brief';
+            // Show lock button if not already visible
+            var briefSection = panel.querySelector('.el-es-vi-brief-section');
+            if (briefSection && !briefSection.querySelector('.el-es-vi-lock-btn')) {
+                window.location.reload();
+            }
+        }).catch(function(err) {
+            alert(err.message || 'Failed to generate brief.');
+            btn.disabled = false;
+            btn.textContent = originalText;
+        });
+    });
+
+    // Copy to Clipboard
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-vi-copy-brief');
+        if (!btn || !panel.contains(btn)) return;
+
+        var output = panel.querySelector('.el-es-brief-output');
+        if (!output) return;
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(output.textContent).then(function() {
+                var orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = orig; }, 2000);
+            }).catch(function() {
+                alert('Copy failed â€” please select the text manually.');
+            });
+        } else {
+            // Fallback
+            var range = document.createRange();
+            range.selectNodeContents(output);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+    });
+
+    // Lock Brief
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-vi-lock-btn');
+        if (!btn || !panel.contains(btn)) return;
+
+        if (!confirm('Locking the brief will enable Phase 6 (Wireframes). You can unlock it later if needed.')) return;
+
+        var projectId = btn.dataset.projectId || panel.dataset.projectId;
+        var orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Locking\u2026';
+
+        viAdminAjax('es_lock_visual_brief', { project_id: projectId }).then(function() {
+            window.location.reload();
+        }).catch(function(err) {
+            alert(err.message || 'Failed to lock brief.');
+            btn.disabled = false;
+            btn.textContent = orig;
+        });
+    });
+
+    // Unlock Brief
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.el-es-vi-unlock-btn');
+        if (!btn || !panel.contains(btn)) return;
+
+        if (!confirm('Unlock the brief? The brief will be retained but can be regenerated.')) return;
+
+        var projectId = btn.dataset.projectId || panel.dataset.projectId;
+        var orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Unlocking\u2026';
+
+        viAdminAjax('es_unlock_visual_brief', { project_id: projectId }).then(function() {
+            window.location.reload();
+        }).catch(function(err) {
+            alert(err.message || 'Failed to unlock brief.');
+            btn.disabled = false;
+            btn.textContent = orig;
+        });
     });
 
 })();

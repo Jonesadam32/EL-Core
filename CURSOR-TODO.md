@@ -5,9 +5,9 @@
 > Push to GitHub after every session so this stays current.
 >
 > **Last Updated:** March 10, 2026
-> **Plugin Version:** v1.33.12 — deployed to staging
-> **Next Build:** TBD
-> **Deployed Version:** v1.33.11 on staging (qd19d0iehj-staging.wpdns.site)
+> **Plugin Version:** v1.34.0 — built locally, NOT successfully deployed (module load error)
+> **Next Build:** v1.34.1 — fix module load error
+> **Deployed Version:** v1.33.20 on staging (qd19d0iehj-staging.wpdns.site) — last known-good
 > **Local Repo:** `C:\Github\EL Core` (desktop) — pull from GitHub when switching computers
 > **Plugin Source:** `el-core/` folder in repo root
 > **Build Script:** `build-zip.ps1` (run from repo root)
@@ -730,10 +730,72 @@ pending_assignment → awaiting_input → pending_dm_review → awaiting_ai
 - [x] Portal AJAX: `es_post_journey_comment`, `es_journey_step_verdict`, `es_dm_journey_decision`
 - [x] All CSS classes added to `expand-site.css`
 
-### Outstanding bugs (v1.33.12 — next session)
+### Outstanding bugs (v1.33.12 — RESOLVED)
 
 - [x] **Bug 1:** Portal `pending_dm_review` — DM answer fields are read-only; should be editable textareas so DM can correct answers before sending
 - [x] **Bug 2:** Admin "Generate with AI" returns "AI returned an invalid workflow structure" — markdown fence stripping regex needs to be more robust (handle leading whitespace/newlines before ``` fence)
+
+---
+
+## v1.34.0 — Visual Identity Phase (Phase 5)
+
+> **Full spec:** `SPEC-VISUAL-IDENTITY-PHASE.md` (repo root)
+> **Status:** Built in this session — **module fails to load, NOT deployed**
+> **Next build:** v1.34.1 — fix the load error, then deploy
+
+### ⚠️ IMMEDIATE BUG — Module load error
+
+- [ ] **Diagnose:** Check WordPress debug.log for fatal PHP error in `class-expand-site-module.php`
+  - Most likely cause: `add_deliverable()` method was accidentally deleted during the large block removal
+  - `handle_add_deliverable` still references `$this->add_deliverable()` — if the method is gone, it's a fatal error
+- [ ] **Fix:** Restore any accidentally deleted method(s); verify all called methods exist
+- [ ] **Bump to v1.34.1**, build ZIP, upload
+
+### Part 1 — Removed: Mood Board / Template Library System ✅ DONE
+
+- [x] Delete `admin/views/template-library.php`
+- [x] Remove `es_manage_templates` capability from `module.json` (capabilities array + all role mappings)
+- [x] Remove 10 AJAX hook registrations from `init_hooks()` (template CRUD + mood board review)
+- [x] Remove Template Library admin menu page + `render_template_library_page()` + `$our_pages` entry
+- [x] Remove 15 PHP methods from `class-expand-site-module.php` (template + review methods)
+- [x] Remove mood board portal section from `expand-site-portal.php` (replaced with Phase 5 content)
+- [x] Remove Phase 5 mood board panel from `project-detail.php` (replaced with Phase 5 content)
+- [x] Remove Template Library IIFE from `expand-site-admin.js`
+- [x] Remove Mood Board voting IIFE from `expand-site.js`
+- [x] Remove `.el-tpl-*`, `.el-es-mood-board-*`, `.es-template-picker*` from `expand-site.css`
+
+### Part 2 — Built: Visual Identity system ✅ DONE (pending load error fix)
+
+- [x] DB migration v13 — `el_es_visual_brief` table added to `module.json` (tables + migration "13")
+- [x] `init_visual_brief()` — called from `advance_stage()` when `$new_stage === 5`, pre-populates `pages_needed` from locked journeys
+- [x] Phase 6 gate — advance from Stage 5 blocked unless `locked_at IS NOT NULL`
+- [x] 6 AJAX handlers registered: `es_save_visual_brief`, `es_submit_visual_brief`, `es_get_visual_brief`, `es_generate_visual_brief`, `es_lock_visual_brief`, `es_unlock_visual_brief`
+- [x] `generate_visual_brief()` private method — structured markdown from all brief fields + project definition
+- [x] Admin panel States A/B/C in `project-detail.php` — awaiting input / client submitted / locked
+- [x] `el_es_vi_render_intake_summary()` helper — logo preview, color swatches, all 9 sections
+- [x] Portal intake form in `expand-site-portal.php` — 9 sections, conditional show/hide, auto-save on blur, submit with confirmation
+- [x] `el_es_vi_render_portal_form()` helper — full form
+- [x] `el_es_vi_render_portal_readonly()` helper — submitted read-only view for all stakeholders
+- [x] New CSS classes (`.el-es-vi-*`) added to `expand-site.css`
+- [x] New portal JS appended to `expand-site.js` — conditional logic, auto-save, submit
+- [x] New admin JS appended to `expand-site-admin.js` — Generate, Copy, Regenerate, Lock, Unlock
+- [x] Version bumped to v1.34.0, CHANGELOG updated
+
+### Phase 5 end-to-end test checklist (run after fixing load error)
+
+- [ ] Advance project from Phase 4 → Phase 5: `el_es_visual_brief` row created, `pages_needed` pre-populated from locked journeys
+- [ ] Portal (DM only): intake form renders, all 9 sections visible, conditionals work (show/hide on radio)
+- [ ] Portal auto-save: tab away from field → network request fires, no error
+- [ ] Portal submit: confirmation dialog appears, DM submits, page transitions to read-only view
+- [ ] Portal (non-DM stakeholders): see read-only submitted answers
+- [ ] Admin panel State B: intake summary renders — logo preview, color swatches, all section data
+- [ ] Admin: Generate Brand Brief button → brief appears in `<pre>` block
+- [ ] Admin: Copy to Clipboard copies brief text
+- [ ] Admin: Regenerate → confirmation → brief updates
+- [ ] Admin: Lock Brief → State C banner appears, brief is read-only
+- [ ] Admin: Unlock Brief → returns to State B, brief still showing
+- [ ] Advance to Phase 6 without locking: blocked with error message
+- [ ] Advance to Phase 6 after locking: succeeds
 
 ---
 

@@ -6,6 +6,30 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.34.0] — 2026-03-10
+
+### Added — Phase 5: Visual Identity
+- **New: Visual Identity Intake Form (client portal, Phase 5).** 9-section form where the Decision Maker provides structured brand identity answers. Conditional show/hide logic. Auto-saves on field blur. Submit sends admin email notification. After submission, all stakeholders see answers read-only.
+- **New: Brand Brief generator (admin, Phase 5).** PHP `generate_visual_brief()` method assembles all intake data into structured markdown — ready to paste into any AI site builder. Admin can regenerate multiple times before locking.
+- **New: Copy to Clipboard** on the generated Brand Brief in admin.
+- **New: Lock/Unlock Brief (admin, Phase 5).** Locks the Brand Brief and enables Phase 6 advance. Escape hatch to unlock if needed.
+- **New: Phase 6 gate.** Advancing to Wireframes (Phase 6) is blocked until `el_es_visual_brief.locked_at IS NOT NULL`.
+- **New: DB migration version 13** — adds `el_es_visual_brief` table. Pre-populated `pages_needed` from locked Phase 4 User Journey `implied_pages` when Phase 5 initializes.
+- **New: Phase 5 admin panel** — State A (awaiting client), State B (submitted, with brief generation), State C (locked, with unlock button).
+
+### Removed — Mood Board / Template Library system (Phase 2G-B)
+- Deleted `template-library.php` admin view.
+- Removed `es_manage_templates` capability from `module.json`.
+- Removed all PHP methods: `get_templates`, `handle_save_template`, `handle_delete_template`, `handle_reorder_templates`, `handle_get_mood_board`, `handle_save_template_vote`, `handle_get_review_status`, `handle_get_review_results`, `handle_close_review`, `handle_create_review_item`, `handle_set_review_deadline`.
+- Removed Template Library admin menu item.
+- Removed mood board portal section from `expand-site-portal.php`.
+- Removed Create Review Session modal from `project-detail.php`.
+- Removed template/mood board JS from `expand-site-admin.js` and `expand-site.js`.
+- Removed all `.el-tpl-*`, `.el-es-mood-board-*`, `.es-template-picker*` CSS.
+- Deprecated tables (`el_es_templates`, `el_es_review_items`, `el_es_review_votes`, `el_es_annotations`, `el_es_brand_options`) left in DB as per spec; no new code reads or writes them.
+
+---
+
 ## [1.33.20] — 2026-03-10
 
 ### Fixed

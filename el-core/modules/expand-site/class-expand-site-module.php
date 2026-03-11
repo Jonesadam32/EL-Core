@@ -201,23 +201,17 @@ class EL_Expand_Site_Module {
         add_action( 'el_core_ajax_es_decline_proposal',      [ $this, 'handle_decline_proposal' ] );
         add_action( 'el_core_ajax_nopriv_es_accept_proposal', [ $this, 'handle_accept_proposal' ] );
         add_action( 'el_core_ajax_nopriv_es_decline_proposal', [ $this, 'handle_decline_proposal' ] );
-        
-        // Template library (admin only)
-        add_action( 'el_core_ajax_es_save_template',     [ $this, 'handle_save_template' ] );
-        add_action( 'el_core_ajax_es_delete_template',   [ $this, 'handle_delete_template' ] );
-        add_action( 'el_core_ajax_es_reorder_templates', [ $this, 'handle_reorder_templates' ] );
 
-        // Review system — portal (stakeholders)
-        add_action( 'el_core_ajax_es_get_mood_board',       [ $this, 'handle_get_mood_board' ] );
-        add_action( 'el_core_ajax_es_save_template_vote',   [ $this, 'handle_save_template_vote' ] );
-        add_action( 'el_core_ajax_es_get_review_status',    [ $this, 'handle_get_review_status' ] );
-        add_action( 'el_core_ajax_es_get_review_results',   [ $this, 'handle_get_review_results' ] );
-        add_action( 'el_core_ajax_es_close_review',         [ $this, 'handle_close_review' ] );
-
-        // Review system — admin
-        add_action( 'el_core_ajax_es_create_review_item',   [ $this, 'handle_create_review_item' ] );
-        add_action( 'el_core_ajax_es_set_review_deadline',  [ $this, 'handle_set_review_deadline' ] );
-
+        // Visual Identity Phase (Phase 5)
+        add_action( 'el_core_ajax_es_save_visual_brief',       [ $this, 'handle_save_visual_brief' ] );
+        add_action( 'el_core_ajax_nopriv_es_save_visual_brief', [ $this, 'handle_save_visual_brief' ] );
+        add_action( 'el_core_ajax_es_submit_visual_brief',     [ $this, 'handle_submit_visual_brief' ] );
+        add_action( 'el_core_ajax_nopriv_es_submit_visual_brief', [ $this, 'handle_submit_visual_brief' ] );
+        add_action( 'el_core_ajax_es_get_visual_brief',        [ $this, 'handle_get_visual_brief' ] );
+        add_action( 'el_core_ajax_nopriv_es_get_visual_brief', [ $this, 'handle_get_visual_brief' ] );
+        add_action( 'el_core_ajax_es_generate_visual_brief',   [ $this, 'handle_generate_visual_brief' ] );
+        add_action( 'el_core_ajax_es_lock_visual_brief',       [ $this, 'handle_lock_visual_brief' ] );
+        add_action( 'el_core_ajax_es_unlock_visual_brief',     [ $this, 'handle_unlock_visual_brief' ] );
         // User switching
         add_action( 'admin_init', [ $this, 'handle_switch_to_user' ] );
         add_action( 'admin_init', [ $this, 'handle_switch_back_user' ] );
@@ -245,15 +239,6 @@ class EL_Expand_Site_Module {
 
         add_submenu_page(
             'el-core',
-            __( 'Template Library', 'el-core' ),
-            __( 'Template Library', 'el-core' ),
-            'manage_options',
-            'el-core-template-library',
-            [ $this, 'render_template_library_page' ]
-        );
-        
-        add_submenu_page(
-            'el-core',
             __( 'Expand Site Settings', 'el-core' ),
             __( 'Expand Site Settings', 'el-core' ),
             'manage_options',
@@ -273,10 +258,6 @@ class EL_Expand_Site_Module {
         } else {
             require_once __DIR__ . '/admin/views/project-list.php';
         }
-    }
-
-    public function render_template_library_page(): void {
-        require_once __DIR__ . '/admin/views/template-library.php';
     }
 
     public function render_settings_page(): void {
@@ -307,7 +288,7 @@ class EL_Expand_Site_Module {
     }
 
     public function enqueue_admin_assets( string $hook ): void {
-        $our_pages = [ 'el-core-projects', 'el-core-template-library' ];
+        $our_pages = [ 'el-core-projects' ];
         $on_our_page = false;
         foreach ( $our_pages as $page ) {
             if ( strpos( $hook, $page ) !== false ) {
@@ -873,6 +854,11 @@ class EL_Expand_Site_Module {
             $this->init_user_journeys( $project_id );
         }
 
+        // Initialize Visual Identity brief when entering Stage 5
+        if ( $new_stage === 5 ) {
+            $this->init_visual_brief( $project_id );
+        }
+
         $db->update( 'el_es_projects', $update_data, [ 'id' => $project_id ] );
         return true;
     }
@@ -932,7 +918,429 @@ class EL_Expand_Site_Module {
         }
     }
 
-    public function add_deliverable( array $data ): int|false {
+    // ═══════════════════════════════════════════
+    // VISUAL IDENTITY PHASE — HELPERS
+    // ═══════════════════════════════════════════
+
+    /**
+     * Create the el_es_visual_brief row when advancing to Phase 5.
+     * Pre-populates pages_needed from locked journey implied_pages.
+     */
+    public function init_visual_brief( int $project_id ): void {
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_visual_brief';
+
+        $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE project_id = %d", $project_id ) );
+        if ( $existing ) {
+            return;
+        }
+
+        // Gather implied_pages from all locked journeys
+        $jt = $wpdb->prefix . 'el_es_user_journeys';
+        $journeys = $wpdb->get_results( $wpdb->prepare(
+            "SELECT admin_workflow, ai_workflow FROM {$jt} WHERE project_id = %d AND status = 'locked'",
+            $project_id
+        ) );
+
+        $all_pages = [];
+        foreach ( $journeys as $j ) {
+            $wf = $j->admin_workflow ? json_decode( $j->admin_workflow, true ) : ( $j->ai_workflow ? json_decode( $j->ai_workflow, true ) : null );
+            if ( $wf && ! empty( $wf['implied_pages'] ) && is_array( $wf['implied_pages'] ) ) {
+                foreach ( $wf['implied_pages'] as $page ) {
+                    $page = trim( $page );
+                    if ( $page !== '' && ! in_array( $page, $all_pages, true ) ) {
+                        $all_pages[] = $page;
+                    }
+                }
+            }
+        }
+
+        $wpdb->insert( $table, [
+            'project_id'  => $project_id,
+            'pages_needed' => wp_json_encode( $all_pages ),
+            'created_at'  => current_time( 'mysql' ),
+            'updated_at'  => current_time( 'mysql' ),
+        ] );
+    }
+
+    public function get_visual_brief( int $project_id ): ?object {
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_visual_brief';
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE project_id = %d", $project_id ) );
+    }
+
+    private function generate_visual_brief( int $project_id ): string {
+        global $wpdb;
+
+        $brief   = $this->get_visual_brief( $project_id );
+        $project = $this->get_project( $project_id );
+        if ( ! $brief || ! $project ) {
+            return '';
+        }
+
+        $def_table = $wpdb->prefix . 'el_es_project_definition';
+        $def       = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$def_table} WHERE project_id = %d", $project_id ) );
+
+        $date          = date_i18n( 'F j, Y' );
+        $client_name   = $project->client_name;
+        $project_name  = $project->name;
+
+        $logo_status = '';
+        if ( $brief->has_logo ) {
+            $logo_status = 'Existing logo provided';
+        } elseif ( $brief->logo_needs_creation ) {
+            $logo_status = 'Needs to be created by ELS';
+        } else {
+            $logo_status = 'To be determined';
+        }
+
+        $colors_section = '';
+        if ( $brief->has_brand_colors ) {
+            if ( $brief->color_primary )   $colors_section .= "- Primary: {$brief->color_primary}\n";
+            if ( $brief->color_secondary ) $colors_section .= "- Secondary: {$brief->color_secondary}\n";
+            if ( $brief->color_accent )    $colors_section .= "- Accent: {$brief->color_accent}\n";
+            if ( $brief->color_neutral )   $colors_section .= "- Neutral/Background: {$brief->color_neutral}\n";
+            if ( $brief->color_notes )     $colors_section .= "- Notes: {$brief->color_notes}\n";
+        } else {
+            $colors_section = "No established colors — ELS to propose palette.\n";
+            if ( $brief->color_notes )     $colors_section .= "- Direction notes: {$brief->color_notes}\n";
+        }
+
+        $font_section = '';
+        if ( $brief->has_brand_fonts ) {
+            if ( $brief->font_heading ) $font_section .= "- Heading Font: {$brief->font_heading}\n";
+            if ( $brief->font_body )    $font_section .= "- Body Font: {$brief->font_body}\n";
+            if ( $brief->font_notes )   $font_section .= "- Notes: {$brief->font_notes}\n";
+        } else {
+            $font_section = "No brand fonts — ELS to select appropriate pairing.\n";
+        }
+
+        $materials_section = '';
+        if ( $brief->has_existing_materials ) {
+            if ( $brief->existing_materials_url )   $materials_section .= "- Reference: {$brief->existing_materials_url}\n";
+            if ( $brief->existing_materials_notes ) $materials_section .= "- Notes: {$brief->existing_materials_notes}\n";
+        } else {
+            $materials_section = "No existing materials — starting fresh.\n";
+        }
+
+        $pages_needed = [];
+        if ( $brief->pages_needed ) {
+            $pages_needed = json_decode( $brief->pages_needed, true ) ?: [];
+        }
+        $pages_list = '';
+        foreach ( $pages_needed as $i => $page ) {
+            $pages_list .= ( $i + 1 ) . ". {$page}\n";
+        }
+        if ( ! $pages_list ) {
+            $pages_list = "Not specified — to be determined.\n";
+        }
+
+        $photography_section = '';
+        if ( $brief->has_photography && $brief->photography_url ) {
+            $photography_section .= "- Own photos: Yes\n";
+            $photography_section .= "- Photo library: {$brief->photography_url}\n";
+        } elseif ( $brief->has_photography ) {
+            $photography_section .= "- Own photos: Yes\n";
+        }
+        if ( $brief->needs_stock_photography ) {
+            $photography_section .= "- Stock photography needed: Yes\n";
+        }
+        if ( $brief->photography_notes ) {
+            $photography_section .= "- Notes: {$brief->photography_notes}\n";
+        }
+        if ( ! $photography_section ) {
+            $photography_section = "Photography situation not specified.\n";
+        }
+
+        $parent_brand_section = $brief->has_parent_org_brand
+            ? ( $brief->parent_org_brand_notes ?: 'Yes — details not specified.' )
+            : 'None — no parent organization brand requirements.';
+
+        $accessibility_section = $brief->accessibility_standard ?: 'Not specified — use best practices.';
+
+        $language_section = $brief->multilingual
+            ? ( $brief->languages ?: 'Yes — languages not specified.' )
+            : 'English only.';
+
+        $other_constraints = $brief->other_constraints ?: 'None specified.';
+        $additional_notes  = $brief->additional_notes  ?: 'None.';
+
+        $site_type    = $def ? $def->site_type       : '';
+        $primary_goal = $def ? $def->primary_goal    : '';
+        $target_aud   = $def ? $def->target_customers : '';
+
+        $md  = "# Brand Brief — {$client_name}\n";
+        $md .= "**Project:** {$project_name}\n";
+        $md .= "**Generated:** {$date}\n\n";
+        $md .= "---\n\n";
+        $md .= "## Organization\n\n";
+        $md .= "- **Name:** {$client_name}\n";
+        if ( $site_type )    $md .= "- **Site Type:** {$site_type}\n";
+        if ( $primary_goal ) $md .= "- **Primary Goal:** {$primary_goal}\n";
+        if ( $target_aud )   $md .= "- **Target Audience:** {$target_aud}\n";
+        $md .= "\n---\n\n";
+        $md .= "## Brand Assets\n\n";
+        $md .= "### Logo\n";
+        $md .= "- Status: {$logo_status}\n";
+        if ( $brief->logo_url )   $md .= "- File: {$brief->logo_url}\n";
+        if ( $brief->logo_notes ) $md .= "- Notes: {$brief->logo_notes}\n";
+        $md .= "\n### Colors\n";
+        $md .= $colors_section;
+        $md .= "\n### Typography\n";
+        $md .= $font_section;
+        $md .= "\n### Existing Materials\n";
+        $md .= $materials_section;
+        $md .= "\n---\n\n";
+        $md .= "## Visual Direction\n\n";
+        $md .= "### Audience\n";
+        $md .= ( $brief->audience_description ?: 'Not provided — ELS to determine.' ) . "\n\n";
+        $md .= "### Tone and Feel\n";
+        $md .= ( $brief->tone_feel ?: 'Not provided — ELS to determine.' ) . "\n\n";
+        $md .= "### Reference Sites (Likes)\n";
+        $md .= ( $brief->sites_they_like ?: 'None provided.' ) . "\n\n";
+        $md .= "### Sites / Styles to Avoid\n";
+        $md .= ( $brief->sites_to_avoid ?: 'None specified.' ) . "\n\n";
+        $md .= "---\n\n";
+        $md .= "## Site Structure\n\n";
+        $md .= "### Pages Required\n";
+        $md .= $pages_list;
+        $md .= "*Source: Compiled from Phase 4 User Journey implied pages + client additions.*\n\n";
+        $md .= "---\n\n";
+        $md .= "## Photography\n\n";
+        $md .= $photography_section;
+        $md .= "\n---\n\n";
+        $md .= "## Constraints\n\n";
+        $md .= "### Parent Organization Branding\n";
+        $md .= $parent_brand_section . "\n\n";
+        $md .= "### Accessibility\n";
+        $md .= $accessibility_section . "\n\n";
+        $md .= "### Language Support\n";
+        $md .= $language_section . "\n\n";
+        $md .= "### Other\n";
+        $md .= $other_constraints . "\n\n";
+        $md .= "---\n\n";
+        $md .= "## Additional Notes\n\n";
+        $md .= $additional_notes . "\n\n";
+        $md .= "---\n\n";
+        $md .= "*This brief was generated from client intake responses collected in the EL Core Expand Site portal. Use it as the primary design prompt for AI-assisted site building.*\n";
+
+        return $md;
+    }
+
+    // ═══════════════════════════════════════════
+    // VISUAL IDENTITY PHASE — AJAX HANDLERS
+    // ═══════════════════════════════════════════
+
+    public function handle_save_visual_brief( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'Not logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id || ! $this->is_stakeholder( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $brief = $this->get_visual_brief( $project_id );
+        if ( ! $brief ) {
+            EL_AJAX_Handler::error( __( 'Visual brief not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        // Only DM can save
+        if ( ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Only the Decision Maker can save.', 'el-core' ), 403 );
+            return;
+        }
+
+        $allowed = [
+            'has_logo', 'logo_url', 'logo_needs_creation', 'logo_notes',
+            'has_brand_colors', 'color_primary', 'color_secondary', 'color_accent', 'color_neutral', 'color_notes',
+            'has_brand_fonts', 'font_heading', 'font_body', 'font_notes',
+            'has_existing_materials', 'existing_materials_url', 'existing_materials_notes',
+            'audience_description', 'tone_feel', 'sites_they_like', 'sites_to_avoid',
+            'pages_needed',
+            'has_photography', 'photography_url', 'needs_stock_photography', 'photography_notes',
+            'has_parent_org_brand', 'parent_org_brand_notes',
+            'accessibility_required', 'accessibility_standard',
+            'multilingual', 'languages', 'other_constraints', 'additional_notes',
+        ];
+
+        $tinyint_fields = [
+            'has_logo', 'logo_needs_creation', 'has_brand_colors', 'has_brand_fonts',
+            'has_existing_materials', 'has_photography', 'needs_stock_photography',
+            'has_parent_org_brand', 'accessibility_required', 'multilingual',
+        ];
+
+        $fields = [ 'updated_at' => current_time( 'mysql' ) ];
+        foreach ( $allowed as $key ) {
+            if ( ! isset( $data[ $key ] ) ) {
+                continue;
+            }
+            if ( in_array( $key, $tinyint_fields, true ) ) {
+                $fields[ $key ] = absint( $data[ $key ] );
+            } elseif ( $key === 'pages_needed' ) {
+                $raw = $data[ $key ];
+                if ( is_string( $raw ) ) {
+                    $decoded = json_decode( $raw, true );
+                    $fields[ $key ] = is_array( $decoded ) ? wp_json_encode( array_values( array_filter( array_map( 'sanitize_text_field', $decoded ) ) ) ) : wp_json_encode( [] );
+                } else {
+                    $fields[ $key ] = wp_json_encode( [] );
+                }
+            } else {
+                $fields[ $key ] = sanitize_textarea_field( wp_unslash( $_POST[ $key ] ?? $data[ $key ] ) );
+            }
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_visual_brief';
+        $wpdb->update( $table, $fields, [ 'project_id' => $project_id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Saved.', 'el-core' ) );
+    }
+
+    public function handle_submit_visual_brief( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'Not logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id || ! $this->is_decision_maker( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $brief = $this->get_visual_brief( $project_id );
+        if ( ! $brief ) {
+            EL_AJAX_Handler::error( __( 'Visual brief not found.', 'el-core' ), 404 );
+            return;
+        }
+
+        if ( $brief->portal_submitted_at ) {
+            EL_AJAX_Handler::error( __( 'Already submitted.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_visual_brief';
+        $wpdb->update( $table, [
+            'portal_submitted_at' => current_time( 'mysql' ),
+            'portal_submitted_by' => get_current_user_id(),
+            'updated_at'          => current_time( 'mysql' ),
+        ], [ 'project_id' => $project_id ] );
+
+        // Notify admin
+        $project      = $this->get_project( $project_id );
+        $project_name = $project ? $project->name : "Project #{$project_id}";
+        $admin_email  = get_option( 'admin_email' );
+        $admin_url    = admin_url( "admin.php?page=el-core-projects&project={$project_id}" );
+        $submitter    = get_userdata( get_current_user_id() );
+        $submitter_name = $submitter ? $submitter->display_name : 'A stakeholder';
+        wp_mail(
+            $admin_email,
+            "[EL Core] Visual Identity intake submitted — {$project_name}",
+            "{$submitter_name} has submitted the Visual Identity intake form for {$project_name}.\n\nView it here: {$admin_url}"
+        );
+
+        EL_AJAX_Handler::success( null, __( 'Submitted successfully!', 'el-core' ) );
+    }
+
+    public function handle_get_visual_brief( array $data ): void {
+        if ( ! is_user_logged_in() ) {
+            EL_AJAX_Handler::error( __( 'Not logged in.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id || ! $this->is_stakeholder( $project_id ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $brief = $this->get_visual_brief( $project_id );
+        EL_AJAX_Handler::success( [ 'brief' => $brief ] );
+    }
+
+    public function handle_generate_visual_brief( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
+            return;
+        }
+
+        $md = $this->generate_visual_brief( $project_id );
+        if ( ! $md ) {
+            EL_AJAX_Handler::error( __( 'Failed to generate brief — missing project or intake data.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_visual_brief';
+        $wpdb->update( $table, [
+            'generated_brief' => $md,
+            'generated_at'    => current_time( 'mysql' ),
+            'updated_at'      => current_time( 'mysql' ),
+        ], [ 'project_id' => $project_id ] );
+
+        EL_AJAX_Handler::success( [
+            'brief'        => $md,
+            'generated_at' => current_time( 'mysql' ),
+        ], __( 'Brand Brief generated!', 'el-core' ) );
+    }
+
+    public function handle_lock_visual_brief( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_visual_brief';
+        $wpdb->update( $table, [
+            'locked_at'  => current_time( 'mysql' ),
+            'locked_by'  => get_current_user_id(),
+            'updated_at' => current_time( 'mysql' ),
+        ], [ 'project_id' => $project_id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Brand Brief locked! Phase 6 is now available.', 'el-core' ) );
+    }
+
+    public function handle_unlock_visual_brief( array $data ): void {
+        if ( ! el_core_can( 'manage_expand_site' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $project_id = absint( $data['project_id'] ?? 0 );
+        if ( ! $project_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'el_es_visual_brief';
+        $wpdb->update( $table, [
+            'locked_at'  => null,
+            'locked_by'  => null,
+            'updated_at' => current_time( 'mysql' ),
+        ], [ 'project_id' => $project_id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Brand Brief unlocked.', 'el-core' ) );
+    }
         return $this->core->database->insert( 'el_es_deliverables', [
             'project_id'    => absint( $data['project_id'] ?? 0 ),
             'stage'         => absint( $data['stage'] ?? 0 ),
@@ -1208,9 +1616,18 @@ class EL_Expand_Site_Module {
             }
         }
 
-        $result = $this->advance_stage( $project_id, $notes, $deadline );
+        // Gate: Visual Identity brief must be locked before advancing from Stage 5
+        if ( $project && (int) $project->current_stage === 5 ) {
+            global $wpdb;
+            $vbt   = $wpdb->prefix . 'el_es_visual_brief';
+            $brief = $wpdb->get_row( $wpdb->prepare( "SELECT locked_at FROM {$vbt} WHERE project_id = %d", $project_id ) );
+            if ( ! $brief || ! $brief->locked_at ) {
+                EL_AJAX_Handler::error( __( 'Lock the Brand Brief before advancing to Wireframes.', 'el-core' ) );
+                return;
+            }
+        }
 
-        if ( $result ) {
+        $result = $this->advance_stage( $project_id, $notes, $deadline );
             $project = $this->get_project( $project_id );
             EL_AJAX_Handler::success( [
                 'new_stage'      => $project->current_stage,
@@ -4063,503 +4480,8 @@ class EL_Expand_Site_Module {
     }
 
     // ═══════════════════════════════════════════
-    // TEMPLATE LIBRARY
+    // USER SWITCHING
     // ═══════════════════════════════════════════
-
-    public function get_templates( array $where = [] ): array {
-        return $this->core->database->query( 'el_es_templates', $where, [
-            'orderby' => 'sort_order',
-            'order'   => 'ASC',
-        ] );
-    }
-
-    public function handle_save_template( array $data ): void {
-        if ( ! el_core_can( 'manage_expand_site' ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $title    = sanitize_text_field( $data['title'] ?? '' );
-        $category = sanitize_text_field( $data['style_category'] ?? '' );
-
-        if ( empty( $title ) ) {
-            EL_AJAX_Handler::error( __( 'Title is required.', 'el-core' ) );
-            return;
-        }
-        if ( empty( $category ) ) {
-            EL_AJAX_Handler::error( __( 'Style category is required.', 'el-core' ) );
-            return;
-        }
-
-        $template_id = absint( $data['template_id'] ?? 0 );
-
-        $fields = [
-            'title'          => $title,
-            'style_category' => $category,
-            'description'    => sanitize_textarea_field( $data['description'] ?? '' ),
-            'image_url'      => esc_url_raw( $data['image_url'] ?? '' ),
-            'is_active'      => absint( $data['is_active'] ?? 0 ),
-        ];
-
-        if ( $template_id ) {
-            $result = $this->core->database->update( 'el_es_templates', $fields, [ 'id' => $template_id ] );
-            if ( $result !== false ) {
-                EL_AJAX_Handler::success( [ 'template_id' => $template_id ], __( 'Template updated!', 'el-core' ) );
-            } else {
-                EL_AJAX_Handler::error( __( 'Failed to update template.', 'el-core' ) );
-            }
-        } else {
-            // Get next sort_order within this category
-            global $wpdb;
-            $table = $wpdb->prefix . 'el_es_templates';
-            $max_sort = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT MAX(sort_order) FROM {$table} WHERE style_category = %s",
-                $category
-            ) );
-            $fields['sort_order'] = $max_sort + 1;
-            $fields['created_at'] = current_time( 'mysql' );
-
-            $new_id = $this->core->database->insert( 'el_es_templates', $fields );
-            if ( $new_id ) {
-                EL_AJAX_Handler::success( [ 'template_id' => $new_id ], __( 'Template added!', 'el-core' ) );
-            } else {
-                EL_AJAX_Handler::error( __( 'Failed to add template.', 'el-core' ) );
-            }
-        }
-    }
-
-    public function handle_delete_template( array $data ): void {
-        if ( ! el_core_can( 'manage_expand_site' ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $template_id = absint( $data['template_id'] ?? 0 );
-        if ( ! $template_id ) {
-            EL_AJAX_Handler::error( __( 'Invalid template ID.', 'el-core' ) );
-            return;
-        }
-
-        $result = $this->core->database->delete( 'el_es_templates', [ 'id' => $template_id ] );
-        if ( $result !== false ) {
-            EL_AJAX_Handler::success( null, __( 'Template deleted!', 'el-core' ) );
-        } else {
-            EL_AJAX_Handler::error( __( 'Failed to delete template.', 'el-core' ) );
-        }
-    }
-
-    public function handle_reorder_templates( array $data ): void {
-        if ( ! el_core_can( 'manage_expand_site' ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        // order is a JSON array of { id, sort_order } objects
-        $order = json_decode( sanitize_text_field( $data['order'] ?? '[]' ), true );
-        if ( ! is_array( $order ) ) {
-            EL_AJAX_Handler::error( __( 'Invalid order data.', 'el-core' ) );
-            return;
-        }
-
-        foreach ( $order as $item ) {
-            $id         = absint( $item['id'] ?? 0 );
-            $sort_order = absint( $item['sort_order'] ?? 0 );
-            if ( $id ) {
-                $this->core->database->update( 'el_es_templates', [ 'sort_order' => $sort_order ], [ 'id' => $id ] );
-            }
-        }
-
-        EL_AJAX_Handler::success( null, __( 'Order saved!', 'el-core' ) );
-    }
-
-    // ═══════════════════════════════════════════
-    // REVIEW SYSTEM — QUERIES
-    // ═══════════════════════════════════════════
-
-    public function get_review_items( int $project_id, string $review_type = '' ): array {
-        $where = [ 'project_id' => $project_id ];
-        if ( $review_type ) {
-            $where['review_type'] = $review_type;
-        }
-        return $this->core->database->query( 'el_es_review_items', $where, [
-            'orderby' => 'created_at',
-            'order'   => 'DESC',
-        ] );
-    }
-
-    public function get_review_item( int $id ): ?object {
-        return $this->core->database->get( 'el_es_review_items', $id );
-    }
-
-    public function get_review_votes( int $review_item_id ): array {
-        return $this->core->database->query( 'el_es_review_votes', [
-            'review_item_id' => $review_item_id,
-        ] );
-    }
-
-    public function get_user_vote( int $review_item_id, int $user_id ): ?object {
-        $rows = $this->core->database->query( 'el_es_review_votes', [
-            'review_item_id' => $review_item_id,
-            'user_id'        => $user_id,
-        ], [ 'limit' => 1 ] );
-        return ! empty( $rows ) ? $rows[0] : null;
-    }
-
-    // ═══════════════════════════════════════════
-    // REVIEW SYSTEM — AJAX HANDLERS
-    // ═══════════════════════════════════════════
-
-    /**
-     * Load the mood board: active review session + templates + current user's votes.
-     */
-    public function handle_get_mood_board( array $data ): void {
-        if ( ! is_user_logged_in() ) {
-            EL_AJAX_Handler::error( __( 'Not logged in.', 'el-core' ), 403 );
-            return;
-        }
-
-        $project_id = absint( $data['project_id'] ?? 0 );
-        if ( ! $project_id || ! $this->is_stakeholder( $project_id ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $review_items = $this->get_review_items( $project_id, 'mood_board' );
-        $open_item    = null;
-        foreach ( $review_items as $item ) {
-            if ( $item->status === 'open' ) {
-                $open_item = $item;
-                break;
-            }
-        }
-
-        if ( ! $open_item ) {
-            EL_AJAX_Handler::success( [ 'status' => 'no_session' ] );
-            return;
-        }
-
-        // Get selected template IDs from dm_decision
-        $dm_decision        = $open_item->dm_decision ? json_decode( $open_item->dm_decision, true ) : [];
-        $selected_ids       = $dm_decision['selected_template_ids'] ?? [];
-
-        if ( empty( $selected_ids ) ) {
-            EL_AJAX_Handler::success( [ 'status' => 'no_templates', 'review_item_id' => $open_item->id ] );
-            return;
-        }
-
-        // Load templates
-        global $wpdb;
-        $table       = $wpdb->prefix . 'el_es_templates';
-        $placeholders = implode( ',', array_fill( 0, count( $selected_ids ), '%d' ) );
-        $templates   = $wpdb->get_results( $wpdb->prepare(
-            "SELECT * FROM {$table} WHERE id IN ({$placeholders}) ORDER BY style_category, sort_order",
-            ...$selected_ids
-        ) );
-
-        // Get current user's vote
-        $user_id    = get_current_user_id();
-        $user_vote  = $this->get_user_vote( (int) $open_item->id, $user_id );
-        $vote_data  = $user_vote ? json_decode( $user_vote->vote_data, true ) : [ 'preferences' => [] ];
-
-        // Get all stakeholder votes for progress tracker
-        $all_votes  = $this->get_review_votes( (int) $open_item->id );
-        $voted_ids  = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
-        $stakeholders = $this->get_stakeholders( $project_id );
-        $total       = count( $stakeholders );
-        $responded   = count( array_filter( $stakeholders, fn( $s ) => in_array( (int) $s->user_id, $voted_ids, true ) ) );
-
-        EL_AJAX_Handler::success( [
-            'status'          => 'open',
-            'review_item_id'  => (int) $open_item->id,
-            'deadline'        => $open_item->deadline,
-            'templates'       => $templates,
-            'vote_data'       => $vote_data,
-            'responded'       => $responded,
-            'total'           => $total,
-        ] );
-    }
-
-    /**
-     * Save / update a stakeholder's template preference vote.
-     */
-    public function handle_save_template_vote( array $data ): void {
-        if ( ! is_user_logged_in() ) {
-            EL_AJAX_Handler::error( __( 'Not logged in.', 'el-core' ), 403 );
-            return;
-        }
-
-        $review_item_id = absint( $data['review_item_id'] ?? 0 );
-        $template_id    = absint( $data['template_id'] ?? 0 );
-        $preference     = sanitize_text_field( $data['preference'] ?? 'neutral' );
-
-        if ( ! in_array( $preference, [ 'liked', 'neutral', 'disliked' ], true ) ) {
-            EL_AJAX_Handler::error( __( 'Invalid preference value.', 'el-core' ) );
-            return;
-        }
-
-        $review_item = $this->get_review_item( $review_item_id );
-        if ( ! $review_item || $review_item->status !== 'open' ) {
-            EL_AJAX_Handler::error( __( 'Review session is not open.', 'el-core' ) );
-            return;
-        }
-
-        $project_id = (int) $review_item->project_id;
-        if ( ! $this->is_stakeholder( $project_id ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $user_id    = get_current_user_id();
-        $existing   = $this->get_user_vote( $review_item_id, $user_id );
-
-        if ( $existing ) {
-            $vote_data = json_decode( $existing->vote_data, true );
-            $vote_data['preferences'][ $template_id ] = $preference;
-            $this->core->database->update( 'el_es_review_votes', [
-                'vote_data'  => wp_json_encode( $vote_data ),
-                'updated_at' => current_time( 'mysql' ),
-            ], [ 'id' => (int) $existing->id ] );
-        } else {
-            $vote_data = [ 'preferences' => [ $template_id => $preference ] ];
-            $this->core->database->insert( 'el_es_review_votes', [
-                'review_item_id' => $review_item_id,
-                'user_id'        => $user_id,
-                'vote_data'      => wp_json_encode( $vote_data ),
-                'submitted_at'   => current_time( 'mysql' ),
-                'updated_at'     => current_time( 'mysql' ),
-            ] );
-        }
-
-        do_action( 'el_review_vote_submitted', $review_item_id, $user_id, $vote_data );
-
-        // Recalculate progress
-        $all_votes    = $this->get_review_votes( $review_item_id );
-        $voted_ids    = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
-        $stakeholders = $this->get_stakeholders( $project_id );
-        $total        = count( $stakeholders );
-        $responded    = count( array_filter( $stakeholders, fn( $s ) => in_array( (int) $s->user_id, $voted_ids, true ) ) );
-
-        EL_AJAX_Handler::success( [
-            'responded' => $responded,
-            'total'     => $total,
-        ], __( 'Vote saved!', 'el-core' ) );
-    }
-
-    /**
-     * Get review status: who has/hasn't voted. DM only.
-     */
-    public function handle_get_review_status( array $data ): void {
-        $review_item_id = absint( $data['review_item_id'] ?? 0 );
-        if ( ! $review_item_id ) {
-            EL_AJAX_Handler::error( __( 'Invalid review item ID.', 'el-core' ) );
-            return;
-        }
-
-        $review_item = $this->get_review_item( $review_item_id );
-        if ( ! $review_item ) {
-            EL_AJAX_Handler::error( __( 'Review not found.', 'el-core' ), 404 );
-            return;
-        }
-
-        $project_id = (int) $review_item->project_id;
-        if ( ! $this->is_decision_maker( $project_id ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $all_votes    = $this->get_review_votes( $review_item_id );
-        $voted_ids    = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
-        $stakeholders = $this->get_stakeholders( $project_id );
-
-        $status = [];
-        foreach ( $stakeholders as $sh ) {
-            $user = get_userdata( (int) $sh->user_id );
-            $status[] = [
-                'user_id'   => (int) $sh->user_id,
-                'name'      => $user ? $user->display_name : 'Unknown',
-                'responded' => in_array( (int) $sh->user_id, $voted_ids, true ),
-            ];
-        }
-
-        EL_AJAX_Handler::success( [ 'stakeholders' => $status ] );
-    }
-
-    /**
-     * Get full vote breakdown. DM only, shown after all voted or deadline passed.
-     */
-    public function handle_get_review_results( array $data ): void {
-        $review_item_id = absint( $data['review_item_id'] ?? 0 );
-        if ( ! $review_item_id ) {
-            EL_AJAX_Handler::error( __( 'Invalid review item ID.', 'el-core' ) );
-            return;
-        }
-
-        $review_item = $this->get_review_item( $review_item_id );
-        if ( ! $review_item ) {
-            EL_AJAX_Handler::error( __( 'Review not found.', 'el-core' ), 404 );
-            return;
-        }
-
-        $project_id = (int) $review_item->project_id;
-        if ( ! $this->is_decision_maker( $project_id ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $all_votes = $this->get_review_votes( $review_item_id );
-
-        // Build results: per-template tallies + per-stakeholder breakdown
-        $dm_decision      = $review_item->dm_decision ? json_decode( $review_item->dm_decision, true ) : [];
-        $selected_ids     = $dm_decision['selected_template_ids'] ?? [];
-        $results_by_template = [];
-
-        foreach ( $selected_ids as $tid ) {
-            $results_by_template[ $tid ] = [ 'liked' => 0, 'neutral' => 0, 'disliked' => 0, 'voters' => [] ];
-        }
-
-        foreach ( $all_votes as $vote ) {
-            $vote_data = json_decode( $vote->vote_data, true );
-            $prefs     = $vote_data['preferences'] ?? [];
-            $user      = get_userdata( (int) $vote->user_id );
-            $name      = $user ? $user->display_name : 'Unknown';
-            foreach ( $prefs as $tid => $pref ) {
-                if ( isset( $results_by_template[ $tid ] ) ) {
-                    $results_by_template[ $tid ][ $pref ]++;
-                    $results_by_template[ $tid ]['voters'][] = [ 'name' => $name, 'pref' => $pref ];
-                }
-            }
-        }
-
-        EL_AJAX_Handler::success( [
-            'review_item'   => $review_item,
-            'results'       => $results_by_template,
-            'total_voters'  => count( $all_votes ),
-        ] );
-    }
-
-    /**
-     * DM closes a review and records their final style direction choice.
-     */
-    public function handle_close_review( array $data ): void {
-        $review_item_id = absint( $data['review_item_id'] ?? 0 );
-        if ( ! $review_item_id ) {
-            EL_AJAX_Handler::error( __( 'Invalid review item ID.', 'el-core' ) );
-            return;
-        }
-
-        $review_item = $this->get_review_item( $review_item_id );
-        if ( ! $review_item ) {
-            EL_AJAX_Handler::error( __( 'Review not found.', 'el-core' ), 404 );
-            return;
-        }
-
-        $project_id = (int) $review_item->project_id;
-        if ( ! $this->is_decision_maker( $project_id ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        if ( $review_item->status === 'closed' ) {
-            EL_AJAX_Handler::error( __( 'Review is already closed.', 'el-core' ) );
-            return;
-        }
-
-        // confirmed_template_ids = array of selected template IDs from DM
-        $confirmed_ids = array_map( 'absint', (array) ( $data['confirmed_template_ids'] ?? [] ) );
-        $existing_dm   = $review_item->dm_decision ? json_decode( $review_item->dm_decision, true ) : [];
-        $existing_dm['confirmed_template_ids'] = $confirmed_ids;
-
-        $user_id = get_current_user_id();
-
-        $this->core->database->update( 'el_es_review_items', [
-            'status'      => 'closed',
-            'closed_by'   => $user_id,
-            'closed_at'   => current_time( 'mysql' ),
-            'dm_decision' => wp_json_encode( $existing_dm ),
-        ], [ 'id' => $review_item_id ] );
-
-        do_action( 'el_review_closed', $review_item_id, $project_id, $existing_dm );
-
-        EL_AJAX_Handler::success( null, __( 'Style direction confirmed!', 'el-core' ) );
-    }
-
-    /**
-     * Admin creates a new review session for a project with selected templates.
-     */
-    public function handle_create_review_item( array $data ): void {
-        if ( ! el_core_can( 'manage_expand_site' ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $project_id   = absint( $data['project_id'] ?? 0 );
-        $review_type  = sanitize_text_field( $data['review_type'] ?? 'mood_board' );
-        $title        = sanitize_text_field( $data['title'] ?? '' );
-        $template_ids = array_map( 'absint', (array) ( $data['template_ids'] ?? [] ) );
-        $deadline     = sanitize_text_field( $data['deadline'] ?? '' );
-
-        if ( ! $project_id ) {
-            EL_AJAX_Handler::error( __( 'Invalid project ID.', 'el-core' ) );
-            return;
-        }
-
-        if ( empty( $template_ids ) ) {
-            EL_AJAX_Handler::error( __( 'Select at least one template.', 'el-core' ) );
-            return;
-        }
-
-        $dm_decision = wp_json_encode( [ 'selected_template_ids' => $template_ids ] );
-
-        $insert = [
-            'project_id'  => $project_id,
-            'review_type' => $review_type,
-            'title'       => $title ?: __( 'Style Direction', 'el-core' ),
-            'status'      => 'open',
-            'dm_decision' => $dm_decision,
-            'created_at'  => current_time( 'mysql' ),
-        ];
-
-        if ( $deadline ) {
-            $insert['deadline'] = date( 'Y-m-d 23:59:59', strtotime( $deadline ) );
-        }
-
-        $review_item_id = $this->core->database->insert( 'el_es_review_items', $insert );
-
-        if ( $review_item_id ) {
-            do_action( 'el_review_item_created', $review_item_id, $project_id, $insert['deadline'] ?? null );
-            EL_AJAX_Handler::success( [ 'review_item_id' => $review_item_id ], __( 'Review session created!', 'el-core' ) );
-        } else {
-            EL_AJAX_Handler::error( __( 'Failed to create review session.', 'el-core' ) );
-        }
-    }
-
-    /**
-     * Admin sets or updates the deadline on a review item.
-     */
-    public function handle_set_review_deadline( array $data ): void {
-        if ( ! el_core_can( 'manage_expand_site' ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        $review_item_id = absint( $data['review_item_id'] ?? 0 );
-        $deadline       = sanitize_text_field( $data['deadline'] ?? '' );
-
-        if ( ! $review_item_id || ! $deadline ) {
-            EL_AJAX_Handler::error( __( 'Invalid parameters.', 'el-core' ) );
-            return;
-        }
-
-        $result = $this->core->database->update( 'el_es_review_items', [
-            'deadline' => date( 'Y-m-d 23:59:59', strtotime( $deadline ) ),
-        ], [ 'id' => $review_item_id ] );
-
-        if ( $result !== false ) {
-            EL_AJAX_Handler::success( null, __( 'Deadline updated!', 'el-core' ) );
-        } else {
-            EL_AJAX_Handler::error( __( 'Failed to update deadline.', 'el-core' ) );
-        }
-    }
 
     // ═══════════════════════════════════════════
     // USER SWITCHING

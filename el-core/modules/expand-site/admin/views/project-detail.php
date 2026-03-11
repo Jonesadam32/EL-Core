@@ -1487,91 +1487,181 @@ $html .= EL_Admin_UI::tab_panel( [
 ] );
 
 // ── Phase 5: Visual Identity ──
-$p4 = '';
-$review_items = $module->get_review_items( $project_id, 'mood_board' );
+$vbrief = $module->get_visual_brief( $project_id );
+$p4 = '<div id="es-vi-admin-panel" data-project-id="' . esc_attr( $project_id ) . '">';
 
-$p4 .= '<div id="es-branding-tab" data-project-id="' . esc_attr( $project_id ) . '">';
-
-if ( empty( $review_items ) ) {
+if ( ! $vbrief ) {
     $p4 .= EL_Admin_UI::notice( [
-        'message' => __( 'No mood board review sessions for this project yet. Create one to let your team vote on style direction.', 'el-core' ),
+        'message' => __( 'Visual Identity data will be initialized when this project advances to Phase 5.', 'el-core' ),
         'type'    => 'info',
     ] );
-} else {
-    foreach ( $review_items as $ri ) {
-        $dm_dec    = $ri->dm_decision ? json_decode( $ri->dm_decision, true ) : [];
-        $sel_ids   = $dm_dec['selected_template_ids'] ?? [];
-        $conf_ids  = $dm_dec['confirmed_template_ids'] ?? [];
-        $is_closed = ( $ri->status === 'closed' );
+} elseif ( $vbrief->locked_at ) {
+    // ── State C: Locked ──
+    $locked_by_user = get_userdata( (int) $vbrief->locked_by );
+    $locked_by_name = $locked_by_user ? $locked_by_user->display_name : __( 'Admin', 'el-core' );
+    $locked_date    = date_i18n( 'M j, Y', strtotime( $vbrief->locked_at ) );
 
-        $all_votes  = $module->get_review_votes( (int) $ri->id );
-        $voted_ids  = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
-        $sh_all     = $module->get_stakeholders( $project_id );
-        $total_sh   = count( $sh_all );
-        $responded  = count( array_filter( $sh_all, fn( $s ) => in_array( (int) $s->user_id, $voted_ids, true ) ) );
+    $p4 .= EL_Admin_UI::notice( [
+        'message' => sprintf( __( '<strong>Brief Locked</strong> on %1$s by %2$s.', 'el-core' ), $locked_date, esc_html( $locked_by_name ) ),
+        'type'    => 'success',
+    ] );
+    $p4 .= '<div class="el-es-vi-intake-summary">' . el_es_vi_render_intake_summary( $vbrief ) . '</div>';
 
-        $badge_class = $is_closed ? 'el-badge el-badge-success' : 'el-badge el-badge-warning';
-        $badge_label = $is_closed ? __( 'Closed', 'el-core' ) : __( 'Open', 'el-core' );
-
-        $p4 .= '<div class="el-card" style="margin-bottom:20px;">';
-        $p4 .= '<div class="el-card__header" style="display:flex;justify-content:space-between;align-items:center;">';
-        $p4 .= '<h3 class="el-card__title">' . esc_html( $ri->title ) . '</h3>';
-        $p4 .= '<span class="' . $badge_class . '">' . $badge_label . '</span>';
-        $p4 .= '</div><div class="el-card__body">';
-
-        $p4 .= EL_Admin_UI::detail_row( [ 'label' => __( 'Templates selected', 'el-core' ), 'value' => count( $sel_ids ), 'icon' => 'images-alt2' ] );
-        $p4 .= EL_Admin_UI::detail_row( [
-            'label' => __( 'Responses', 'el-core' ),
-            'value' => sprintf( __( '%1$d of %2$d team members', 'el-core' ), $responded, $total_sh ),
-            'icon'  => 'groups',
-        ] );
-
-        if ( $ri->deadline ) {
-            $p4 .= EL_Admin_UI::detail_row( [
-                'label' => __( 'Deadline', 'el-core' ),
-                'value' => date_i18n( 'M j, Y', strtotime( $ri->deadline ) ),
-                'icon'  => 'calendar-alt',
-            ] );
-        }
-
-        if ( $is_closed && ! empty( $conf_ids ) ) {
-            $tbl    = $wpdb->prefix . 'el_es_templates';
-            $ph     = implode( ',', array_fill( 0, count( $conf_ids ), '%d' ) );
-            $ctpl   = $wpdb->get_results( $wpdb->prepare( "SELECT title FROM {$tbl} WHERE id IN ({$ph})", ...$conf_ids ) );
-            $labels = implode( ', ', array_map( fn( $t ) => esc_html( $t->title ), $ctpl ) );
-            $p4    .= EL_Admin_UI::detail_row( [ 'label' => __( 'Confirmed Direction', 'el-core' ), 'value' => $labels, 'icon' => 'yes-alt' ] );
-        }
-
-        $p4 .= '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">';
-        if ( ! $is_closed ) {
-            $p4 .= EL_Admin_UI::btn( [
-                'label'   => $ri->deadline ? __( 'Extend Deadline', 'el-core' ) : __( 'Set Deadline', 'el-core' ),
-                'variant' => 'secondary',
-                'icon'    => 'calendar-alt',
-                'data'    => [ 'action' => 'set-review-deadline', 'review-item-id' => $ri->id ],
-            ] );
-        }
+    if ( $vbrief->generated_brief ) {
+        $gen_date = $vbrief->generated_at ? date_i18n( 'M j, Y', strtotime( $vbrief->generated_at ) ) : '';
+        $p4 .= '<div class="el-es-brief-output-wrap">';
+        $p4 .= '<div class="el-es-brief-actions">';
+        $p4 .= '<span class="el-es-brief-generated-date">' . esc_html( sprintf( __( 'Brand Brief — Generated %s', 'el-core' ), $gen_date ) ) . '</span>';
+        $p4 .= EL_Admin_UI::btn( [ 'label' => __( 'Copy to Clipboard', 'el-core' ), 'variant' => 'secondary', 'icon' => 'clipboard', 'class' => 'el-es-vi-copy-brief' ] );
         $p4 .= '</div>';
-        $p4 .= '</div></div>';
+        $p4 .= '<pre class="el-es-brief-output">' . esc_html( $vbrief->generated_brief ) . '</pre>';
+        $p4 .= '</div>';
     }
+    $p4 .= EL_Admin_UI::btn( [
+        'label' => __( 'Unlock Brief', 'el-core' ), 'variant' => 'ghost', 'icon' => 'unlock',
+        'class' => 'el-es-vi-unlock-btn', 'data' => [ 'project-id' => $project_id ],
+    ] );
+} elseif ( $vbrief->portal_submitted_at ) {
+    // ── State B: Client Submitted ──
+    $submitted_by_user = get_userdata( (int) $vbrief->portal_submitted_by );
+    $submitted_by_name = $submitted_by_user ? $submitted_by_user->display_name : __( 'a stakeholder', 'el-core' );
+    $submitted_date    = date_i18n( 'M j, Y \a\t g:i a', strtotime( $vbrief->portal_submitted_at ) );
+
+    $p4 .= '<div class="el-es-vi-submitted-badge">' . el_es_icon( 'yes-alt', 18 );
+    $p4 .= sprintf( esc_html__( 'Submitted by %1$s on %2$s', 'el-core' ), esc_html( $submitted_by_name ), esc_html( $submitted_date ) ) . '</div>';
+
+    $p4 .= '<div class="el-es-vi-intake-summary">' . el_es_vi_render_intake_summary( $vbrief ) . '</div>';
+
+    $p4 .= '<div class="el-es-vi-brief-section">';
+    if ( $vbrief->generated_brief ) {
+        $gen_date = $vbrief->generated_at ? date_i18n( 'M j, Y', strtotime( $vbrief->generated_at ) ) : '';
+        $p4 .= '<div class="el-es-brief-output-wrap"><div class="el-es-brief-actions">';
+        $p4 .= '<span class="el-es-brief-generated-date">' . esc_html( sprintf( __( 'Brand Brief — Generated %s', 'el-core' ), $gen_date ) ) . '</span>';
+        $p4 .= EL_Admin_UI::btn( [ 'label' => __( 'Copy to Clipboard', 'el-core' ), 'variant' => 'secondary', 'icon' => 'clipboard', 'class' => 'el-es-vi-copy-brief' ] );
+        $p4 .= EL_Admin_UI::btn( [ 'label' => __( 'Regenerate', 'el-core' ), 'variant' => 'ghost', 'icon' => 'update', 'class' => 'el-es-vi-generate-btn', 'data' => [ 'project-id' => $project_id, 'regenerate' => '1' ] ] );
+        $p4 .= '</div><pre class="el-es-brief-output">' . esc_html( $vbrief->generated_brief ) . '</pre></div>';
+        $p4 .= '<div class="el-es-vi-lock-row">';
+        $p4 .= EL_Admin_UI::btn( [
+            'label' => __( 'Lock Brief', 'el-core' ), 'variant' => 'primary', 'icon' => 'lock',
+            'class' => 'el-es-vi-lock-btn', 'data' => [ 'project-id' => $project_id ],
+        ] );
+        $p4 .= '</div>';
+    } else {
+        $p4 .= EL_Admin_UI::btn( [
+            'label' => __( 'Generate Brand Brief', 'el-core' ), 'variant' => 'primary', 'icon' => 'media-document',
+            'class' => 'el-es-vi-generate-btn', 'data' => [ 'project-id' => $project_id ],
+        ] );
+    }
+    $p4 .= '</div>';
+} else {
+    // ── State A: Awaiting Client Input ──
+    $dm_vi  = $project->decision_maker_id ? get_userdata( (int) $project->decision_maker_id ) : null;
+    $dm_name_vi = $dm_vi ? $dm_vi->display_name : __( 'No Decision Maker assigned', 'el-core' );
+    $p4 .= EL_Admin_UI::notice( [
+        'message' => __( 'Waiting for the Decision Maker to complete the Visual Identity intake form in the client portal.', 'el-core' ),
+        'type'    => 'info',
+    ] );
+    $p4 .= EL_Admin_UI::detail_row( [ 'label' => __( 'Decision Maker', 'el-core' ), 'value' => esc_html( $dm_name_vi ), 'icon' => 'admin-users' ] );
 }
-
-$p4 .= EL_Admin_UI::btn( [
-    'label'   => __( 'Create Mood Board Session', 'el-core' ),
-    'variant' => 'primary',
-    'icon'    => 'plus-alt',
-    'data'    => [ 'modal-open' => 'create-review-modal' ],
-] );
-
 $p4 .= '</div>';
 
 $html .= EL_Admin_UI::tab_panel( [
     'id'      => 'phase-5',
     'group'   => 'phase-tabs',
-    'content' => EL_Admin_UI::card( [ 'title' => __( 'Visual Identity — Branding Review', 'el-core' ), 'icon' => 'art', 'content' => $p4 ] ),
+    'content' => EL_Admin_UI::card( [ 'title' => __( 'Visual Identity', 'el-core' ), 'icon' => 'art', 'content' => $p4 ] ),
     'active'  => $current_stage === 5,
 ] );
 
+if ( ! function_exists( 'el_es_vi_render_intake_summary' ) ) {
+    function el_es_vi_render_intake_summary( object $brief ): string {
+        $out = '';
+        // Logo
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Logo', 'el-core' ) . '</h4>';
+        if ( $brief->has_logo ) {
+            $out .= '<p><strong>' . esc_html__( 'Has existing logo', 'el-core' ) . '</strong></p>';
+            if ( $brief->logo_url ) $out .= '<div class="el-es-logo-preview"><img src="' . esc_url( $brief->logo_url ) . '" alt="" style="max-width:200px;"></div>';
+        } elseif ( $brief->logo_needs_creation ) {
+            $out .= '<p>' . esc_html__( 'Needs to be created by ELS', 'el-core' ) . '</p>';
+        } else {
+            $out .= '<p class="el-es-vi-not-provided">' . esc_html__( 'To be determined', 'el-core' ) . '</p>';
+        }
+        if ( $brief->logo_notes ) $out .= '<p class="el-es-vi-answer">' . nl2br( esc_html( $brief->logo_notes ) ) . '</p>';
+        $out .= '</div>';
+        // Colors
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Brand Colors', 'el-core' ) . '</h4>';
+        if ( $brief->has_brand_colors ) {
+            foreach ( [ 'color_primary' => 'Primary', 'color_secondary' => 'Secondary', 'color_accent' => 'Accent', 'color_neutral' => 'Neutral' ] as $f => $l ) {
+                if ( $brief->$f ) $out .= '<div class="el-es-vi-field-group"><span class="el-es-color-swatch" style="background:' . esc_attr( $brief->$f ) . '"></span><strong>' . esc_html( $l ) . ':</strong> ' . esc_html( $brief->$f ) . '</div>';
+            }
+        } else {
+            $out .= '<p>' . esc_html__( 'No established colors — ELS to propose palette.', 'el-core' ) . '</p>';
+        }
+        if ( $brief->color_notes ) $out .= '<p class="el-es-vi-answer">' . nl2br( esc_html( $brief->color_notes ) ) . '</p>';
+        $out .= '</div>';
+        // Typography
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Typography', 'el-core' ) . '</h4>';
+        if ( $brief->has_brand_fonts ) {
+            if ( $brief->font_heading ) $out .= '<p><strong>' . esc_html__( 'Heading:', 'el-core' ) . '</strong> ' . esc_html( $brief->font_heading ) . '</p>';
+            if ( $brief->font_body )    $out .= '<p><strong>' . esc_html__( 'Body:', 'el-core' ) . '</strong> ' . esc_html( $brief->font_body ) . '</p>';
+            if ( $brief->font_notes )   $out .= '<p class="el-es-vi-answer">' . nl2br( esc_html( $brief->font_notes ) ) . '</p>';
+        } else {
+            $out .= '<p>' . esc_html__( 'No brand fonts — ELS to select appropriate pairing.', 'el-core' ) . '</p>';
+        }
+        $out .= '</div>';
+        // Existing Materials
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Existing Materials', 'el-core' ) . '</h4>';
+        if ( $brief->has_existing_materials ) {
+            if ( $brief->existing_materials_url )   $out .= '<p><a href="' . esc_url( $brief->existing_materials_url ) . '" target="_blank" rel="noopener">' . esc_html( $brief->existing_materials_url ) . '</a></p>';
+            if ( $brief->existing_materials_notes ) $out .= '<p class="el-es-vi-answer">' . nl2br( esc_html( $brief->existing_materials_notes ) ) . '</p>';
+        } else {
+            $out .= '<p>' . esc_html__( 'No existing materials — starting fresh.', 'el-core' ) . '</p>';
+        }
+        $out .= '</div>';
+        // Visual Personality
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Visual Personality', 'el-core' ) . '</h4>';
+        foreach ( [ 'audience_description' => 'Primary Audience', 'tone_feel' => 'Tone and Feel', 'sites_they_like' => 'Reference Sites (Likes)', 'sites_to_avoid' => 'Sites / Styles to Avoid' ] as $f => $l ) {
+            $out .= '<div class="el-es-vi-field-group"><p class="el-es-vi-question"><strong>' . esc_html( $l ) . '</strong></p>';
+            $out .= '<p class="el-es-vi-answer">' . ( $brief->$f ? nl2br( esc_html( $brief->$f ) ) : '<em>' . esc_html__( 'Not provided', 'el-core' ) . '</em>' ) . '</p></div>';
+        }
+        $out .= '</div>';
+        // Pages
+        $pages = $brief->pages_needed ? ( json_decode( $brief->pages_needed, true ) ?: [] ) : [];
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Site Pages', 'el-core' ) . '</h4>';
+        if ( $pages ) {
+            $out .= '<ol>';
+            foreach ( $pages as $pg ) $out .= '<li>' . esc_html( $pg ) . '</li>';
+            $out .= '</ol>';
+        } else {
+            $out .= '<p class="el-es-vi-not-provided">' . esc_html__( 'Not provided', 'el-core' ) . '</p>';
+        }
+        $out .= '</div>';
+        // Photography
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Photography', 'el-core' ) . '</h4>';
+        $photo_parts = [];
+        if ( $brief->has_photography )         $photo_parts[] = esc_html__( 'Has own photos', 'el-core' );
+        if ( $brief->needs_stock_photography ) $photo_parts[] = esc_html__( 'Needs stock photography', 'el-core' );
+        if ( $photo_parts ) $out .= '<p>' . esc_html( implode( '; ', $photo_parts ) ) . '</p>';
+        if ( $brief->photography_url )   $out .= '<p><a href="' . esc_url( $brief->photography_url ) . '" target="_blank" rel="noopener">' . esc_html( $brief->photography_url ) . '</a></p>';
+        if ( $brief->photography_notes ) $out .= '<p class="el-es-vi-answer">' . nl2br( esc_html( $brief->photography_notes ) ) . '</p>';
+        if ( ! $photo_parts && ! $brief->photography_url && ! $brief->photography_notes ) {
+            $out .= '<p class="el-es-vi-not-provided">' . esc_html__( 'Not provided', 'el-core' ) . '</p>';
+        }
+        $out .= '</div>';
+        // Constraints
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Constraints', 'el-core' ) . '</h4>';
+        if ( $brief->has_parent_org_brand && $brief->parent_org_brand_notes ) $out .= '<p><strong>' . esc_html__( 'Parent Organization:', 'el-core' ) . '</strong> ' . nl2br( esc_html( $brief->parent_org_brand_notes ) ) . '</p>';
+        if ( $brief->accessibility_standard ) $out .= '<p><strong>' . esc_html__( 'Accessibility:', 'el-core' ) . '</strong> ' . esc_html( $brief->accessibility_standard ) . '</p>';
+        if ( $brief->multilingual && $brief->languages ) $out .= '<p><strong>' . esc_html__( 'Languages:', 'el-core' ) . '</strong> ' . esc_html( $brief->languages ) . '</p>';
+        if ( $brief->other_constraints ) $out .= '<p><strong>' . esc_html__( 'Other:', 'el-core' ) . '</strong> ' . nl2br( esc_html( $brief->other_constraints ) ) . '</p>';
+        $out .= '</div>';
+        // Additional Notes
+        if ( $brief->additional_notes ) {
+            $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Additional Notes', 'el-core' ) . '</h4>';
+            $out .= '<p class="el-es-vi-answer">' . nl2br( esc_html( $brief->additional_notes ) ) . '</p></div>';
+        }
+        return $out;
+    }
+}
 // ── Phase 5: Wireframes ──
 $page_rows = [];
 foreach ( $pages as $pg ) {
@@ -2069,59 +2159,6 @@ foreach ( $proposals as $prop ) {
     ];
 }
 $html .= '<script>var elProposalsData = ' . wp_json_encode( $proposals_json ) . ';</script>';
-
-// Create Review Session modal (Visual Identity / Phase 4)
-$active_templates = $module->get_templates( [ 'is_active' => 1 ] );
-
-$create_review_form  = '<form id="create-review-form">';
-$create_review_form .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
-$create_review_form .= '<input type="hidden" name="review_type" value="mood_board">';
-$create_review_form .= EL_Admin_UI::form_row( [ 'name' => 'title',    'label' => __( 'Session Title', 'el-core' ),           'type' => 'text', 'value' => __( 'Style Direction', 'el-core' ), 'placeholder' => __( 'e.g. Style Direction', 'el-core' ) ] );
-$create_review_form .= EL_Admin_UI::form_row( [ 'name' => 'deadline', 'label' => __( 'Response Deadline (optional)', 'el-core' ), 'type' => 'date' ] );
-$create_review_form .= '<div class="el-form-row">';
-$create_review_form .= '<label class="el-form-label">' . __( 'Select Templates for This Client', 'el-core' ) . '</label>';
-$create_review_form .= '<div class="el-form-field">';
-
-if ( empty( $active_templates ) ) {
-    $create_review_form .= '<p style="color:#666;">' . __( 'No active templates found. Add some in the Template Library first.', 'el-core' ) . '</p>';
-} else {
-    $tpl_by_cat = [];
-    foreach ( $active_templates as $tpl ) {
-        $tpl_by_cat[ $tpl->style_category ][] = $tpl;
-    }
-    $create_review_form .= '<div class="es-template-picker">';
-    foreach ( $tpl_by_cat as $cat => $cat_tpls ) {
-        $create_review_form .= '<div class="es-template-picker-category">';
-        $create_review_form .= '<div class="es-template-picker-cat-label">' . esc_html( $cat ) . '</div>';
-        $create_review_form .= '<div class="es-template-picker-grid">';
-        foreach ( $cat_tpls as $tpl ) {
-            $img = esc_url( $tpl->image_url );
-            $create_review_form .= '<label class="es-template-picker-card">';
-            $create_review_form .= '<input type="checkbox" name="template_ids[]" value="' . esc_attr( $tpl->id ) . '">';
-            if ( $img ) {
-                $create_review_form .= '<img src="' . $img . '" alt="' . esc_attr( $tpl->title ) . '">';
-            } else {
-                $create_review_form .= '<div class="es-template-picker-no-img">No Image</div>';
-            }
-            $create_review_form .= '<div class="es-template-picker-title">' . esc_html( $tpl->title ) . '</div>';
-            $create_review_form .= '</label>';
-        }
-        $create_review_form .= '</div></div>';
-    }
-    $create_review_form .= '</div>';
-}
-
-$create_review_form .= '</div></div>';
-$create_review_form .= '<div class="el-form-row">';
-$create_review_form .= EL_Admin_UI::btn( [ 'label' => __( 'Create Review Session', 'el-core' ), 'variant' => 'primary', 'icon' => 'plus-alt', 'type' => 'submit' ] );
-$create_review_form .= '</div>';
-$create_review_form .= '</form>';
-
-$html .= EL_Admin_UI::modal( [
-    'id'      => 'create-review-modal',
-    'title'   => __( 'Create Mood Board Review Session', 'el-core' ),
-    'content' => $create_review_form,
-] );
 
 // Add User Type modal (Phase 4)
 $aut_form  = '<form id="add-user-type-form">';

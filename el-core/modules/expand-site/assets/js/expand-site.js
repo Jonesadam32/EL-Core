@@ -1,5 +1,5 @@
-/**
- * Expand Site — Client Portal JavaScript
+﻿/**
+ * Expand Site â€” Client Portal JavaScript
  *
  * Vanilla JS only. Uses ELCore.ajax(). Event delegation on document.
  * v1.14.0 - Added stage navigation
@@ -9,9 +9,9 @@
 (function() {
     'use strict';
 
-    // ═══════════════════════════════════════════
-    // MODALS — Open/Close
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // MODALS â€” Open/Close
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     // Open modal
     document.addEventListener('click', function(e) {
@@ -56,9 +56,9 @@
         }
     });
 
-    // ═══════════════════════════════════════════
-    // STAGE NAVIGATION — Switch between stages
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // STAGE NAVIGATION â€” Switch between stages
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     document.addEventListener('click', function(e) {
         const stageBtn = e.target.closest('.el-es-stage-btn');
@@ -110,9 +110,9 @@
         }
     });
 
-    // ═══════════════════════════════════════════
-    // PAGE REVIEW — Approve / Request Revision
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // PAGE REVIEW â€” Approve / Request Revision
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     document.addEventListener('click', function(e) {
         const approveBtn = e.target.closest('.el-es-approve-btn');
@@ -159,9 +159,9 @@
             });
     });
 
-    // ═══════════════════════════════════════════
-    // FEEDBACK FORM — Submit
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    // FEEDBACK FORM â€” Submit
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     document.addEventListener('submit', function(e) {
         const form = e.target.closest('.el-es-feedback-form-inner');
@@ -229,9 +229,9 @@
             });
     });
 
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // PROPOSAL ACCEPT / DECLINE
-    // ═══════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     document.addEventListener('click', function(e) {
         var acceptBtn = e.target.closest('.el-es-accept-proposal-btn');
@@ -287,9 +287,9 @@
 
 })();
 
-// ═══════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // DEFINITION CONSENSUS REVIEW
-// ═══════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 (function() {
     'use strict';
@@ -315,7 +315,7 @@
 
     function loadReview() {
         var loading = container.querySelector('.el-es-definition-review-loading');
-        if (loading) loading.textContent = 'Loading…';
+        if (loading) loading.textContent = 'Loadingâ€¦';
 
         ELCore.ajax('es_get_definition_review', { project_id: projectId })
             .then(function(resp) {
@@ -358,7 +358,7 @@
             html += '</div>';
         }
 
-        // DM "Needs Revision" banner — shown while review is still open after DM posted note
+        // DM "Needs Revision" banner â€” shown while review is still open after DM posted note
         if (review.dm_decision === 'needs_revision' && review.status === 'open') {
             html += '<div class="el-es-dm-revision-banner">';
             html += '<strong>Decision Maker requested changes:</strong> ';
@@ -387,7 +387,7 @@
             html += '</div>';
             html += '<div class="el-es-definition-field-value" data-current-value="' + escapeHtml(val) + '">' + escapeHtml(val).replace(/\n/g, '<br>') + '</div>';
             if (review.id && review.status === 'open') {
-                html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-edit-field-btn" data-field-key="' + f.key + '">✏ Edit</button>';
+                html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-edit-field-btn" data-field-key="' + f.key + '">âœ Edit</button>';
             }
             html += '<div class="el-es-definition-comments" data-field-key="' + f.key + '">';
             fieldComments.forEach(function(c) {
@@ -399,20 +399,20 @@
             html += '</div>';
             html += '<div class="el-es-definition-actions">';
             html += '<button type="button" class="el-es-btn el-es-btn-ghost el-es-add-comment-btn" data-field-key="' + f.key + '">+ Add comment</button>';
-        // Verdict buttons — render active state based on localVerdicts
+        // Verdict buttons â€” render active state based on localVerdicts
         if (review.id && review.status === 'open') {
                 html += '<p class="el-es-verdict-help">Use these to flag individual fields for the team\'s attention. The Decision Maker makes the overall final decision below.</p>';
                 html += '<div class="el-es-verdict-buttons">';
-                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-approved' + (userV === 'approved' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="approved">✓ Approve Field</button>';
-                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-revision' + (userV === 'needs_revision' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="needs_revision">⚑ Flag for changes</button>';
+                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-approved' + (userV === 'approved' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="approved">âœ“ Approve Field</button>';
+                html += '<button type="button" class="el-es-verdict-btn el-es-verdict-revision' + (userV === 'needs_revision' ? ' el-es-verdict-active' : '') + '" data-field-key="' + f.key + '" data-verdict="needs_revision">âš‘ Flag for changes</button>';
                 html += '</div>';
         }
-        // Per-user verdict indicators — show who voted and what they chose
+        // Per-user verdict indicators â€” show who voted and what they chose
         var fieldVerdictUsers = (verdicts[f.key] && verdicts[f.key].users) ? verdicts[f.key].users : [];
         if (fieldVerdictUsers.length > 0) {
             html += '<div class="el-es-verdict-indicators">';
             fieldVerdictUsers.forEach(function(v) {
-                var icon = v.verdict === 'approved' ? '✓' : '⚑';
+                var icon = v.verdict === 'approved' ? 'âœ“' : 'âš‘';
                 var cls  = v.verdict === 'approved' ? 'el-es-vi-approved' : 'el-es-vi-revision';
                 html += '<span class="el-es-verdict-indicator ' + cls + '">' + icon + ' ' + escapeHtml(v.name) + ' <span class="el-es-vi-date">' + escapeHtml(v.date) + '</span></span>';
             });
@@ -443,7 +443,7 @@
             if (isDm) {
                 html += '<div class="el-es-dm-decision-section">';
                 html += '<h4>Make Final Decision</h4>';
-                html += '<textarea class="el-es-dm-note-input" name="dm_note" placeholder="Optional note for the team…" rows="3"></textarea>';
+                html += '<textarea class="el-es-dm-note-input" name="dm_note" placeholder="Optional note for the teamâ€¦" rows="3"></textarea>';
                 html += '<div class="el-es-dm-buttons">';
                 html += '<button type="button" class="el-es-btn el-es-btn-primary el-es-dm-accept-btn" data-review-id="' + review.id + '">Accept</button>';
                 html += '<button type="button" class="el-es-btn el-es-btn-warning el-es-dm-revision-btn" data-review-id="' + review.id + '">Needs Revision</button>';
@@ -482,7 +482,7 @@
 
     function renderComment(c, fieldKey, isReply) {
         var cls = 'el-es-definition-comment' + (isReply ? ' el-es-comment-reply' : '');
-        var verdict = c.verdict ? '<span class="el-es-comment-verdict el-es-verdict-' + c.verdict + '">' + (c.verdict === 'approved' ? '✓' : '↻') + '</span>' : '';
+        var verdict = c.verdict ? '<span class="el-es-comment-verdict el-es-verdict-' + c.verdict + '">' + (c.verdict === 'approved' ? 'âœ“' : 'â†»') + '</span>' : '';
         return '<div class="' + cls + '" data-comment-id="' + c.id + '" data-parent-id="' + (c.parent_id || 0) + '">' +
             '<div class="el-es-comment-meta">' + escapeHtml(c.display_name || 'Unknown') + ' ' + verdict + ' <span class="el-es-comment-date">' + (c.created_at || '') + '</span></div>' +
             '<div class="el-es-comment-text">' + escapeHtml(c.comment || '').replace(/\n/g, '<br>') + '</div>' +
@@ -565,7 +565,7 @@
             }
             var form = document.createElement('div');
             form.className = 'el-es-add-comment-form';
-            form.innerHTML = '<textarea rows="2" placeholder="Your comment…"></textarea>' +
+            form.innerHTML = '<textarea rows="2" placeholder="Your commentâ€¦"></textarea>' +
                 '<button type="button" class="el-es-btn el-es-btn-primary el-es-post-comment-btn" data-field-key="' + fieldKey + '" data-parent-id="0">Post</button>' +
                 '<button type="button" class="el-es-btn el-es-btn-ghost el-es-cancel-comment-btn">Cancel</button>';
             btn.parentNode.insertBefore(form, btn);
@@ -629,7 +629,7 @@
             if (existing) existing.remove();
             var form = document.createElement('div');
             form.className = 'el-es-add-comment-form el-es-reply-form';
-            form.innerHTML = '<textarea rows="2" placeholder="Reply…"></textarea>' +
+            form.innerHTML = '<textarea rows="2" placeholder="Replyâ€¦"></textarea>' +
                 '<button type="button" class="el-es-btn el-es-btn-primary el-es-post-comment-btn" data-field-key="' + fieldKey + '" data-parent-id="' + parentId + '">Reply</button>' +
                 '<button type="button" class="el-es-btn el-es-btn-ghost el-es-cancel-comment-btn">Cancel</button>';
             commentEl.appendChild(form);
@@ -682,7 +682,7 @@
             var newVal = textarea && textarea.value.trim();
             if (!newVal) return;
             btn.disabled = true;
-            btn.textContent = 'Saving…';
+            btn.textContent = 'Savingâ€¦';
             var fd = new FormData();
             fd.append('action', 'el_core_action');
             fd.append('el_action', 'es_client_edit_definition_field');
@@ -765,10 +765,10 @@
             .then(function(res) {
                 if (!res.success) throw new Error(res.data && res.data.message || 'Failed');
                 if (decision === 'needs_revision') {
-                    // Keep review open — reload the review UI to show DM banner
+                    // Keep review open â€” reload the review UI to show DM banner
                     loadReview();
                 } else {
-                    // Accepted — full page reload to show the approved state
+                    // Accepted â€” full page reload to show the approved state
                     window.location.reload();
                 }
             })
@@ -778,7 +778,7 @@
             });
         });
 
-        // Submit My Input (contributors — just reload to show current state)
+        // Submit My Input (contributors â€” just reload to show current state)
         container.addEventListener('click', function(e) {
             if (!e.target.closest('.el-es-submit-input-btn')) return;
             e.preventDefault();
@@ -789,216 +789,7 @@
     loadReview();
 })();
 
-// ═══════════════════════════════════════════
-// MOOD BOARD — Voting, Lightbox, DM Results
-// ═══════════════════════════════════════════
-
-(function() {
-    'use strict';
-
-    var moodBoard = document.getElementById('el-es-mood-board');
-    if (!moodBoard) return;
-
-    var reviewItemId = moodBoard.dataset.reviewItemId;
-
-    // ── Vote button clicks ──
-    document.addEventListener('click', function(e) {
-        var voteBtn = e.target.closest('.el-es-vote-btn');
-        if (!voteBtn) return;
-
-        var card = voteBtn.closest('.el-es-mood-board-card');
-        if (!card) return;
-
-        var templateId = card.dataset.templateId;
-        var preference = voteBtn.dataset.preference;
-        var reviewId   = reviewItemId;
-
-        if (!templateId || !preference || !reviewId) return;
-
-        // Toggle: clicking active selection returns to neutral
-        var currentlyActive = voteBtn.classList.contains('el-es-vote-active');
-        if (currentlyActive) {
-            preference = 'neutral';
-        }
-
-        // Optimistic UI update
-        var strip = card.querySelector('.el-es-mood-board-vote-strip');
-        strip.querySelectorAll('.el-es-vote-btn').forEach(function(btn) {
-            btn.classList.remove('el-es-vote-active', 'el-es-vote-liked', 'el-es-vote-neutral', 'el-es-vote-disliked');
-            btn.setAttribute('aria-pressed', 'false');
-        });
-        if (preference !== 'neutral') {
-            voteBtn.classList.add('el-es-vote-active', 'el-es-vote-' + preference);
-            voteBtn.setAttribute('aria-pressed', 'true');
-        } else {
-            // Neutral: mark the neutral button
-            var neutralBtn = strip.querySelector('[data-preference="neutral"]');
-            if (neutralBtn) {
-                neutralBtn.classList.add('el-es-vote-active', 'el-es-vote-neutral');
-                neutralBtn.setAttribute('aria-pressed', 'true');
-            }
-        }
-
-        // Update card border class
-        card.classList.remove('el-es-card-liked', 'el-es-card-disliked');
-        if (preference === 'liked') card.classList.add('el-es-card-liked');
-        if (preference === 'disliked') card.classList.add('el-es-card-disliked');
-
-        // AJAX save
-        ELCore.ajax('es_save_template_vote', {
-            review_item_id: reviewId,
-            template_id:    templateId,
-            preference:     preference
-        }).then(function(result) {
-            // Update progress tracker
-            var progress = document.querySelector('.el-es-review-progress');
-            if (progress && result.responded !== undefined && result.total !== undefined) {
-                var label = progress.querySelector('.el-es-review-progress-label');
-                var fill  = progress.querySelector('.el-es-review-progress-fill');
-                if (label) label.textContent = result.responded + ' of ' + result.total + ' team members responded';
-                if (fill) {
-                    var pct = result.total > 0 ? Math.round((result.responded / result.total) * 100) : 0;
-                    fill.style.width = pct + '%';
-                }
-
-                // If DM and all have now voted, show View Results button
-                var dmActions = document.getElementById('el-es-dm-mood-board-actions');
-                if (dmActions && result.responded >= result.total && result.total > 0) {
-                    dmActions.innerHTML = '<button type="button" class="el-es-btn el-es-btn-secondary el-es-view-results-btn" data-review-item-id="' + reviewId + '">'
-                        + '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>'
-                        + ' View Results</button>';
-                }
-            }
-        }).catch(function(err) {
-            console.error('Vote save failed:', err.message);
-        });
-    });
-
-    // ── Lightbox ──
-    var lightbox     = document.getElementById('el-es-lightbox');
-    var lightboxImg  = document.getElementById('el-es-lightbox-img');
-    var lightboxCap  = document.getElementById('el-es-lightbox-caption');
-
-    if (lightbox && lightboxImg) {
-        document.addEventListener('click', function(e) {
-            var trigger = e.target.closest('.el-es-lightbox-trigger');
-            if (!trigger) return;
-            e.preventDefault();
-            lightboxImg.src = trigger.dataset.src || '';
-            if (lightboxCap) lightboxCap.textContent = trigger.dataset.caption || '';
-            lightbox.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-        });
-
-        // Close on overlay or close button
-        lightbox.addEventListener('click', function(e) {
-            if (e.target.classList.contains('el-es-lightbox-overlay') || e.target.closest('.el-es-lightbox-close')) {
-                lightbox.setAttribute('aria-hidden', 'true');
-                document.body.style.overflow = '';
-            }
-        });
-
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && lightbox.getAttribute('aria-hidden') === 'false') {
-                lightbox.setAttribute('aria-hidden', 'true');
-                document.body.style.overflow = '';
-            }
-        });
-    }
-
-    // ── DM: View Results ──
-    document.addEventListener('click', function(e) {
-        var viewBtn = e.target.closest('.el-es-view-results-btn');
-        if (!viewBtn) return;
-
-        var rid = viewBtn.dataset.reviewItemId || reviewItemId;
-        var modal = document.getElementById('mood-board-results');
-        if (!modal) return;
-
-        var body   = document.getElementById('mood-board-results-body');
-        var footer = document.getElementById('mood-board-results-footer');
-
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-        if (body) body.innerHTML = '<div class="el-es-loading-spinner">Loading results…</div>';
-        if (footer) footer.innerHTML = '';
-
-        ELCore.ajax('es_get_review_results', { review_item_id: rid })
-            .then(function(result) {
-                if (!body) return;
-                var results   = result.results || {};
-                var reviewItem = result.review_item || {};
-                var dmDec      = reviewItem.dm_decision ? JSON.parse(reviewItem.dm_decision) : {};
-                var selIds     = dmDec.selected_template_ids || [];
-
-                var html = '<table class="el-es-results-table"><thead><tr>'
-                    + '<th></th><th>Template</th>'
-                    + '<th class="el-es-tally-liked">♥ Liked</th>'
-                    + '<th class="el-es-tally-neutral">— Neutral</th>'
-                    + '<th class="el-es-tally-disliked">✕ Disliked</th>'
-                    + '<th>Confirm?</th>'
-                    + '</tr></thead><tbody>';
-
-                selIds.forEach(function(tid) {
-                    var r = results[tid] || { liked: 0, neutral: 0, disliked: 0, voters: [] };
-                    html += '<tr data-template-id="' + tid + '">'
-                        + '<td></td>'
-                        + '<td><strong>Template #' + tid + '</strong></td>'
-                        + '<td class="el-es-tally-liked">' + r.liked + '</td>'
-                        + '<td class="el-es-tally-neutral">' + r.neutral + '</td>'
-                        + '<td class="el-es-tally-disliked">' + r.disliked + '</td>'
-                        + '<td><label class="el-es-results-confirm-row">'
-                        + '<input type="checkbox" class="el-es-confirm-checkbox" name="confirm_template_ids" value="' + tid + '"> Select'
-                        + '</label></td>'
-                        + '</tr>';
-                });
-
-                html += '</tbody></table>';
-                body.innerHTML = html;
-
-                if (footer) {
-                    footer.innerHTML = '<button type="button" class="el-es-btn el-es-btn-secondary" data-close-modal="mood-board-results">Cancel</button>'
-                        + '<button type="button" class="el-es-btn el-es-btn-primary" id="confirm-style-direction-btn" data-review-item-id="' + rid + '">'
-                        + '✓ Confirm Style Direction'
-                        + '</button>';
-                }
-            })
-            .catch(function(err) {
-                if (body) body.innerHTML = '<p style="color:#ef4444;padding:1rem;">Error loading results: ' + (err.message || 'Unknown error') + '</p>';
-            });
-    });
-
-    // ── DM: Confirm Style Direction ──
-    document.addEventListener('click', function(e) {
-        var confirmBtn = e.target.closest('#confirm-style-direction-btn');
-        if (!confirmBtn) return;
-
-        var rid = confirmBtn.dataset.reviewItemId;
-        var checkboxes = document.querySelectorAll('#mood-board-results .el-es-confirm-checkbox:checked');
-        var confirmedIds = [];
-        checkboxes.forEach(function(cb) { confirmedIds.push(parseInt(cb.value, 10)); });
-
-        if (confirmedIds.length === 0) {
-            alert('Please select at least one template as the confirmed style direction.');
-            return;
-        }
-
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Confirming…';
-
-        ELCore.ajax('es_close_review', {
-            review_item_id:       rid,
-            confirmed_template_ids: confirmedIds
-        }).then(function(result) {
-            alert(result.message || 'Style direction confirmed!');
-            window.location.reload();
-        }).catch(function(err) {
-            alert(err.message || 'Failed to confirm direction.');
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '✓ Confirm Style Direction';
-        });
-    });
-})();
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // ===========================================
 // USER JOURNEY -- Portal (Stage 4)
@@ -1007,7 +798,7 @@
 (function() {
     'use strict';
 
-    // === User Journey â€” Portal (Stage 4) ===
+    // === User Journey Ã¢â‚¬â€ Portal (Stage 4) ===
 
     // Assign button (DM assigns a stakeholder to a journey)
     document.addEventListener('click', function(e) {
@@ -1123,7 +914,7 @@
 })();
 
 // ===========================================
-// USER JOURNEY — Pending DM Review state
+// USER JOURNEY â€” Pending DM Review state
 // ===========================================
 
 (function() {
@@ -1142,7 +933,7 @@
 
         var originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = 'Sending…';
+        btn.textContent = 'Sendingâ€¦';
 
         var answers = {};
         wrapper.querySelectorAll('.el-es-journey-pdm-answer-edit').forEach(function(ta, idx) {
@@ -1154,7 +945,7 @@
                 var dmSection = btn.closest('.el-es-journey-pdm-dm-section');
                 if (dmSection) {
                     dmSection.innerHTML = '<p class="el-es-journey-card-info">'
-                        + '✓ Sent to the project manager. They will generate the workflow shortly.'
+                        + 'âœ“ Sent to the project manager. They will generate the workflow shortly.'
                         + '</p>';
                 }
             })
@@ -1168,7 +959,7 @@
 })();
 
 // ===========================================
-// USER JOURNEY — Review (in_review state)
+// USER JOURNEY â€” Review (in_review state)
 // ===========================================
 
 (function() {
@@ -1210,7 +1001,7 @@
             .catch(function(err) { alert(err.message || 'Failed to save verdict.'); });
     });
 
-    // ── Step inline edit ──
+    // â”€â”€ Step inline edit â”€â”€
     document.addEventListener('click', function(e) {
         // Show edit form
         var toggleBtn = e.target.closest('.el-es-journey-step-edit-toggle');
@@ -1244,7 +1035,7 @@
             var newLabel = labelEl ? labelEl.value.trim() : '';
             var newDesc  = descEl  ? descEl.value.trim()  : '';
             var orig = saveBtn.textContent;
-            saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+            saveBtn.disabled = true; saveBtn.textContent = 'Savingâ€¦';
             ELCore.ajax('es_save_journey_step_edit', {
                 journey_id: journeyId, review_id: reviewId, step_key: stepKey,
                 edit_action: 'update', new_label: newLabel, new_desc: newDesc
@@ -1266,7 +1057,7 @@
         }
     });
 
-    // ── Portal step list: Insert step below ──
+    // â”€â”€ Portal step list: Insert step below â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-portal-insert-step-btn');
         if (!btn) return;
@@ -1282,7 +1073,7 @@
         }).catch(function(err) { alert(err.message || 'Failed to insert step.'); });
     });
 
-    // ── Portal step list: Remove step ──
+    // â”€â”€ Portal step list: Remove step â”€â”€
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.el-es-portal-remove-step-btn');
         if (!btn) return;
@@ -1415,7 +1206,7 @@
 
         if (decision === 'approved') {
             var confirmMsg = dm_note
-                ? 'You have suggested edits — are you sure you want to Accept? Your notes will be sent to the project manager but the workflow will be marked approved.'
+                ? 'You have suggested edits â€” are you sure you want to Accept? Your notes will be sent to the project manager but the workflow will be marked approved.'
                 : 'Accept this workflow? This cannot be undone.';
             if (!confirm(confirmMsg)) return;
         }
@@ -1429,8 +1220,8 @@
                 if (dmSection) {
                     dmSection.innerHTML = '<p class="el-es-journey-dm-decided">'
                         + (decision === 'approved'
-                            ? '✓ You approved this journey. The project manager will lock it shortly.'
-                            : '⚑ Revision requested. The project manager will review your notes and send an updated version.')
+                            ? 'âœ“ You approved this journey. The project manager will lock it shortly.'
+                            : 'âš‘ Revision requested. The project manager will review your notes and send an updated version.')
                         + '</p>';
                 }
             })
@@ -1439,6 +1230,119 @@
                 btn.disabled = false;
                 btn.textContent = originalText;
             });
+    });
+
+})();
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// VISUAL IDENTITY PHASE â€” Portal JS (Phase 5)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+(function() {
+    'use strict';
+
+    var form = document.getElementById('el-es-vi-form');
+    if (!form) return;
+
+    var ajaxUrl = (typeof ELCore !== 'undefined' && ELCore.ajaxUrl) ? ELCore.ajaxUrl : '';
+    var nonce   = (typeof ELCore !== 'undefined' && ELCore.nonce)   ? ELCore.nonce   : '';
+    var projectId = form.dataset.projectId;
+    var saveIndicator = document.getElementById('el-es-vi-save-indicator');
+    var saveTimer = null;
+
+    function viAjax(action, data) {
+        var body = new URLSearchParams(Object.assign({ action: 'el_core_action', el_action: action, nonce: nonce }, data));
+        return fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body })
+            .then(function(r) { return r.json(); })
+            .then(function(r) {
+                if (!r.success) throw new Error(r.data && r.data.message ? r.data.message : 'Request failed');
+                return r.data;
+            });
+    }
+
+    function updateConditionals() {
+        form.querySelectorAll('.el-es-vi-conditional[data-show-when]').forEach(function(el) {
+            var rule = el.dataset.showWhen;
+            var parts = rule.split(':');
+            var fieldName = parts[0];
+            var allowedVals = (parts[1] || '').split(',');
+            var radios = form.querySelectorAll('[name="' + fieldName + '"]');
+            var currentVal = '';
+            radios.forEach(function(r) { if (r.checked) currentVal = r.value; });
+            el.classList.toggle('el-es-vi-hidden', allowedVals.indexOf(currentVal) === -1);
+        });
+    }
+
+    form.addEventListener('change', function(e) {
+        if (e.target.type === 'radio') updateConditionals();
+    });
+    updateConditionals();
+
+    function saveField(name, value) {
+        if (saveIndicator) { saveIndicator.textContent = 'Saving\u2026'; saveIndicator.classList.remove('saved'); }
+        var payload = { project_id: projectId };
+        payload[name] = value;
+        viAjax('es_save_visual_brief', payload).then(function() {
+            if (saveIndicator) {
+                saveIndicator.textContent = 'Saved';
+                saveIndicator.classList.add('saved');
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(function() { saveIndicator.textContent = ''; saveIndicator.classList.remove('saved'); }, 2000);
+            }
+        }).catch(function() {
+            if (saveIndicator) { saveIndicator.textContent = 'Save failed'; }
+        });
+    }
+
+    form.addEventListener('blur', function(e) {
+        var el = e.target;
+        if (!el.classList.contains('el-es-vi-autosave')) return;
+        if (!el.name || el.name === 'pages_needed_text') return;
+        saveField(el.name, el.value);
+    }, true);
+
+    var pagesText = document.getElementById('el-es-vi-pages-text');
+    var pagesHidden = document.getElementById('el-es-vi-pages-hidden');
+    if (pagesText && pagesHidden) {
+        pagesText.addEventListener('blur', function() {
+            var lines = pagesText.value.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+            var json = JSON.stringify(lines);
+            pagesHidden.value = json;
+            saveField('pages_needed', json);
+        });
+    }
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!confirm('Once submitted, our team will begin building your Brand Brief. You can still request changes by contacting your project manager.')) return;
+
+        var btn = form.querySelector('.el-es-vi-submit-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Submitting\u2026'; }
+
+        var photoSit = form.querySelector('[name="photography_situation"]:checked');
+        if (photoSit) {
+            var sv = photoSit.value;
+            saveField('has_photography', (sv === 'yes' || sv === 'both') ? '1' : '0');
+            saveField('needs_stock_photography', (sv === 'no' || sv === 'both') ? '1' : '0');
+        }
+        var logoSit = form.querySelector('[name="logo_situation"]:checked');
+        if (logoSit) {
+            var lv = logoSit.value;
+            saveField('has_logo', lv === 'has_logo' ? '1' : '0');
+            saveField('logo_needs_creation', lv === 'logo_needs_creation' ? '1' : '0');
+        }
+
+        setTimeout(function() {
+            viAjax('es_submit_visual_brief', { project_id: projectId }).then(function() {
+                var section = document.getElementById('el-es-visual-identity');
+                if (section) {
+                    section.innerHTML = '<div class="el-es-notice el-es-notice-success"><p>Thank you! Our team will review your responses and build your Brand Brief.</p></div>';
+                }
+            }).catch(function(err) {
+                alert(err.message || 'Failed to submit. Please try again.');
+                if (btn) { btn.disabled = false; btn.textContent = 'Submit Visual Identity Information'; }
+            });
+        }, 600);
     });
 
 })();

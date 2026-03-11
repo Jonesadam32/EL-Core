@@ -1098,241 +1098,43 @@ function el_shortcode_expand_site_portal( $atts ): string {
 		$html .= '</div>'; // end modal
 	}
 
-	// ═══════════════════════════════════════════
-	// BRANDING TAB — MOOD BOARD
-	// ═══════════════════════════════════════════
+	// Phase 5 — Visual Identity Portal
+	if ( $current_stage >= 5 ) {
+		$vbrief = $module->get_visual_brief( $project_id );
+		$html .= '<div class="el-es-global-section el-es-vi-portal-section" id="el-es-visual-identity" data-project-id="' . esc_attr( $project_id ) . '">';
+		$html .= '<h3 class="el-es-section-title">' . el_es_icon( 'art' ) . esc_html__( 'Visual Identity', 'el-core' ) . '</h3>';
 
-	$review_items       = $module->get_review_items( $project_id, 'mood_board' );
-	$open_review        = null;
-	$closed_review      = null;
-	foreach ( $review_items as $ri ) {
-		if ( $ri->status === 'open' && ! $open_review ) {
-			$open_review = $ri;
-		} elseif ( $ri->status === 'closed' && ! $closed_review ) {
-			$closed_review = $ri;
-		}
-	}
-
-	$active_review = $open_review ?: $closed_review;
-
-	if ( $active_review ) {
-		$dm_decision      = $active_review->dm_decision ? json_decode( $active_review->dm_decision, true ) : [];
-		$selected_ids     = $dm_decision['selected_template_ids'] ?? [];
-		$confirmed_ids    = $dm_decision['confirmed_template_ids'] ?? [];
-		$is_closed        = ( $active_review->status === 'closed' );
-
-		$html .= '<div class="el-es-global-section el-es-branding-section" id="el-es-mood-board" data-review-item-id="' . esc_attr( $active_review->id ) . '" data-project-id="' . esc_attr( $project_id ) . '">';
-		$html .= '<h3 class="el-es-section-title">';
-		$html .= el_es_icon( 'activity' );
-		$html .= esc_html__( 'Step 1: Choose Your Style Direction', 'el-core' );
-		if ( $is_closed ) {
-			$html .= ' <span class="el-es-badge el-es-badge-decision-maker">';
-			$html .= el_es_icon( 'check-circle' );
-			$html .= esc_html__( 'Confirmed', 'el-core' );
-			$html .= '</span>';
-		}
-		$html .= '</h3>';
-
-		// Closed banner
-		if ( $is_closed && ! empty( $confirmed_ids ) ) {
-			// Load confirmed template names
-			global $wpdb;
-			$tbl   = $wpdb->prefix . 'el_es_templates';
-			$ph    = implode( ',', array_fill( 0, count( $confirmed_ids ), '%d' ) );
-			$confirmed_templates = $wpdb->get_results( $wpdb->prepare(
-				"SELECT title, style_category FROM {$tbl} WHERE id IN ({$ph})",
-				...$confirmed_ids
-			) );
-			$confirmed_labels = array_map( fn( $t ) => esc_html( $t->style_category . ' / ' . $t->title ), $confirmed_templates );
-			$html .= '<div class="el-es-review-confirmed-banner">';
-			$html .= el_es_icon( 'check-circle', 20 );
-			$html .= '<strong>' . esc_html__( 'Style Direction Confirmed:', 'el-core' ) . '</strong> ';
-			$html .= implode( ', ', $confirmed_labels );
-			$html .= '</div>';
-		}
-
-		if ( ! $is_closed ) {
-			// Intro + progress tracker
-			$all_votes    = $module->get_review_votes( (int) $active_review->id );
-			$voted_ids    = array_map( fn( $v ) => (int) $v->user_id, $all_votes );
-			$stakeholders = $module->get_stakeholders( $project_id );
-			$total_sh     = count( $stakeholders );
-			$responded    = count( array_filter( $stakeholders, fn( $s ) => in_array( (int) $s->user_id, $voted_ids, true ) ) );
-			$pct          = $total_sh > 0 ? round( ( $responded / $total_sh ) * 100 ) : 0;
-
-			$html .= '<p class="el-es-review-intro">';
-			$html .= esc_html__( 'Browse the examples below. Mark anything you like ♥ or dislike ✕. Preferences save automatically.', 'el-core' );
-			$html .= '</p>';
-
-			// Deadline banner
-			if ( $active_review->deadline ) {
-				$deadline_ts   = strtotime( $active_review->deadline );
-				$now_ts        = current_time( 'timestamp' );
-				$diff_days     = ceil( ( $deadline_ts - $now_ts ) / DAY_IN_SECONDS );
-				$deadline_str  = date_i18n( get_option( 'date_format' ), $deadline_ts );
-
-				$html .= '<div class="el-es-review-deadline-banner">';
-				$html .= el_es_icon( 'calendar' );
-				if ( $diff_days > 0 ) {
-					/* translators: %1$s: formatted date, %2$d: days remaining */
-					$html .= sprintf(
-						esc_html__( 'Share preferences by %1$s (%2$d days remaining)', 'el-core' ),
-						'<strong>' . $deadline_str . '</strong>',
-						$diff_days
-					);
-				} else {
-					$html .= sprintf( esc_html__( 'Deadline was %s', 'el-core' ), '<strong>' . $deadline_str . '</strong>' );
-				}
-				$html .= '</div>';
-			}
-
-			// Progress bar
-			$html .= '<div class="el-es-review-progress" data-review-item-id="' . esc_attr( $active_review->id ) . '">';
-			$html .= '<div class="el-es-review-progress-label">';
-			/* translators: %1$d: responded count, %2$d: total */
-			$html .= sprintf( esc_html__( '%1$d of %2$d team members responded', 'el-core' ), $responded, $total_sh );
-			$html .= '</div>';
-			$html .= '<div class="el-es-review-progress-bar"><div class="el-es-review-progress-fill" style="width:' . $pct . '%"></div></div>';
-			$html .= '</div>';
-
-			// Load templates if we have selected IDs
-			if ( ! empty( $selected_ids ) ) {
-				global $wpdb;
-				$tbl          = $wpdb->prefix . 'el_es_templates';
-				$ph           = implode( ',', array_fill( 0, count( $selected_ids ), '%d' ) );
-				$templates    = $wpdb->get_results( $wpdb->prepare(
-					"SELECT * FROM {$tbl} WHERE id IN ({$ph}) ORDER BY style_category, sort_order",
-					...$selected_ids
-				) );
-
-				// Get current user's vote
-				$user_id    = get_current_user_id();
-				$user_vote  = $module->get_user_vote( (int) $active_review->id, $user_id );
-				$vote_prefs = $user_vote ? ( json_decode( $user_vote->vote_data, true )['preferences'] ?? [] ) : [];
-
-				// Group templates by category
-				$by_category = [];
-				foreach ( $templates as $t ) {
-					$by_category[ $t->style_category ][] = $t;
-				}
-
-				foreach ( $by_category as $category => $cat_templates ) {
-					$html .= '<div class="el-es-mood-board-category">';
-					$html .= '<h4 class="el-es-mood-board-category-label">' . esc_html( strtoupper( $category ) ) . '</h4>';
-					$html .= '<div class="el-es-mood-board-grid">';
-
-					foreach ( $cat_templates as $t ) {
-						$pref     = $vote_prefs[ $t->id ] ?? 'neutral';
-						$img_url  = esc_url( $t->image_url );
-
-						$html .= '<div class="el-es-mood-board-card" data-template-id="' . esc_attr( $t->id ) . '">';
-
-						// Image — click to lightbox
-						$html .= '<div class="el-es-mood-board-image-wrap">';
-						if ( $img_url ) {
-							$html .= '<button type="button" class="el-es-lightbox-trigger" data-src="' . $img_url . '" data-caption="' . esc_attr( $t->title ) . '" aria-label="' . esc_attr__( 'View full image', 'el-core' ) . '">';
-							$html .= '<img src="' . $img_url . '" alt="' . esc_attr( $t->title ) . '" loading="lazy">';
-							$html .= '<div class="el-es-mood-board-zoom-hint">' . el_es_icon( 'external-link', 16 ) . '</div>';
-							$html .= '</button>';
-						} else {
-							$html .= '<div class="el-es-mood-board-no-image">' . el_es_icon( 'file', 32 ) . '</div>';
-						}
-						$html .= '</div>';
-
-						// Category badge + title
-						$html .= '<div class="el-es-mood-board-meta">';
-						$html .= '<span class="el-es-mood-board-category-badge">' . esc_html( $t->style_category ) . '</span>';
-						$html .= '<div class="el-es-mood-board-title">' . esc_html( $t->title ) . '</div>';
-						if ( $t->description ) {
-							$html .= '<div class="el-es-mood-board-desc">' . esc_html( $t->description ) . '</div>';
-						}
-						$html .= '</div>';
-
-						// Vote strip
-						$html .= '<div class="el-es-mood-board-vote-strip">';
-						foreach ( [ 'liked' => '♥', 'neutral' => '—', 'disliked' => '✕' ] as $vote_val => $vote_label ) {
-							$active_class = ( $pref === $vote_val ) ? ' el-es-vote-active el-es-vote-' . $vote_val : '';
-							$html .= '<button type="button" class="el-es-vote-btn' . $active_class . '" data-preference="' . esc_attr( $vote_val ) . '" aria-label="' . esc_attr( ucfirst( $vote_val ) ) . '" aria-pressed="' . ( $pref === $vote_val ? 'true' : 'false' ) . '">';
-							$html .= '<span class="el-es-vote-icon">' . $vote_label . '</span>';
-							$html .= '<span class="el-es-vote-label">' . esc_html( ucfirst( $vote_val ) ) . '</span>';
-							$html .= '</button>';
-						}
-						$html .= '</div>'; // end vote strip
-						$html .= '</div>'; // end mood-board-card
-					}
-
-					$html .= '</div>'; // end mood-board-grid
-					$html .= '</div>'; // end category
-				}
-			} else {
-				$html .= '<div class="el-es-mood-board-empty">';
-				$html .= el_es_icon( 'activity', 48 );
-				$html .= '<p>' . esc_html__( 'Style examples are being prepared for your review.', 'el-core' ) . '</p>';
-				$html .= '</div>';
-			}
-
-			// DM: View Results button (shown after all voted or deadline passed)
+		if ( ! $vbrief || ! $vbrief->portal_submitted_at ) {
+			// Awaiting submission
 			if ( $is_decision_maker ) {
-				$deadline_passed = $active_review->deadline && strtotime( $active_review->deadline ) < current_time( 'timestamp' );
-				$all_voted       = ( $total_sh > 0 && $responded >= $total_sh );
+				// DM sees the intake form
+				$html .= '<p class="el-es-vi-intro">' . esc_html__( 'Before we begin designing your site, we need to gather some information about your organization\'s visual identity. Answer as many questions as you can — the more detail you provide, the better we can build something that truly represents your organization.', 'el-core' ) . '</p>';
+				$html .= el_es_vi_render_portal_form( $vbrief, $project_id );
+			} else {
+				// Contributors see a waiting message
+				$html .= '<div class="el-es-notice el-es-notice-info"><p>' . esc_html__( 'The Decision Maker is completing the Visual Identity intake form. You\'ll see the information here once submitted.', 'el-core' ) . '</p></div>';
+			}
+		} else {
+			// Submitted — all stakeholders see read-only answers
+			$submitted_by_user = get_userdata( (int) $vbrief->portal_submitted_by );
+			$submitted_name    = $submitted_by_user ? $submitted_by_user->display_name : __( 'the Decision Maker', 'el-core' );
+			$submitted_date    = date_i18n( get_option( 'date_format' ), strtotime( $vbrief->portal_submitted_at ) );
 
-				if ( $all_voted || $deadline_passed ) {
-					$html .= '<div class="el-es-mood-board-dm-actions" id="el-es-dm-mood-board-actions">';
-					$html .= '<button type="button" class="el-es-btn el-es-btn-secondary el-es-view-results-btn" data-review-item-id="' . esc_attr( $active_review->id ) . '">';
-					$html .= el_es_icon( 'activity' );
-					$html .= esc_html__( 'View Results', 'el-core' );
-					$html .= '</button>';
-					$html .= '</div>';
-				} else {
-					// Still waiting — show a note
-					$html .= '<div class="el-es-mood-board-dm-actions el-es-dm-waiting" id="el-es-dm-mood-board-actions">';
-					$html .= '<p class="el-es-dm-waiting-note">';
-					$html .= el_es_icon( 'info' );
-					/* translators: %d: number remaining */
-					$html .= sprintf(
-						esc_html__( 'Waiting for %d more team member(s) to respond before results are available.', 'el-core' ),
-						$total_sh - $responded
-					);
-					$html .= '</p>';
-					$html .= '</div>';
-				}
+			$html .= '<div class="el-es-vi-submitted-badge">' . el_es_icon( 'yes-alt', 18 );
+			$html .= sprintf( esc_html__( 'Submitted by %1$s on %2$s', 'el-core' ), esc_html( $submitted_name ), esc_html( $submitted_date ) );
+			$html .= '</div>';
+
+			$html .= '<div class="el-es-vi-readonly">';
+			$html .= el_es_vi_render_portal_readonly( $vbrief );
+			$html .= '</div>';
+
+			if ( $vbrief->locked_at ) {
+				$html .= '<div class="el-es-notice el-es-notice-success"><p>' . esc_html__( 'The Brand Brief has been finalized. Your project is ready to move to Wireframes.', 'el-core' ) . '</p></div>';
+			} else {
+				$html .= '<div class="el-es-notice el-es-notice-info"><p>' . esc_html__( 'Thank you! Our team will review your responses and build your Brand Brief. We\'ll be in touch if we have any questions.', 'el-core' ) . '</p></div>';
 			}
 		}
 
-		$html .= '</div>'; // end branding section
-
-		// Results modal (DM only, rendered hidden)
-		if ( $is_decision_maker && ! $is_closed && ! empty( $selected_ids ) ) {
-			$html .= '<div class="el-es-modal" id="mood-board-results" aria-hidden="true">';
-			$html .= '<div class="el-es-modal-overlay" data-close-modal="mood-board-results"></div>';
-			$html .= '<div class="el-es-modal-container el-es-modal-large">';
-			$html .= '<div class="el-es-modal-header">';
-			$html .= '<h3 class="el-es-modal-title">';
-			$html .= el_es_icon( 'activity' );
-			$html .= esc_html__( 'Style Preference Results', 'el-core' );
-			$html .= '</h3>';
-			$html .= '<button type="button" class="el-es-modal-close" data-close-modal="mood-board-results" aria-label="' . esc_attr__( 'Close', 'el-core' ) . '">';
-			$html .= '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-			$html .= '</button>';
-			$html .= '</div>';
-			$html .= '<div class="el-es-modal-body" id="mood-board-results-body">';
-			$html .= '<div class="el-es-loading-spinner">' . el_es_icon( 'activity', 24 ) . ' ' . esc_html__( 'Loading results…', 'el-core' ) . '</div>';
-			$html .= '</div>';
-			$html .= '<div class="el-es-modal-footer" id="mood-board-results-footer"></div>';
-			$html .= '</div>';
-			$html .= '</div>';
-		}
-
-		// Lightbox
-		$html .= '<div class="el-es-lightbox" id="el-es-lightbox" aria-hidden="true">';
-		$html .= '<div class="el-es-lightbox-overlay"></div>';
-		$html .= '<div class="el-es-lightbox-content">';
-		$html .= '<button class="el-es-lightbox-close" aria-label="' . esc_attr__( 'Close', 'el-core' ) . '">';
-		$html .= '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-		$html .= '</button>';
-		$html .= '<img src="" alt="" id="el-es-lightbox-img">';
-		$html .= '<div class="el-es-lightbox-caption" id="el-es-lightbox-caption"></div>';
-		$html .= '</div>';
 		$html .= '</div>';
 	}
 
@@ -1587,8 +1389,244 @@ function el_es_render_proposal_document( $proposal ): string {
 }
 
 /**
+ * Render the Visual Identity intake form for the portal (DM only).
+ */
+if ( ! function_exists( 'el_es_vi_render_portal_form' ) ) {
+    function el_es_vi_render_portal_form( ?object $brief, int $project_id ): string {
+        $b   = $brief ?: (object) [];
+        $get = fn( $field, $default = '' ) => isset( $b->$field ) ? $b->$field : $default;
+
+        $html  = '<form id="el-es-vi-form" class="el-es-vi-form" data-project-id="' . esc_attr( $project_id ) . '" novalidate>';
+        $html .= '<input type="hidden" name="project_id" value="' . esc_attr( $project_id ) . '">';
+
+        // ── Section 1: Logo ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s1">';
+        $html .= '<h4 class="el-es-vi-section-title">1. ' . esc_html__( 'Logo', 'el-core' ) . '</h4>';
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'Does your organization have a logo?', 'el-core' ) . '</p>';
+        foreach ( [ 'has_logo' => __( 'Yes, we have a logo', 'el-core' ), 'logo_needs_creation' => __( 'No, we need one created', 'el-core' ), 'logo_none' => __( "We're not sure yet", 'el-core' ) ] as $val => $label ) {
+            $checked = '';
+            if ( $val === 'has_logo' && $get( 'has_logo' ) ) $checked = ' checked';
+            elseif ( $val === 'logo_needs_creation' && $get( 'logo_needs_creation' ) && ! $get( 'has_logo' ) ) $checked = ' checked';
+            elseif ( $val === 'logo_none' && ! $get( 'has_logo' ) && ! $get( 'logo_needs_creation' ) && $brief ) $checked = ' checked';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="logo_situation" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+        $html .= '<div class="el-es-vi-conditional" data-show-when="logo_situation:has_logo">';
+        $html .= '<label class="el-es-vi-label">' . esc_html__( 'Upload your logo', 'el-core' ) . '</label>';
+        $html .= '<input type="url" name="logo_url" class="el-es-vi-input el-es-vi-autosave" placeholder="https://..." value="' . esc_attr( $get( 'logo_url' ) ) . '">';
+        $html .= '<textarea name="logo_notes" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( 'Any notes about logo usage? (file formats available, color variations, restrictions, etc.)', 'el-core' ) . '">' . esc_textarea( $get( 'logo_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+        $html .= '<div class="el-es-vi-conditional" data-show-when="logo_situation:logo_needs_creation">';
+        $html .= '<textarea name="logo_notes" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( "Describe what you'd like the logo to represent or feel like.", 'el-core' ) . '">' . esc_textarea( $get( 'logo_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        // ── Section 2: Brand Colors ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s2">';
+        $html .= '<h4 class="el-es-vi-section-title">2. ' . esc_html__( 'Brand Colors', 'el-core' ) . '</h4>';
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'Does your organization have established brand colors?', 'el-core' ) . '</p>';
+        foreach ( [ '1' => __( 'Yes, we have brand colors', 'el-core' ), '0' => __( "No, we don't have established colors", 'el-core' ) ] as $val => $label ) {
+            $checked = ( $get( 'has_brand_colors', -1 ) == $val ) ? ' checked' : '';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="has_brand_colors" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+        $html .= '<div class="el-es-vi-conditional" data-show-when="has_brand_colors:1">';
+        foreach ( [ 'color_primary' => __( 'Primary color (hex or name)', 'el-core' ), 'color_secondary' => __( 'Secondary color', 'el-core' ), 'color_accent' => __( 'Accent color (optional)', 'el-core' ) ] as $field => $lbl ) {
+            $html .= '<label class="el-es-vi-label">' . esc_html( $lbl ) . '</label>';
+            $html .= '<input type="text" name="' . esc_attr( $field ) . '" class="el-es-vi-input el-es-vi-autosave" value="' . esc_attr( $get( $field ) ) . '">';
+        }
+        $html .= '</div>';
+        $html .= '<textarea name="color_notes" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( 'Notes about your colors (Pantone/hex codes, colors to avoid, parent organization requirements, etc.)', 'el-core' ) . '">' . esc_textarea( $get( 'color_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+
+        // ── Section 3: Typography ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s3">';
+        $html .= '<h4 class="el-es-vi-section-title">3. ' . esc_html__( 'Typography', 'el-core' ) . '</h4>';
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'Does your organization use specific fonts?', 'el-core' ) . '</p>';
+        foreach ( [ '1' => __( 'Yes, we use specific fonts', 'el-core' ), '0' => __( "No, we don't have brand fonts", 'el-core' ) ] as $val => $label ) {
+            $checked = ( $get( 'has_brand_fonts', -1 ) == $val ) ? ' checked' : '';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="has_brand_fonts" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+        $html .= '<div class="el-es-vi-conditional" data-show-when="has_brand_fonts:1">';
+        foreach ( [ 'font_heading' => __( 'Heading font name', 'el-core' ), 'font_body' => __( 'Body font name', 'el-core' ) ] as $field => $lbl ) {
+            $html .= '<label class="el-es-vi-label">' . esc_html( $lbl ) . '</label>';
+            $html .= '<input type="text" name="' . esc_attr( $field ) . '" class="el-es-vi-input el-es-vi-autosave" value="' . esc_attr( $get( $field ) ) . '">';
+        }
+        $html .= '<textarea name="font_notes" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( 'Any notes? (where to find the fonts, license info, usage restrictions)', 'el-core' ) . '">' . esc_textarea( $get( 'font_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        // ── Section 4: Existing Materials ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s4">';
+        $html .= '<h4 class="el-es-vi-section-title">4. ' . esc_html__( 'Existing Materials', 'el-core' ) . '</h4>';
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'Do you have any existing marketing materials we should reference for consistency? (Letterhead, brochures, printed pieces, a previous website, etc.)', 'el-core' ) . '</p>';
+        foreach ( [ '1' => __( 'Yes, we have existing materials', 'el-core' ), '0' => __( "No, we're starting fresh", 'el-core' ) ] as $val => $label ) {
+            $checked = ( $get( 'has_existing_materials', -1 ) == $val ) ? ' checked' : '';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="has_existing_materials" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+        $html .= '<div class="el-es-vi-conditional" data-show-when="has_existing_materials:1">';
+        $html .= '<label class="el-es-vi-label">' . esc_html__( 'Link to shared folder, Google Drive, or website', 'el-core' ) . '</label>';
+        $html .= '<input type="url" name="existing_materials_url" class="el-es-vi-input el-es-vi-autosave" placeholder="https://..." value="' . esc_attr( $get( 'existing_materials_url' ) ) . '">';
+        $html .= '<textarea name="existing_materials_notes" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( 'What should we pay attention to in these materials?', 'el-core' ) . '">' . esc_textarea( $get( 'existing_materials_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        // ── Section 5: Visual Personality ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s5">';
+        $html .= '<h4 class="el-es-vi-section-title">5. ' . esc_html__( 'Visual Personality', 'el-core' ) . '</h4>';
+        $fields5 = [
+            'audience_description' => [ 'q' => __( 'Who is the primary audience for this site?', 'el-core' ), 'hint' => __( 'For example: Middle school students and their parents, program staff, and district administrators', 'el-core' ) ],
+            'tone_feel'            => [ 'q' => __( 'How should the site feel?', 'el-core' ), 'hint' => __( 'For example: Energetic and approachable, not corporate or formal. Warm and community-focused.', 'el-core' ) ],
+            'sites_they_like'      => [ 'q' => __( 'Are there any websites you admire that feel right for you?', 'el-core' ), 'hint' => __( 'For example: We love the look of khanacademy.org — clean, bright, focused on learning.', 'el-core' ) ],
+            'sites_to_avoid'       => [ 'q' => __( 'Are there websites or styles that feel wrong for your organization?', 'el-core' ), 'hint' => __( "For example: Too corporate, clip-art heavy, or overly childish. We don't want to look like a generic government site.", 'el-core' ) ],
+        ];
+        foreach ( $fields5 as $field => $info ) {
+            $html .= '<div class="el-es-vi-field-group">';
+            $html .= '<p class="el-es-vi-question">' . esc_html( $info['q'] ) . '</p>';
+            $html .= '<em class="el-es-vi-hint">' . esc_html( $info['hint'] ) . '</em>';
+            $html .= '<textarea name="' . esc_attr( $field ) . '" class="el-es-vi-textarea el-es-vi-autosave">' . esc_textarea( $get( $field ) ) . '</textarea>';
+            $html .= '</div>';
+        }
+        $html .= '</div>';
+
+        // ── Section 6: Site Pages ──
+        $pages_json = $get( 'pages_needed', '[]' );
+        $pages_arr  = json_decode( $pages_json, true ) ?: [];
+        $pages_text = implode( "\n", $pages_arr );
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s6">';
+        $html .= '<h4 class="el-es-vi-section-title">6. ' . esc_html__( 'Site Pages', 'el-core' ) . '</h4>';
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'What pages does your site need?', 'el-core' ) . '</p>';
+        $html .= '<em class="el-es-vi-hint">' . esc_html__( 'Enter one page name per line. For example: Homepage, About Us, Programs, Events, Contact', 'el-core' ) . '</em>';
+        $html .= '<textarea name="pages_needed_text" id="el-es-vi-pages-text" class="el-es-vi-textarea" rows="6">' . esc_textarea( $pages_text ) . '</textarea>';
+        $html .= '<input type="hidden" name="pages_needed" id="el-es-vi-pages-hidden" value="' . esc_attr( $pages_json ) . '">';
+        $html .= '</div>';
+
+        // ── Section 7: Photography ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s7">';
+        $html .= '<h4 class="el-es-vi-section-title">7. ' . esc_html__( 'Photography', 'el-core' ) . '</h4>';
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'Does your organization have photos we can use on the site?', 'el-core' ) . '</p>';
+        $photo_val = 'none';
+        if ( $get( 'has_photography' ) && $get( 'needs_stock_photography' ) ) $photo_val = 'both';
+        elseif ( $get( 'has_photography' ) ) $photo_val = 'yes';
+        elseif ( $get( 'needs_stock_photography' ) ) $photo_val = 'no';
+        foreach ( [ 'yes' => __( 'Yes, we have our own photos', 'el-core' ), 'no' => __( 'No, we need stock photography', 'el-core' ), 'both' => __( 'Both — we have some photos and will need stock too', 'el-core' ) ] as $val => $label ) {
+            $checked = ( $photo_val === $val ) ? ' checked' : '';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="photography_situation" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+        $html .= '<div class="el-es-vi-conditional" data-show-when="photography_situation:yes,both">';
+        $html .= '<label class="el-es-vi-label">' . esc_html__( 'Link to a photo folder or gallery we can access', 'el-core' ) . '</label>';
+        $html .= '<input type="url" name="photography_url" class="el-es-vi-input el-es-vi-autosave" placeholder="https://..." value="' . esc_attr( $get( 'photography_url' ) ) . '">';
+        $html .= '</div>';
+        $html .= '<textarea name="photography_notes" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( 'Any notes about photos or the type of imagery you need.', 'el-core' ) . '">' . esc_textarea( $get( 'photography_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+
+        // ── Section 8: Constraints ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s8">';
+        $html .= '<h4 class="el-es-vi-section-title">8. ' . esc_html__( 'Constraints', 'el-core' ) . '</h4>';
+
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'Is there a parent organization (like a school district or county office) whose logo or colors must appear on the site?', 'el-core' ) . '</p>';
+        foreach ( [ '1' => __( 'Yes', 'el-core' ), '0' => __( 'No', 'el-core' ) ] as $val => $label ) {
+            $checked = ( $get( 'has_parent_org_brand', -1 ) == $val ) ? ' checked' : '';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="has_parent_org_brand" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+        $html .= '<div class="el-es-vi-conditional" data-show-when="has_parent_org_brand:1">';
+        $html .= '<textarea name="parent_org_brand_notes" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( 'Describe the requirements — what must be included, any brand standards we need to follow.', 'el-core' ) . '">' . esc_textarea( $get( 'parent_org_brand_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+
+        $html .= '<p class="el-es-vi-question" style="margin-top:16px;">' . esc_html__( 'Does your organization have accessibility requirements?', 'el-core' ) . '</p>';
+        $acc_options = [ 'WCAG 2.1 AA' => __( 'Yes — WCAG 2.1 AA required', 'el-core' ), 'best_practices' => __( 'Not sure — please use best practices', 'el-core' ), '' => __( 'No specific requirement', 'el-core' ) ];
+        $curr_acc = $get( 'accessibility_standard' );
+        foreach ( $acc_options as $val => $label ) {
+            $checked = ( $curr_acc === $val ) ? ' checked' : '';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="accessibility_standard" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+
+        $html .= '<p class="el-es-vi-question" style="margin-top:16px;">' . esc_html__( 'Does your site need to support multiple languages?', 'el-core' ) . '</p>';
+        foreach ( [ '1' => __( 'Yes', 'el-core' ), '0' => __( 'No', 'el-core' ) ] as $val => $label ) {
+            $checked = ( $get( 'multilingual', -1 ) == $val ) ? ' checked' : '';
+            $html .= '<label class="el-es-vi-radio-label"><input type="radio" name="multilingual" value="' . esc_attr( $val ) . '"' . $checked . '> ' . esc_html( $label ) . '</label>';
+        }
+        $html .= '<div class="el-es-vi-conditional" data-show-when="multilingual:1">';
+        $html .= '<label class="el-es-vi-label">' . esc_html__( 'Which languages?', 'el-core' ) . '</label>';
+        $html .= '<em class="el-es-vi-hint">' . esc_html__( 'For example: English and Spanish', 'el-core' ) . '</em>';
+        $html .= '<input type="text" name="languages" class="el-es-vi-input el-es-vi-autosave" value="' . esc_attr( $get( 'languages' ) ) . '">';
+        $html .= '</div>';
+
+        $html .= '<label class="el-es-vi-label" style="margin-top:16px;">' . esc_html__( 'Any other constraints or requirements we should know about?', 'el-core' ) . '</label>';
+        $html .= '<textarea name="other_constraints" class="el-es-vi-textarea el-es-vi-autosave" placeholder="' . esc_attr__( 'Optional', 'el-core' ) . '">' . esc_textarea( $get( 'other_constraints' ) ) . '</textarea>';
+        $html .= '</div>';
+
+        // ── Section 9: Additional Notes ──
+        $html .= '<div class="el-es-vi-section" id="el-es-vi-s9">';
+        $html .= '<h4 class="el-es-vi-section-title">9. ' . esc_html__( 'Additional Notes', 'el-core' ) . '</h4>';
+        $html .= '<p class="el-es-vi-question">' . esc_html__( 'Anything else that would help us design your site?', 'el-core' ) . '</p>';
+        $html .= '<em class="el-es-vi-hint">' . esc_html__( "Feel free to add anything that didn't fit the questions above.", 'el-core' ) . '</em>';
+        $html .= '<textarea name="additional_notes" class="el-es-vi-textarea el-es-vi-autosave">' . esc_textarea( $get( 'additional_notes' ) ) . '</textarea>';
+        $html .= '</div>';
+
+        // Submit
+        $submitted = ( $brief && $brief->portal_submitted_at );
+        if ( ! $submitted ) {
+            $html .= '<div class="el-es-vi-submit-row">';
+            $html .= '<div class="el-es-vi-autosave-indicator" id="el-es-vi-save-indicator" aria-live="polite"></div>';
+            $html .= '<button type="submit" class="el-es-btn el-es-btn-primary el-es-vi-submit-btn" id="el-es-vi-submit-btn">';
+            $html .= esc_html__( 'Submit Visual Identity Information', 'el-core' );
+            $html .= '</button>';
+            $html .= '</div>';
+        }
+
+        $html .= '</form>';
+        return $html;
+    }
+}
+
+if ( ! function_exists( 'el_es_vi_render_portal_readonly' ) ) {
+    function el_es_vi_render_portal_readonly( object $brief ): string {
+        $get = fn( $field, $default = '' ) => isset( $brief->$field ) ? $brief->$field : $default;
+        $row = fn( $label, $value ) => '<div class="el-es-vi-readonly-row"><span class="el-es-vi-readonly-label">' . esc_html( $label ) . '</span><span class="el-es-vi-readonly-value">' . ( $value ?: '<em>' . esc_html__( 'Not provided', 'el-core' ) . '</em>' ) . '</span></div>';
+
+        $out = '';
+        // Logo
+        $logo_status = $get( 'has_logo' ) ? __( 'Has existing logo', 'el-core' ) : ( $get( 'logo_needs_creation' ) ? __( 'Needs to be created', 'el-core' ) : __( 'To be determined', 'el-core' ) );
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Logo', 'el-core' ) . '</h4>';
+        $out .= $row( __( 'Status', 'el-core' ), esc_html( $logo_status ) );
+        if ( $get( 'logo_notes' ) ) $out .= $row( __( 'Notes', 'el-core' ), nl2br( esc_html( $get( 'logo_notes' ) ) ) );
+        $out .= '</div>';
+        // Colors
+        $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Colors', 'el-core' ) . '</h4>';
+        if ( $get( 'has_brand_colors' ) ) {
+            foreach ( [ 'color_primary' => 'Primary', 'color_secondary' => 'Secondary', 'color_accent' => 'Accent' ] as $f => $l ) {
+                if ( $get( $f ) ) $out .= $row( $l, '<span class="el-es-color-swatch" style="background:' . esc_attr( $get( $f ) ) . '"></span> ' . esc_html( $get( $f ) ) );
+            }
+        } else {
+            $out .= $row( __( 'Status', 'el-core' ), esc_html__( 'No established colors', 'el-core' ) );
+        }
+        if ( $get( 'color_notes' ) ) $out .= $row( __( 'Notes', 'el-core' ), nl2br( esc_html( $get( 'color_notes' ) ) ) );
+        $out .= '</div>';
+        // More sections similarly...
+        foreach ( [
+            'audience_description' => __( 'Primary Audience', 'el-core' ),
+            'tone_feel'            => __( 'Tone and Feel', 'el-core' ),
+            'sites_they_like'      => __( 'Reference Sites (Likes)', 'el-core' ),
+            'sites_to_avoid'       => __( 'Styles to Avoid', 'el-core' ),
+        ] as $f => $l ) {
+            if ( $get( $f ) ) {
+                $out .= '<div class="el-es-vi-section">';
+                $out .= $row( $l, nl2br( esc_html( $get( $f ) ) ) );
+                $out .= '</div>';
+            }
+        }
+        // Pages
+        $pages = $get( 'pages_needed' ) ? ( json_decode( $get( 'pages_needed' ), true ) ?: [] ) : [];
+        if ( $pages ) {
+            $out .= '<div class="el-es-vi-section"><h4 class="el-es-vi-section-title">' . esc_html__( 'Site Pages', 'el-core' ) . '</h4><ol>';
+            foreach ( $pages as $pg ) $out .= '<li>' . esc_html( $pg ) . '</li>';
+            $out .= '</ol></div>';
+        }
+        return $out;
+    }
+}
+
+/**
  * Helper function: Generate inline SVG icon
- * Using Feather Icons set (https://feathericons.com/)
  *
  * @param string $name Icon name
  * @param int $size Icon size in pixels
