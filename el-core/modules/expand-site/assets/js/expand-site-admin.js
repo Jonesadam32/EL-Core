@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Expand Site Module â€” Admin JavaScript
  * 
  * Handles project creation form submission via AJAX

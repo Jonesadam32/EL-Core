@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Expand Site â€” Client Portal JavaScript
  *
  * Vanilla JS only. Uses ELCore.ajax(). Event delegation on document.

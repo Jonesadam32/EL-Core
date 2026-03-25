@@ -140,8 +140,10 @@ class EL_Module_Loader {
 
             require_once $class_file;
 
-            // Convert slug to class name: events → EL_Events_Module
-            $class_name = 'EL_' . str_replace( '-', '_', ucwords( $slug, '-' ) ) . '_Module';
+            // Class name: optional manifest override (needed when ucwords() does not match, e.g.
+            // fluent-crm-integration → EL_Fluent_Crm_* vs actual EL_FluentCRM_Integration_Module).
+            $derived = 'EL_' . str_replace( '-', '_', ucwords( $slug, '-' ) ) . '_Module';
+            $class_name = $manifest['main_class'] ?? $derived;
 
             if ( ! class_exists( $class_name ) ) {
                 error_log( "EL Core: Module class '{$class_name}' not found after loading {$class_file}" );
@@ -155,14 +157,23 @@ class EL_Module_Loader {
             // Deactivate the broken module so it doesn't crash the site again
             $this->active = array_values( array_diff( $this->active, [ $slug ] ) );
             $this->core->settings->set_active_modules( $this->active );
-            
+
+            $error_msg = sprintf(
+                '<strong>EL Core:</strong> Module "<strong>%s</strong>" failed to load and was deactivated.<br>Error: %s<br><small>File: %s (line %d)</small>',
+                esc_html( $slug ),
+                esc_html( $e->getMessage() ),
+                esc_html( $e->getFile() ),
+                $e->getLine()
+            );
+
+            // Store in transient so it shows after any redirect (admin_notices may have already fired)
+            $existing = get_transient( 'el_core_module_errors' ) ?: [];
+            $existing[] = $error_msg;
+            set_transient( 'el_core_module_errors', $existing, 60 );
+
             if ( is_admin() ) {
-                add_action( 'admin_notices', function() use ( $slug, $e ) {
-                    echo '<div class="notice notice-error"><p>';
-                    echo '<strong>EL Core:</strong> Module "' . esc_html( $slug ) . '" was automatically deactivated due to an error: ';
-                    echo esc_html( $e->getMessage() );
-                    echo '<br><small>File: ' . esc_html( $e->getFile() ) . ' (line ' . $e->getLine() . ')</small>';
-                    echo '</p></div>';
+                add_action( 'admin_notices', function() use ( $error_msg ) {
+                    echo '<div class="notice notice-error"><p>' . $error_msg . '</p></div>';
                 });
             }
             return false;
@@ -244,17 +255,15 @@ class EL_Module_Loader {
         $this->active[] = $slug;
         $this->core->settings->set_active_modules( $this->active );
 
-        // Load it now
-        $this->load_module( $slug );
+        // Load it now (on failure: load_module removes slug on exception; on requirements failure it does not)
+        $loaded = $this->load_module( $slug );
+        if ( ! $loaded ) {
+            $this->active = array_values( array_diff( $this->active, [ $slug ] ) );
+            $this->core->settings->set_active_modules( $this->active );
+            return false;
+        }
 
-        // Apply default role mappings on first activation
-        if ( isset( $manifest['capabilities'] ) ) {
-            $this->core->roles->register_module_capabilities( $slug, $manifest );
-        }
-        
-        if ( isset( $manifest['default_role_mapping'] ) ) {
-            $this->core->roles->apply_default_mappings( $manifest['default_role_mapping'] );
-        }
+        // Capabilities and role maps are applied inside load_module on every load; no duplicate work here.
 
         do_action( 'el_core_module_activated', $slug, $manifest );
 

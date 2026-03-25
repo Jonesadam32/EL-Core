@@ -1,6 +1,7 @@
 {
     "name": "AI Integration",
     "slug": "ai-integration",
+    "main_class": "EL_AI_Integration_Module",
     "version": "1.0.0",
     "description": "OpenAI API integration for AI-powered features like transcript analysis and content generation",
     "author": "Expanded Learning Solutions",

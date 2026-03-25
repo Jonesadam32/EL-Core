@@ -6,6 +6,48 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.34.5] — 2026-03-25
+
+### Fixed
+- **Module activation — POST/Redirect/GET pattern:** The modules form was handled inside the WordPress page callback, which fires *after* HTML is already output. This had two consequences: (1) `wp_safe_redirect()` could not be called because headers were already sent, and (2) any error added via `add_action('admin_notices', ...)` inside `load_module()` never appeared because that hook had already fired. Moved all form processing to a new `handle_modules_form()` method hooked on `load-{page}` — which fires before any output — so the redirect works and all error notices display correctly after the redirect.
+- **Error visibility after load failure:** Module load errors now survive the redirect via `set_transient()` and are shown both via `admin_notices` (for errors caught on page load) and inline in the modules view (for errors from the activation redirect).
+
+---
+
+
+
+### Fixed
+- **Root cause of Expand Site module not saving as active:** `expand-site.js` and `expand-site-admin.js` both had a UTF-8 BOM (`EF BB BF`) prepended. WordPress outputs JS files inline during admin page load — the BOM caused stray bytes to be emitted before the page HTML, corrupting the form POST response so the module save appeared to succeed but the page reloaded without the checkbox checked. Stripped BOM from both files.
+
+---
+
+## [1.34.3] — 2026-03-24
+
+### Fixed
+- **AI Integration module activation:** Same `ucwords()` mismatch as Fluent CRM — loader derived `EL_Ai_Integration_Module` but the class is `EL_AI_Integration_Module`. Added `"main_class": "EL_AI_Integration_Module"` to `ai-integration/module.json`. This was causing the "EL Core" / AI module to silently fail activation and uncheck itself.
+
+---
+
+## [1.34.2] — 2026-03-24
+
+### Fixed
+- **Module activation — Fluent CRM Integration:** The loader derived the PHP class name as `EL_Fluent_Crm_Integration_Module`, but the real class is `EL_FluentCRM_Integration_Module`. Activating this module threw “class not found,” auto-deactivated the module, and made it look like the checkbox would not stick. Added optional manifest key `main_class` and set it for `fluent-crm-integration`.
+- **Module activation — requirements / load failures:** If `load_module()` failed (e.g. requirements not met) after saving the active list, the slug could remain enabled while the module did not load. `activate()` now rolls back the active list when load fails and returns `false`.
+- **Removed duplicate capability registration** on activate (already handled inside `load_module()`).
+- **Expand Site singleton:** If `instance()` runs before the loader injects `EL_Core`, a later call with `$core` now attaches it.
+
+### Changed
+- **Module Manager:** Clearer error text when activation fails (where to look in `debug.log` and admin notices).
+
+---
+
+## [1.34.1] — 2026-03-24
+
+### Fixed
+- **Expand Site admin:** `project-list.php` and `settings.php` accessed `$module->core` while `EL_Expand_Site_Module::$core` was private, causing a fatal error and a blank/non-loading Expand Site screen. The property is now public (same pattern as EL Core’s subsystems).
+
+---
+
 ## [1.34.0] — 2026-03-10
 
 ### Added — Phase 5: Visual Identity

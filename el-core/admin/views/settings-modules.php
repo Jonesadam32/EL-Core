@@ -1,7 +1,6 @@
 <?php
 /**
- * EL Core — Module Manager
- * Toggle modules on/off with dependency resolution
+ * EL Core — Module Manager (view only — form processing is in handle_modules_form())
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -10,40 +9,27 @@ $core       = EL_Core::instance();
 $discovered = $core->modules->get_discovered();
 $active     = $core->modules->get_active();
 
-// Handle form submission
-if ( isset( $_POST['el_save_modules'] ) && check_admin_referer( 'el_core_modules_nonce' ) ) {
-    $new_active = $_POST['active_modules'] ?? [];
-    $new_active = array_map( 'sanitize_text_field', $new_active );
-
-    // Deactivate modules that were unchecked
-    foreach ( $active as $slug ) {
-        if ( ! in_array( $slug, $new_active, true ) ) {
-            $result = $core->modules->deactivate( $slug );
-            if ( ! $result ) {
-                $dependents = $core->modules->get_dependents( $slug );
-                echo '<div class="notice notice-error"><p>';
-                echo 'Cannot deactivate <strong>' . esc_html( $discovered[$slug]['name'] ?? $slug ) . '</strong> — ';
-                echo 'required by: ' . esc_html( implode( ', ', $dependents ) );
-                echo '</p></div>';
-            }
-        }
+// ── Show load errors (from transient — set by load_module() or handle_modules_form()) ──
+$load_errors = get_transient( 'el_core_module_errors' );
+if ( ! empty( $load_errors ) ) {
+    delete_transient( 'el_core_module_errors' );
+    foreach ( $load_errors as $err ) {
+        echo '<div class="notice notice-error"><p>' . $err . '</p></div>';
     }
+}
 
-    // Activate newly checked modules
-    foreach ( $new_active as $slug ) {
-        if ( ! in_array( $slug, $active, true ) ) {
-            $result = $core->modules->activate( $slug );
-            if ( ! $result ) {
-                echo '<div class="notice notice-error"><p>';
-                echo 'Failed to activate <strong>' . esc_html( $discovered[$slug]['name'] ?? $slug ) . '</strong>. ';
-                echo 'Check error log for details.';
-                echo '</p></div>';
-            }
-        }
+// ── Show deactivation warnings ──
+$module_warnings = get_transient( 'el_core_module_warnings' );
+if ( ! empty( $module_warnings ) ) {
+    delete_transient( 'el_core_module_warnings' );
+    foreach ( $module_warnings as $w ) {
+        echo '<div class="notice notice-warning"><p>' . $w . '</p></div>';
     }
+}
 
-    // Refresh
-    $active = $core->modules->get_active();
+// ── Show saved confirmation ──
+if ( get_transient( 'el_core_module_saved' ) ) {
+    delete_transient( 'el_core_module_saved' );
     echo '<div class="notice notice-success"><p>Module configuration saved!</p></div>';
 }
 ?>
@@ -77,7 +63,7 @@ if ( isset( $_POST['el_save_modules'] ) && check_admin_referer( 'el_core_modules
                         $deps       = $manifest['requires']['modules'] ?? [];
                         $dependents = $core->modules->get_dependents( $slug );
                         $has_dependents = ! empty( $dependents );
-                    ?>
+                        ?>
                     <tr>
                         <td>
                             <input

@@ -11,11 +11,16 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class EL_Expand_Site_Module {
 
     private static ?EL_Expand_Site_Module $instance = null;
-    private ?EL_Core $core = null;
+
+    /** @var EL_Core|null Core reference; public so admin views can read settings/database (matches EL_Core subsystem visibility). */
+    public ?EL_Core $core = null;
 
     public static function instance( ?EL_Core $core = null ): self {
         if ( null === self::$instance ) {
             self::$instance = new self( $core );
+        } elseif ( $core !== null && self::$instance->core === null ) {
+            // If something called instance() before the module loader passed EL_Core, bind it now.
+            self::$instance->core = $core;
         }
         return self::$instance;
     }

@@ -1,6 +1,7 @@
 {
     "name": "Fluent CRM Integration",
     "slug": "fluent-crm-integration",
+    "main_class": "EL_FluentCRM_Integration_Module",
     "version": "1.0.0",
     "description": "Integration layer for Fluent CRM - provides a clean API for other modules to interact with contacts, companies, tags, and lists",
     "author": "Expanded Learning Solutions",

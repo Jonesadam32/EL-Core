@@ -222,7 +222,9 @@ class EL_Core {
         // and ensures it stays labeled "Dashboard" when other submenus are added.
         add_submenu_page( 'el-core', 'EL Core Dashboard', 'Dashboard', 'manage_options', 'el-core', [ $this, 'render_admin_page' ] );
         add_submenu_page( 'el-core', 'Brand Settings', 'Brand', 'manage_options', 'el-core-brand', [ $this, 'render_brand_page' ] );
-        add_submenu_page( 'el-core', 'Module Manager', 'Modules', 'manage_options', 'el-core-modules', [ $this, 'render_modules_page' ] );
+        $modules_page = add_submenu_page( 'el-core', 'Module Manager', 'Modules', 'manage_options', 'el-core-modules', [ $this, 'render_modules_page' ] );
+        // Process the modules form before HTML output (POST/Redirect/GET pattern)
+        add_action( "load-{$modules_page}", [ $this, 'handle_modules_form' ] );
         add_submenu_page( 'el-core', 'Role Manager', 'Roles', 'manage_options', 'el-core-roles', [ $this, 'render_roles_page' ] );
         add_submenu_page( 'el-core', 'Menu Visibility', 'Menus', 'manage_options', 'el-core-menus', [ $this, 'render_menu_page' ] );
     }
@@ -275,6 +277,55 @@ class EL_Core {
 
     public function render_modules_page(): void {
         include EL_CORE_DIR . 'admin/views/settings-modules.php';
+    }
+
+    /**
+     * Process the modules form before any HTML is output (fires on load-{page} hook).
+     * Uses POST/Redirect/GET so admin_notices fires correctly on the next page load.
+     */
+    public function handle_modules_form(): void {
+        if ( ! isset( $_POST['el_save_modules'] ) ) {
+            return;
+        }
+        check_admin_referer( 'el_core_modules_nonce' );
+
+        $discovered = $this->modules->get_discovered();
+        $active     = $this->modules->get_active();
+        $new_active = array_map( 'sanitize_text_field', (array) ( $_POST['active_modules'] ?? [] ) );
+
+        // Deactivate modules that were unchecked
+        foreach ( $active as $slug ) {
+            if ( ! in_array( $slug, $new_active, true ) ) {
+                $result = $this->modules->deactivate( $slug );
+                if ( ! $result ) {
+                    $dependents = $this->modules->get_dependents( $slug );
+                    $existing   = get_transient( 'el_core_module_warnings' ) ?: [];
+                    $existing[] = 'Cannot deactivate <strong>' . esc_html( $discovered[ $slug ]['name'] ?? $slug ) . '</strong> — required by: ' . esc_html( implode( ', ', $dependents ) );
+                    set_transient( 'el_core_module_warnings', $existing, 60 );
+                }
+            }
+        }
+
+        // Activate newly checked modules
+        $any_error = false;
+        foreach ( $new_active as $slug ) {
+            if ( ! in_array( $slug, $active, true ) ) {
+                $result = $this->modules->activate( $slug );
+                if ( ! $result ) {
+                    $any_error  = true;
+                    $existing   = get_transient( 'el_core_module_errors' ) ?: [];
+                    $existing[] = 'Failed to activate <strong>' . esc_html( $discovered[ $slug ]['name'] ?? $slug ) . '</strong> (<code>' . esc_html( $slug ) . '</code>). See the error details above, or enable <code>WP_DEBUG_LOG</code> and check <code>debug.log</code> for lines starting with <strong>EL Core:</strong>.';
+                    set_transient( 'el_core_module_errors', $existing, 60 );
+                }
+            }
+        }
+
+        if ( ! $any_error && ! get_transient( 'el_core_module_warnings' ) ) {
+            set_transient( 'el_core_module_saved', true, 60 );
+        }
+
+        wp_safe_redirect( admin_url( 'admin.php?page=el-core-modules' ) );
+        exit;
     }
 
     public function render_menu_page(): void {
