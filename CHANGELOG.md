@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.34.7] — 2026-04-01
+
+### Fixed
+- **Expand Site module — second missing function signature:** `public function add_deliverable( array $data )` was deleted during the v1.34.0 Mood Board removal, leaving an orphaned `return` body at the class level (line 1349). This is a PHP fatal parse error: "unexpected token return, expecting function". The v1.34.6 fix addressed a different orphaned block in the same session; this one was missed because the laptop session had overwritten the earlier fix to `add_deliverable()` during the merge conflict resolution.
+
+---
+
 ## [1.34.6] — 2026-04-01
 
 ### Fixed

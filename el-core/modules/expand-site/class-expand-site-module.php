@@ -1346,6 +1346,8 @@ class EL_Expand_Site_Module {
 
         EL_AJAX_Handler::success( null, __( 'Brand Brief unlocked.', 'el-core' ) );
     }
+
+    public function add_deliverable( array $data ): int|false {
         return $this->core->database->insert( 'el_es_deliverables', [
             'project_id'    => absint( $data['project_id'] ?? 0 ),
             'stage'         => absint( $data['stage'] ?? 0 ),
