@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.34.6] — 2026-04-01
+
+### Fixed
+- **Expand Site module PHP parse error — missing `if ( $result )` in `handle_advance_stage()`:** During the v1.34.0 Mood Board removal, the `if ( $result ) {` condition line was accidentally deleted from `handle_advance_stage()`. The `$result = $this->advance_stage(...)` call remained, but the opening brace of the if-block was gone — leaving an orphaned `} else {` and `}` at the class level. This was a fatal PHP parse error that prevented the module from loading on any WordPress installation.
+
+---
+
 ## [1.34.5] — 2026-03-25
 
 ### Fixed

@@ -1633,6 +1633,7 @@ class EL_Expand_Site_Module {
         }
 
         $result = $this->advance_stage( $project_id, $notes, $deadline );
+        if ( $result ) {
             $project = $this->get_project( $project_id );
             EL_AJAX_Handler::success( [
                 'new_stage'      => $project->current_stage,
