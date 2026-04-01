@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.34.8] — 2026-04-01
+
+### Added
+- **New module: ELS Bookkeeping (Phase 1 — Foundation).** Internal bookkeeping tool for Expanded Learning Solutions LLC. Replaces the Done For You Tax web app. Phase 1 includes:
+  - `module.json` with full DB schema: 5 tables (`el_bk_transactions`, `el_bk_rules`, `el_bk_travel_periods`, `el_bk_receipts`, `el_bk_contractors`, `el_bk_contractor_assignments`), 3 capabilities (`manage_bookkeeping`, `view_bookkeeping`, `manage_bookkeeping_settings`), 4 settings.
+  - `class-bookkeeping-module.php`: singleton pattern, 19 AJAX handlers wired (expenses, rules, travel periods, receipts, contractors), auto-classification logic (travel date rules + keyword rules), PHP helpers for all DB tables.
+  - Admin page with 8-tab navigation: Expenses, Income & Deposits, Profit & Loss, Contractors, Known Expenses, Travel Dates, Receipts, Settings.
+  - All 8 admin views scaffolded with appropriate HTML structure and Phase placeholders.
+  - Full CSS (`bookkeeping.css`) and JS (`bookkeeping.js`) for tabs, inline editing, rules CRUD, travel period CRUD, contractor CRUD, AI chat UI, P&L presets.
+  - Settings tab is fully functional (form POST save, no AJAX required).
+
+---
+
 ## [1.34.7] — 2026-04-01
 
 ### Fixed

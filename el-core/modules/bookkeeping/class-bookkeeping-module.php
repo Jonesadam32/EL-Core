@@ -1,0 +1,881 @@
+<?php
+/**
+ * ELS Bookkeeping Module
+ *
+ * Internal bookkeeping tool for Expanded Learning Solutions LLC.
+ * Handles expense categorization, income tracking, contractor management,
+ * receipt scanning (AI), and Schedule C P&L reporting.
+ *
+ * Admin-only module. No client-facing shortcodes.
+ * CSS prefix: el-bk-
+ * Table prefix: el_bk_
+ */
+
+if ( ! defined( 'ABSPATH' ) ) exit;
+
+class EL_Bookkeeping_Module {
+
+    private static ?EL_Bookkeeping_Module $instance = null;
+
+    /** @var EL_Core|null Core reference; public so admin views can access settings/database. */
+    public ?EL_Core $core = null;
+
+    // ─────────────────────────────────────────────────────────────
+    // SINGLETON
+    // ─────────────────────────────────────────────────────────────
+
+    public static function instance( ?EL_Core $core = null ): self {
+        if ( null === self::$instance ) {
+            self::$instance = new self( $core );
+        } elseif ( $core !== null && self::$instance->core === null ) {
+            self::$instance->core = $core;
+        }
+        return self::$instance;
+    }
+
+    private function __construct( ?EL_Core $core = null ) {
+        $this->core = $core;
+        $this->init_hooks();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // HOOKS
+    // ─────────────────────────────────────────────────────────────
+
+    private function init_hooks(): void {
+        // Admin menu + assets
+        add_action( 'admin_menu',            [ $this, 'register_admin_menu' ], 20 );
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
+
+        // ── Expenses ──────────────────────────────────────────────
+        add_action( 'el_core_ajax_bk_import_csv',          [ $this, 'handle_csv_import' ] );
+        add_action( 'el_core_ajax_bk_update_transaction',  [ $this, 'handle_update_transaction' ] );
+        add_action( 'el_core_ajax_bk_bulk_confirm',        [ $this, 'handle_bulk_confirm' ] );
+        add_action( 'el_core_ajax_bk_export_csv',          [ $this, 'handle_export_csv' ] );
+        add_action( 'el_core_ajax_bk_export_pl',           [ $this, 'handle_export_pl' ] );
+
+        // ── Known Expense Rules ───────────────────────────────────
+        add_action( 'el_core_ajax_bk_process_rules',       [ $this, 'handle_process_rules' ] );
+        add_action( 'el_core_ajax_bk_save_rule',           [ $this, 'handle_save_rule' ] );
+        add_action( 'el_core_ajax_bk_delete_rule',         [ $this, 'handle_delete_rule' ] );
+        add_action( 'el_core_ajax_bk_reorder_rules',       [ $this, 'handle_reorder_rules' ] );
+
+        // ── Travel Dates ──────────────────────────────────────────
+        add_action( 'el_core_ajax_bk_save_travel_period',   [ $this, 'handle_save_travel_period' ] );
+        add_action( 'el_core_ajax_bk_delete_travel_period', [ $this, 'handle_delete_travel_period' ] );
+        add_action( 'el_core_ajax_bk_reapply_travel_rules', [ $this, 'handle_reapply_travel_rules' ] );
+
+        // ── Receipts ──────────────────────────────────────────────
+        add_action( 'el_core_ajax_bk_upload_receipt',      [ $this, 'handle_upload_receipt' ] );
+        add_action( 'el_core_ajax_bk_attach_receipt',      [ $this, 'handle_attach_receipt' ] );
+        add_action( 'el_core_ajax_bk_detach_receipt',      [ $this, 'handle_detach_receipt' ] );
+        add_action( 'el_core_ajax_bk_delete_receipt',      [ $this, 'handle_delete_receipt' ] );
+
+        // ── Contractors ───────────────────────────────────────────
+        add_action( 'el_core_ajax_bk_save_contractor',     [ $this, 'handle_save_contractor' ] );
+        add_action( 'el_core_ajax_bk_delete_contractor',   [ $this, 'handle_delete_contractor' ] );
+        add_action( 'el_core_ajax_bk_assign_contractor',   [ $this, 'handle_assign_contractor' ] );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ADMIN MENU
+    // ─────────────────────────────────────────────────────────────
+
+    public function register_admin_menu(): void {
+        add_submenu_page(
+            'el-core',
+            __( 'ELS Bookkeeping', 'el-core' ),
+            __( 'Bookkeeping', 'el-core' ),
+            'view_bookkeeping',
+            'els-bookkeeping',
+            [ $this, 'render_admin_page' ]
+        );
+    }
+
+    public function enqueue_admin_assets( string $hook ): void {
+        $our_pages = [ 'el-core_page_els-bookkeeping' ];
+        if ( ! in_array( $hook, $our_pages, true ) ) {
+            return;
+        }
+
+        $base = plugins_url( 'assets/', __FILE__ );
+        $ver  = defined( 'EL_CORE_VERSION' ) ? EL_CORE_VERSION : '1.0.0';
+
+        wp_enqueue_style(
+            'el-bookkeeping',
+            $base . 'css/bookkeeping.css',
+            [ 'el-admin' ],
+            $ver
+        );
+
+        wp_enqueue_script(
+            'el-bookkeeping',
+            $base . 'js/bookkeeping.js',
+            [ 'jquery' ],
+            $ver,
+            true
+        );
+
+        wp_localize_script( 'el-bookkeeping', 'elBookkeeping', [
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'el_core_nonce' ),
+            'taxYear' => $this->get_setting( 'tax_year', (int) gmdate( 'Y' ) ),
+        ] );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ADMIN PAGE ROUTER — 8-TAB NAVIGATION
+    // ─────────────────────────────────────────────────────────────
+
+    public function render_admin_page(): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'el-core' ) );
+        }
+
+        $active_tab = sanitize_key( $_GET['tab'] ?? 'expenses' );
+
+        $tabs = [
+            'expenses'       => __( 'Expenses', 'el-core' ),
+            'income'         => __( 'Income & Deposits', 'el-core' ),
+            'profit-loss'    => __( 'Profit & Loss', 'el-core' ),
+            'contractors'    => __( 'Contractors', 'el-core' ),
+            'known-expenses' => __( 'Known Expenses', 'el-core' ),
+            'travel-dates'   => __( 'Travel Dates', 'el-core' ),
+            'receipts'       => __( 'Receipts', 'el-core' ),
+            'settings'       => __( 'Settings', 'el-core' ),
+        ];
+
+        // Gate Settings tab
+        if ( $active_tab === 'settings' && ! el_core_can( 'manage_bookkeeping_settings' ) ) {
+            $active_tab = 'expenses';
+        }
+
+        $base_url = admin_url( 'admin.php?page=els-bookkeeping' );
+
+        // ── Tab bar ──────────────────────────────────────────────
+        $tab_html = '<nav class="el-bk-tabs">';
+        foreach ( $tabs as $slug => $label ) {
+            if ( $slug === 'settings' && ! el_core_can( 'manage_bookkeeping_settings' ) ) {
+                continue;
+            }
+            $active_class = ( $slug === $active_tab ) ? ' el-bk-tab--active' : '';
+            $url          = esc_url( $base_url . '&tab=' . $slug );
+            $tab_html    .= '<a href="' . $url . '" class="el-bk-tab' . $active_class . '">'
+                          . esc_html( $label ) . '</a>';
+        }
+        $tab_html .= '</nav>';
+
+        // ── Tab content ──────────────────────────────────────────
+        $view_file = __DIR__ . '/admin/views/' . $active_tab . '.php';
+
+        ob_start();
+        echo $tab_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo '<div class="el-bk-tab-content">'; // phpcs:ignore
+        if ( file_exists( $view_file ) ) {
+            $module = $this;
+            include $view_file;
+        } else {
+            echo '<p>' . esc_html__( 'View not found.', 'el-core' ) . '</p>';
+        }
+        echo '</div>';
+        $content = ob_get_clean();
+
+        echo EL_Admin_UI::wrap( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            EL_Admin_UI::page_header( [
+                'title'    => __( 'ELS Bookkeeping', 'el-core' ),
+                'subtitle' => __( 'Expense tracking, income, contractors, and Schedule C reporting.', 'el-core' ),
+            ] )
+            . $content
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SETTINGS HELPERS
+    // ─────────────────────────────────────────────────────────────
+
+    public function get_setting( string $key, mixed $default = null ): mixed {
+        if ( ! $this->core ) return $default;
+        return $this->core->settings->get( 'mod_bookkeeping', $key, $default );
+    }
+
+    public function get_tax_year(): int {
+        return (int) $this->get_setting( 'tax_year', (int) gmdate( 'Y' ) );
+    }
+
+    public function get_business_name(): string {
+        return (string) $this->get_setting( 'business_name', 'Expanded Learning Solutions LLC' );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // IRS SCHEDULE C CATEGORIES
+    // ─────────────────────────────────────────────────────────────
+
+    public static function get_expense_categories(): array {
+        return [
+            'Supplies and Materials',
+            'Repairs',
+            'Utilities',
+            'Shipping and Postage',
+            'Telephone and Communication',
+            'Continuing Education',
+            'Outside Services',
+            'Travel',
+            'Office Supplies',
+            'Advertising and Marketing',
+            'Interest Charges',
+            'Professional Fees',
+            'Membership and Subscription',
+            'Software and Application Fees',
+            'Bank Fees and Services',
+            'Payroll Taxes',
+            'Salary and Wages',
+            'Vehicle Expense - Gas',
+            'Vehicle Expense Total',
+            'Health Insurance',
+            'Home Office - Rent',
+            'Home Office - Indirect',
+            'Meals',
+            'Taxes and Licenses',
+            'COGS',
+            'Contract Labor',
+            'Office Furniture',
+            'Rental Equipment',
+            'Commercial Office - Rent',
+            'Refunds',
+            'Foreign Labor',
+            'Payroll Fees',
+            'Equipment',
+            'Office Expense',
+            'Distributions',
+            'Shareholder Loan',
+        ];
+    }
+
+    public static function get_income_categories(): array {
+        return [
+            'Income - Expanded Learning Solutions',
+            'Retreats',
+            'LMS Licensing',
+            'Professional Development',
+            'NYC SMV Tool',
+            'Other',
+            'Bank Transfer',
+            'Ignore',
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // DATABASE HELPERS
+    // ─────────────────────────────────────────────────────────────
+
+    private function table( string $name ): string {
+        global $wpdb;
+        return $wpdb->prefix . $name;
+    }
+
+    public function get_transactions( array $args = [] ): array {
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        $where    = [ '1=1' ];
+        $values   = [];
+        $type     = sanitize_text_field( $args['type']        ?? 'expense' );
+        $tax_year = absint(              $args['tax_year']    ?? $this->get_tax_year() );
+        $status   = sanitize_text_field( $args['status']      ?? '' );
+        $category = sanitize_text_field( $args['category']    ?? '' );
+        $search   = sanitize_text_field( $args['search']      ?? '' );
+        $limit    = absint(              $args['limit']        ?? 500 );
+        $offset   = absint(              $args['offset']       ?? 0 );
+
+        $where[]  = 'type = %s';
+        $values[] = $type;
+
+        $where[]  = 'tax_year = %d';
+        $values[] = $tax_year;
+
+        if ( $status ) {
+            $where[]  = 'status = %s';
+            $values[] = $status;
+        }
+        if ( $category ) {
+            $where[]  = 'category = %s';
+            $values[] = $category;
+        }
+        if ( $search ) {
+            $where[]  = 'merchant LIKE %s';
+            $values[] = '%' . $wpdb->esc_like( $search ) . '%';
+        }
+
+        $where_sql = implode( ' AND ', $where );
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $query = $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY date DESC LIMIT %d OFFSET %d",
+            array_merge( $values, [ $limit, $offset ] )
+        );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        return $wpdb->get_results( $query ) ?: [];
+    }
+
+    public function get_transaction( int $id ): ?object {
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ) ) ?: null;
+    }
+
+    public function get_rules(): array {
+        global $wpdb;
+        $table = $this->table( 'el_bk_rules' );
+        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY priority ASC" ) ?: [];
+    }
+
+    public function get_travel_periods(): array {
+        global $wpdb;
+        $table = $this->table( 'el_bk_travel_periods' );
+        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY start_date ASC" ) ?: [];
+    }
+
+    public function get_receipts( string $status = '' ): array {
+        global $wpdb;
+        $table = $this->table( 'el_bk_receipts' );
+        if ( $status ) {
+            return $wpdb->get_results( $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE status = %s ORDER BY created_at DESC",
+                $status
+            ) ) ?: [];
+        }
+        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY created_at DESC" ) ?: [];
+    }
+
+    public function get_contractors(): array {
+        global $wpdb;
+        $table = $this->table( 'el_bk_contractors' );
+        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY name ASC" ) ?: [];
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AUTO-CLASSIFICATION
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Attempt to auto-classify a transaction.
+     * Returns [ 'category' => string, 'source' => 'travel'|'rule'|'', 'travel_period_id' => int ]
+     */
+    public function auto_classify( string $merchant, string $date ): array {
+        // Step 1 — Travel Date Rules
+        $travel = $this->match_travel_period( $date );
+        if ( $travel ) {
+            $category = $this->map_travel_category( $merchant );
+            return [
+                'category'         => $category,
+                'source'           => 'travel',
+                'travel_period_id' => (int) $travel->id,
+            ];
+        }
+
+        // Step 2 — Known Expense Rules
+        $rules = $this->get_rules();
+        foreach ( $rules as $rule ) {
+            $keyword = strtolower( $rule->keyword );
+            $haystack = strtolower( $merchant );
+            $matched  = match ( $rule->match_type ) {
+                'exact'    => $haystack === $keyword,
+                default    => str_contains( $haystack, $keyword ),
+            };
+            if ( $matched ) {
+                return [
+                    'category'         => $rule->category,
+                    'source'           => 'rule',
+                    'travel_period_id' => 0,
+                ];
+            }
+        }
+
+        return [ 'category' => '', 'source' => '', 'travel_period_id' => 0 ];
+    }
+
+    private function match_travel_period( string $date ): ?object {
+        global $wpdb;
+        $table = $this->table( 'el_bk_travel_periods' );
+        return $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE start_date <= %s AND end_date >= %s LIMIT 1",
+            $date, $date
+        ) ) ?: null;
+    }
+
+    private function map_travel_category( string $merchant ): string {
+        $merchant_upper = strtoupper( $merchant );
+
+        $airlines = [ 'AIRLINE', 'DELTA', 'UNITED', 'AMERICAN', 'SOUTHWEST', 'SPIRIT', 'JETBLUE', 'FRONTIER' ];
+        $hotels   = [ 'HOTEL', 'MARRIOTT', 'HILTON', 'HYATT', 'IHG', 'WESTIN', 'AIRBNB', 'VRBO' ];
+        $ground   = [ 'UBER', 'LYFT', 'TAXI', 'CAB', 'PARKING', 'GARAGE' ];
+        $meals    = [ 'RESTAURANT', 'CAFE', 'COFFEE', 'MCDONALD', 'CHICK-FIL', 'SUBWAY', 'STARBUCKS', 'DUNKIN', 'DOORDASH', 'GRUBHUB', 'UBEREATS' ];
+        $gas      = [ 'GAS', 'SHELL', 'EXXON', 'CHEVRON', 'BP', 'SUNOCO' ];
+
+        foreach ( $airlines as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel'; }
+        foreach ( $hotels   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel'; }
+        foreach ( $ground   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel'; }
+        foreach ( $meals    as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Meals'; }
+        foreach ( $gas      as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Vehicle Expense - Gas'; }
+
+        return 'Travel';
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — EXPENSES
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_csv_import( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        // Phase 2
+        EL_AJAX_Handler::error( __( 'CSV import not yet implemented.', 'el-core' ) );
+    }
+
+    public function handle_update_transaction( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id       = absint( $data['id'] ?? 0 );
+        $field    = sanitize_key( $data['field'] ?? '' );
+        $value    = sanitize_text_field( $data['value'] ?? '' );
+
+        if ( ! $id || ! $field ) {
+            EL_AJAX_Handler::error( __( 'Invalid request.', 'el-core' ) );
+            return;
+        }
+
+        $allowed_fields = [ 'category', 'status', 'comments', 'bank_account', 'business', 'merchant', 'amount', 'date' ];
+        if ( ! in_array( $field, $allowed_fields, true ) ) {
+            EL_AJAX_Handler::error( __( 'Field not allowed.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+        $wpdb->update( $table, [ $field => $value, 'updated_at' => current_time( 'mysql' ) ], [ 'id' => $id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Transaction updated.', 'el-core' ) );
+    }
+
+    public function handle_bulk_confirm( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $scope    = sanitize_key( $data['scope'] ?? 'all' ); // 'all' | 'travel'
+        $tax_year = absint( $data['tax_year'] ?? $this->get_tax_year() );
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        if ( $scope === 'travel' ) {
+            $wpdb->query( $wpdb->prepare(
+                "UPDATE {$table} SET status = 'classified', updated_at = %s WHERE status = 'suggested' AND travel_period_id > 0 AND tax_year = %d",
+                current_time( 'mysql' ), $tax_year
+            ) );
+        } else {
+            $wpdb->query( $wpdb->prepare(
+                "UPDATE {$table} SET status = 'classified', updated_at = %s WHERE status = 'suggested' AND tax_year = %d",
+                current_time( 'mysql' ), $tax_year
+            ) );
+        }
+
+        EL_AJAX_Handler::success( null, __( 'Suggestions confirmed.', 'el-core' ) );
+    }
+
+    public function handle_export_csv( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        // Phase 2
+        EL_AJAX_Handler::error( __( 'Export not yet implemented.', 'el-core' ) );
+    }
+
+    public function handle_export_pl( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        // Phase 7
+        EL_AJAX_Handler::error( __( 'P&L export not yet implemented.', 'el-core' ) );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — KNOWN EXPENSE RULES
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_process_rules( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        // Phase 3
+        EL_AJAX_Handler::error( __( 'AI rule processing not yet implemented.', 'el-core' ) );
+    }
+
+    public function handle_save_rule( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id       = absint( $data['id'] ?? 0 );
+        $keyword  = sanitize_text_field( $data['keyword'] ?? '' );
+        $type     = sanitize_key( $data['match_type'] ?? 'contains' );
+        $category = sanitize_text_field( $data['category'] ?? '' );
+        $priority = absint( $data['priority'] ?? 0 );
+
+        if ( ! $keyword || ! $category ) {
+            EL_AJAX_Handler::error( __( 'Keyword and category are required.', 'el-core' ) );
+            return;
+        }
+
+        if ( ! in_array( $category, self::get_expense_categories(), true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid category.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_rules' );
+        $row   = [ 'keyword' => $keyword, 'match_type' => $type, 'category' => $category, 'priority' => $priority ];
+
+        if ( $id ) {
+            $wpdb->update( $table, $row, [ 'id' => $id ] );
+        } else {
+            $wpdb->insert( $table, $row );
+            $id = $wpdb->insert_id;
+        }
+
+        EL_AJAX_Handler::success( [ 'id' => $id ], __( 'Rule saved.', 'el-core' ) );
+    }
+
+    public function handle_delete_rule( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid rule ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->delete( $this->table( 'el_bk_rules' ), [ 'id' => $id ] );
+        EL_AJAX_Handler::success( null, __( 'Rule deleted.', 'el-core' ) );
+    }
+
+    public function handle_reorder_rules( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $order = array_map( 'absint', $data['order'] ?? [] );
+        if ( empty( $order ) ) {
+            EL_AJAX_Handler::error( __( 'No order provided.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_rules' );
+        foreach ( $order as $priority => $rule_id ) {
+            $wpdb->update( $table, [ 'priority' => $priority ], [ 'id' => $rule_id ] );
+        }
+
+        EL_AJAX_Handler::success( null, __( 'Rules reordered.', 'el-core' ) );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — TRAVEL DATES
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_save_travel_period( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id         = absint( $data['id'] ?? 0 );
+        $label      = sanitize_text_field( $data['label']      ?? '' );
+        $start_date = sanitize_text_field( $data['start_date'] ?? '' );
+        $end_date   = sanitize_text_field( $data['end_date']   ?? '' );
+        $purpose    = sanitize_textarea_field( $data['purpose'] ?? '' );
+
+        if ( ! $start_date || ! $end_date ) {
+            EL_AJAX_Handler::error( __( 'Start and end dates are required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_travel_periods' );
+        $row   = [ 'label' => $label, 'start_date' => $start_date, 'end_date' => $end_date, 'purpose' => $purpose ];
+
+        if ( $id ) {
+            $wpdb->update( $table, $row, [ 'id' => $id ] );
+        } else {
+            $wpdb->insert( $table, $row );
+            $id = $wpdb->insert_id;
+        }
+
+        EL_AJAX_Handler::success( [ 'id' => $id ], __( 'Travel period saved.', 'el-core' ) );
+    }
+
+    public function handle_delete_travel_period( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid period ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->delete( $this->table( 'el_bk_travel_periods' ), [ 'id' => $id ] );
+
+        // Detach from transactions
+        $wpdb->update(
+            $this->table( 'el_bk_transactions' ),
+            [ 'travel_period_id' => 0 ],
+            [ 'travel_period_id' => $id ]
+        );
+
+        EL_AJAX_Handler::success( null, __( 'Travel period deleted.', 'el-core' ) );
+    }
+
+    public function handle_reapply_travel_rules( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+        $table    = $this->table( 'el_bk_transactions' );
+        $tax_year = absint( $data['tax_year'] ?? $this->get_tax_year() );
+
+        // Only re-apply to unclassified transactions
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, merchant, date FROM {$table} WHERE status = 'unclassified' AND tax_year = %d",
+            $tax_year
+        ) );
+
+        $updated = 0;
+        foreach ( $rows as $row ) {
+            $result = $this->auto_classify( $row->merchant, $row->date );
+            if ( $result['source'] === 'travel' ) {
+                $wpdb->update( $table, [
+                    'category'         => $result['category'],
+                    'status'           => 'suggested',
+                    'travel_period_id' => $result['travel_period_id'],
+                    'updated_at'       => current_time( 'mysql' ),
+                ], [ 'id' => $row->id ] );
+                $updated++;
+            }
+        }
+
+        EL_AJAX_Handler::success(
+            [ 'updated' => $updated ],
+            sprintf( _n( '%d transaction tagged.', '%d transactions tagged.', $updated, 'el-core' ), $updated )
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — RECEIPTS
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_upload_receipt( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        // Phase 6
+        EL_AJAX_Handler::error( __( 'Receipt upload not yet implemented.', 'el-core' ) );
+    }
+
+    public function handle_attach_receipt( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $receipt_id     = absint( $data['receipt_id']     ?? 0 );
+        $transaction_id = absint( $data['transaction_id'] ?? 0 );
+
+        if ( ! $receipt_id || ! $transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid IDs.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->update(
+            $this->table( 'el_bk_receipts' ),
+            [ 'transaction_id' => $transaction_id, 'status' => 'matched' ],
+            [ 'id' => $receipt_id ]
+        );
+        $wpdb->update(
+            $this->table( 'el_bk_transactions' ),
+            [ 'receipt_id' => $receipt_id, 'updated_at' => current_time( 'mysql' ) ],
+            [ 'id' => $transaction_id ]
+        );
+
+        EL_AJAX_Handler::success( null, __( 'Receipt attached.', 'el-core' ) );
+    }
+
+    public function handle_detach_receipt( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $receipt_id = absint( $data['receipt_id'] ?? 0 );
+        if ( ! $receipt_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid receipt ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $receipt = $wpdb->get_row( $wpdb->prepare(
+            "SELECT transaction_id FROM {$this->table('el_bk_receipts')} WHERE id = %d",
+            $receipt_id
+        ) );
+
+        $wpdb->update( $this->table( 'el_bk_receipts' ), [ 'transaction_id' => 0, 'status' => 'unmatched' ], [ 'id' => $receipt_id ] );
+
+        if ( $receipt && $receipt->transaction_id ) {
+            $wpdb->update(
+                $this->table( 'el_bk_transactions' ),
+                [ 'receipt_id' => 0, 'updated_at' => current_time( 'mysql' ) ],
+                [ 'id' => $receipt->transaction_id ]
+            );
+        }
+
+        EL_AJAX_Handler::success( null, __( 'Receipt detached.', 'el-core' ) );
+    }
+
+    public function handle_delete_receipt( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $receipt_id = absint( $data['receipt_id'] ?? 0 );
+        if ( ! $receipt_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid receipt ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $receipt = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->table('el_bk_receipts')} WHERE id = %d",
+            $receipt_id
+        ) );
+
+        if ( $receipt && $receipt->file_path && file_exists( $receipt->file_path ) ) {
+            wp_delete_file( $receipt->file_path );
+        }
+
+        $wpdb->delete( $this->table( 'el_bk_receipts' ), [ 'id' => $receipt_id ] );
+
+        if ( $receipt && $receipt->transaction_id ) {
+            $wpdb->update(
+                $this->table( 'el_bk_transactions' ),
+                [ 'receipt_id' => 0, 'updated_at' => current_time( 'mysql' ) ],
+                [ 'id' => $receipt->transaction_id ]
+            );
+        }
+
+        EL_AJAX_Handler::success( null, __( 'Receipt deleted.', 'el-core' ) );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — CONTRACTORS
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_save_contractor( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id      = absint( $data['id'] ?? 0 );
+        $name    = sanitize_text_field( $data['name']    ?? '' );
+        $email   = sanitize_email(      $data['email']   ?? '' );
+        $address = sanitize_textarea_field( wp_unslash( $data['address'] ?? '' ) );
+
+        if ( ! $name ) {
+            EL_AJAX_Handler::error( __( 'Contractor name is required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_contractors' );
+        $row   = [ 'name' => $name, 'email' => $email, 'address' => $address ];
+
+        if ( $id ) {
+            $wpdb->update( $table, $row, [ 'id' => $id ] );
+        } else {
+            $wpdb->insert( $table, $row );
+            $id = $wpdb->insert_id;
+        }
+
+        EL_AJAX_Handler::success( [ 'id' => $id ], __( 'Contractor saved.', 'el-core' ) );
+    }
+
+    public function handle_delete_contractor( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid contractor ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->delete( $this->table( 'el_bk_contractors' ),            [ 'contractor_id' => $id ] );
+        $wpdb->delete( $this->table( 'el_bk_contractor_assignments' ), [ 'contractor_id' => $id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Contractor deleted.', 'el-core' ) );
+    }
+
+    public function handle_assign_contractor( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $transaction_id = absint( $data['transaction_id'] ?? 0 );
+        $contractor_id  = absint( $data['contractor_id']  ?? 0 );
+
+        if ( ! $transaction_id || ! $contractor_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid IDs.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_contractor_assignments' );
+
+        // Remove existing assignment for this transaction first
+        $wpdb->delete( $table, [ 'transaction_id' => $transaction_id ] );
+
+        $wpdb->insert( $table, [
+            'transaction_id' => $transaction_id,
+            'contractor_id'  => $contractor_id,
+        ] );
+
+        EL_AJAX_Handler::success( null, __( 'Contractor assigned.', 'el-core' ) );
+    }
+}

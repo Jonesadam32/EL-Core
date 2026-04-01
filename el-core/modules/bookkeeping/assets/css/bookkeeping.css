@@ -1,0 +1,447 @@
+/* =============================================================================
+   ELS Bookkeeping Module — bookkeeping.css
+   CSS prefix: el-bk-
+   ============================================================================= */
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+
+.el-bk-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    border-bottom: 2px solid var(--el-admin-border, #e0e0e0);
+    margin-bottom: 24px;
+}
+
+.el-bk-tab {
+    display: inline-block;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--el-admin-text-muted, #666);
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    background: transparent;
+    transition: background 0.15s, color 0.15s;
+}
+
+.el-bk-tab:hover {
+    background: var(--el-admin-bg-hover, #f5f5f5);
+    color: var(--el-admin-text, #1d2327);
+}
+
+.el-bk-tab--active {
+    background: #fff;
+    color: var(--el-primary, #2271b1);
+    border-color: var(--el-admin-border, #e0e0e0);
+    border-bottom-color: #fff;
+    margin-bottom: -2px;
+}
+
+.el-bk-tab-content {
+    min-height: 400px;
+}
+
+/* ── Tab Header ────────────────────────────────────────────────────────────── */
+
+.el-bk-tab-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.el-bk-tab-header h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+}
+
+.el-bk-tab-header-right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.el-bk-tab-desc {
+    margin: 0;
+    color: var(--el-admin-text-muted, #666);
+    font-size: 13px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+
+.el-bk-card {
+    background: #fff;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+
+.el-bk-card h3 {
+    margin: 0 0 16px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.el-bk-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.el-bk-card-header h3 {
+    margin: 0;
+}
+
+/* ── Transaction Table ─────────────────────────────────────────────────────── */
+
+.el-bk-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.el-bk-transactions-table,
+.el-bk-rules-table,
+.el-bk-contractors-table,
+.el-bk-travel-table,
+.el-bk-receipts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.el-bk-transactions-table th,
+.el-bk-transactions-table td,
+.el-bk-rules-table th,
+.el-bk-rules-table td,
+.el-bk-contractors-table th,
+.el-bk-contractors-table td,
+.el-bk-travel-table th,
+.el-bk-travel-table td,
+.el-bk-receipts-table th,
+.el-bk-receipts-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--el-admin-border, #e0e0e0);
+    vertical-align: middle;
+}
+
+.el-bk-transactions-table th,
+.el-bk-rules-table th,
+.el-bk-contractors-table th,
+.el-bk-travel-table th,
+.el-bk-receipts-table th {
+    background: var(--el-admin-bg, #f6f7f7);
+    font-weight: 600;
+    text-align: left;
+}
+
+/* Row status colors */
+.el-bk-row--classified  { background: #f0fff4; }
+.el-bk-row--suggested   { background: #fffbeb; }
+.el-bk-row--rejected    { background: #fff5f5; }
+
+.el-bk-amount {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.el-bk-total-row td {
+    background: var(--el-admin-bg, #f6f7f7);
+    font-weight: 600;
+}
+
+/* ── Inline Editing ────────────────────────────────────────────────────────── */
+
+.el-bk-inline-select,
+.el-bk-inline-input {
+    width: 100%;
+    font-size: 13px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.el-bk-inline-select:focus,
+.el-bk-inline-input:focus,
+.el-bk-inline-select:hover,
+.el-bk-inline-input:hover {
+    border-color: var(--el-primary, #2271b1);
+    background: #fff;
+    outline: none;
+}
+
+/* ── Bulk Actions ──────────────────────────────────────────────────────────── */
+
+.el-bk-bulk-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+/* ── Income Total Bar ──────────────────────────────────────────────────────── */
+
+.el-bk-income-total-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 6px;
+    padding: 12px 20px;
+    margin-bottom: 16px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.el-bk-income-total-amount {
+    color: #0369a1;
+    font-size: 22px;
+}
+
+/* ── P&L Controls ──────────────────────────────────────────────────────────── */
+
+.el-bk-pl-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 6px;
+}
+
+.el-bk-pl-controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.el-bk-pl-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.el-bk-pl-report {
+    background: #fff;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 6px;
+    padding: 24px;
+}
+
+.el-bk-pl-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.el-bk-pl-header h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+}
+
+.el-bk-pl-table {
+    width: 100%;
+}
+
+.el-bk-pl-table td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.el-bk-pl-export-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    justify-content: flex-end;
+}
+
+/* ── AI Chat ────────────────────────────────────────────────────────────────── */
+
+.el-bk-ai-chat-card {}
+
+.el-bk-chat-log {
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--el-admin-bg, #f6f7f7);
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.el-bk-chat-placeholder {
+    color: var(--el-admin-text-muted, #666);
+    font-style: italic;
+    margin: 0;
+}
+
+.el-bk-chat-message-user {
+    background: #eff6ff;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+}
+
+.el-bk-chat-message-ai {
+    background: #f0fdf4;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+}
+
+.el-bk-chat-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.el-bk-chat-input-row .el-textarea {
+    flex: 1;
+}
+
+/* ── Rules Table Drag Handle ────────────────────────────────────────────────── */
+
+.el-bk-drag-handle-col {
+    width: 24px;
+}
+
+.el-bk-drag-handle {
+    cursor: grab;
+    color: var(--el-admin-text-muted, #aaa);
+    font-size: 16px;
+    text-align: center;
+}
+
+/* ── Travel Map Table ───────────────────────────────────────────────────────── */
+
+.el-bk-travel-map-card {}
+
+.el-bk-travel-map-table td:first-child {
+    font-size: 12px;
+    color: var(--el-admin-text-muted, #666);
+}
+
+/* ── Receipt Grid ───────────────────────────────────────────────────────────── */
+
+.el-bk-upload-zone {
+    text-align: center;
+    padding: 40px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.el-bk-upload-zone:hover {
+    background: #f0f9ff;
+    border-color: var(--el-primary, #2271b1);
+}
+
+.el-bk-upload-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.el-bk-receipt-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.el-bk-receipt-thumb {
+    width: 140px;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+}
+
+.el-bk-receipt-thumb:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.el-bk-receipt-thumb img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    display: block;
+}
+
+.el-bk-receipt-thumb-placeholder {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    background: var(--el-admin-bg, #f6f7f7);
+}
+
+.el-bk-receipt-meta {
+    padding: 6px 8px;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--el-admin-text, #1d2327);
+}
+
+.el-bk-receipt-mini {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 3px;
+    vertical-align: middle;
+}
+
+/* ── Forms ──────────────────────────────────────────────────────────────────── */
+
+.el-bk-form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.el-bk-form-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+    min-width: 180px;
+}
+
+.el-bk-form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.el-bk-settings-form .el-bk-card {
+    margin-bottom: 20px;
+}
+
+/* ── Hint Text ──────────────────────────────────────────────────────────────── */
+
+.el-bk-hint {
+    font-size: 12px;
+    color: var(--el-admin-text-muted, #666);
+    margin: 4px 0 0;
+}
