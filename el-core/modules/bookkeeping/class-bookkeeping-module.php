@@ -134,6 +134,16 @@ class EL_Bookkeeping_Module {
 
         $active_tab = sanitize_key( $_GET['tab'] ?? 'expenses' );
 
+        // Tax year from URL param, falling back to the stored default setting.
+        $current_year     = (int) gmdate( 'Y' );
+        $default_tax_year = $this->get_setting( 'tax_year', $current_year );
+        $selected_year    = isset( $_GET['year'] ) ? absint( $_GET['year'] ) : (int) $default_tax_year;
+
+        // Clamp to a sensible range
+        if ( $selected_year < 2000 || $selected_year > $current_year + 1 ) {
+            $selected_year = (int) $default_tax_year;
+        }
+
         $tabs = [
             'expenses'       => __( 'Expenses', 'el-core' ),
             'income'         => __( 'Income & Deposits', 'el-core' ),
@@ -150,7 +160,19 @@ class EL_Bookkeeping_Module {
             $active_tab = 'expenses';
         }
 
-        $base_url = admin_url( 'admin.php?page=els-bookkeeping' );
+        $base_url = admin_url( 'admin.php?page=els-bookkeeping&year=' . $selected_year );
+
+        // ── Year selector ────────────────────────────────────────
+        $year_selector_url = admin_url( 'admin.php?page=els-bookkeeping&tab=' . $active_tab );
+        $year_selector  = '<div class="el-bk-year-selector">';
+        $year_selector .= '<label for="el-bk-year-select">' . esc_html__( 'Tax Year:', 'el-core' ) . '</label>';
+        $year_selector .= '<select id="el-bk-year-select" onchange="window.location=\'' . esc_js( $year_selector_url ) . '&year=\'+this.value">';
+        for ( $y = $current_year + 1; $y >= 2020; $y-- ) {
+            $sel           = selected( $y, $selected_year, false );
+            $year_selector .= '<option value="' . esc_attr( $y ) . '"' . $sel . '>' . esc_html( $y ) . '</option>';
+        }
+        $year_selector .= '</select>';
+        $year_selector .= '</div>';
 
         // ── Tab bar ──────────────────────────────────────────────
         $tab_html = '<nav class="el-bk-tabs">';
@@ -169,10 +191,12 @@ class EL_Bookkeeping_Module {
         $view_file = __DIR__ . '/admin/views/' . $active_tab . '.php';
 
         ob_start();
+        echo $year_selector; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         echo $tab_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         echo '<div class="el-bk-tab-content">'; // phpcs:ignore
         if ( file_exists( $view_file ) ) {
-            $module = $this;
+            $module   = $this;
+            $tax_year = $selected_year; // available to all views as $tax_year
             include $view_file;
         } else {
             echo '<p>' . esc_html__( 'View not found.', 'el-core' ) . '</p>';
@@ -307,10 +331,12 @@ class EL_Bookkeeping_Module {
         }
 
         $where_sql = implode( ' AND ', $where );
+        $all_values = array_merge( $values, [ $limit, $offset ] );
+
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $query = $wpdb->prepare(
             "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY date DESC LIMIT %d OFFSET %d",
-            array_merge( $values, [ $limit, $offset ] )
+            ...$all_values
         );
 
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared

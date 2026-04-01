@@ -5,6 +5,36 @@
 
 /* ── Layout ────────────────────────────────────────────────────────────────── */
 
+.el-bk-year-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.el-bk-year-selector label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--el-admin-text-muted, #666);
+    white-space: nowrap;
+}
+
+.el-bk-year-selector select {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    min-width: 90px;
+}
+
+.el-bk-year-selector select:focus {
+    outline: 2px solid var(--el-admin-accent, #0073aa);
+    outline-offset: 1px;
+}
+
 .el-bk-tabs {
     display: flex;
     flex-wrap: wrap;

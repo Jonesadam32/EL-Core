@@ -8,7 +8,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 $periods  = $module->get_travel_periods();
-$tax_year = $module->get_tax_year();
+$tax_year = $tax_year ?? $module->get_tax_year();
 ?>
 
 <div class="el-bk-tab-header">

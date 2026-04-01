@@ -10,7 +10,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-$tax_year     = $module->get_tax_year();
+$tax_year     = $tax_year ?? $module->get_tax_year();
 $transactions = $module->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year ] );
 $categories   = EL_Bookkeeping_Module::get_expense_categories();
 ?>

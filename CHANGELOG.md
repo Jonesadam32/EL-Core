@@ -6,6 +6,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.34.9] — 2026-03-10
+
+### Fixed
+- **Bookkeeping module critical error**: `$wpdb->prepare()` was called with `array_merge(...)` as its second argument. WordPress's `prepare()` requires variadic arguments (spread operator), not an array. This caused a fatal error on every page load of the Bookkeeping admin page, preventing tabs from rendering.
+
+### Added
+- **Bookkeeping tax year selector**: A `<select>` dropdown now appears above the tab bar on the Bookkeeping admin page, showing years from 2020 to next year. Changing the year reloads the page with `?year=` in the URL, allowing navigation across tax years. The selected year is preserved when switching tabs.
+
+### Changed
+- `expenses.php`, `income.php`, `travel-dates.php` view files now respect the `$tax_year` passed from the router instead of calling `get_tax_year()` directly, ensuring the year selector drives the data shown.
+
+---
+
 ## [1.34.8] — 2026-04-01
 
 ### Added
