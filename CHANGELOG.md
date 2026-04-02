@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.1] — 2026-03-10
+
+### Fixed
+- **Bookkeeping CSS specificity**: All bookkeeping styles now scoped under `.el-admin-wrap` to beat WordPress admin's global `#wpbody a` overrides. Tab pills now render correctly as separated rounded buttons, and the quick-access grid renders as a proper 4-column card grid instead of a single-column unstyled link list.
+- Tab pill active state, hover state, and borders all now display correctly regardless of WP admin theme.
+
+---
+
 ## [1.35.0] — 2026-03-10
 
 ### Added
