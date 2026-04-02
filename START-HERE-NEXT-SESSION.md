@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.36.0 — Ledger Tab Import feature added. Each CSV = one expense category. Upload, pick category, map columns, import transactions + auto-create rules.
+> **Current Plugin Version:** v1.36.1 — Ledger Tab Import feature added (no bank account field). Each CSV = one expense category. Upload, pick category, map columns, import transactions + auto-create rules.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 

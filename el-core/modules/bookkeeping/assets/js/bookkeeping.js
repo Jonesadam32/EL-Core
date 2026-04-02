@@ -663,12 +663,6 @@
                     autoSelectColumn($merch, ['description', 'merchant', 'payee', 'memo', 'name']);
                     autoSelectColumn($amt, ['amount', 'debit', 'credit', 'total']);
 
-                    // Populate bank account datalist
-                    var $list = $('#el-bk-ledger-banks').empty();
-                    (d.accounts || []).forEach(function (a) {
-                        $list.append($('<option>').val(a));
-                    });
-
                     $('#el-bk-ledger-step1').slideUp();
                     $('#el-bk-ledger-step2').slideDown();
                 } else {
@@ -700,7 +694,6 @@
         fd.append('date_col', $('#el-bk-ledger-date-col').val());
         fd.append('merchant_col', $('#el-bk-ledger-merchant-col').val());
         fd.append('amount_col', $('#el-bk-ledger-amount-col').val());
-        fd.append('bank_account', $('#el-bk-ledger-bank').val().trim());
 
         $.ajax({
             url: ajax, type: 'POST', data: fd, processData: false, contentType: false,

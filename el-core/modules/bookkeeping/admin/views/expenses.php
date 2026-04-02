@@ -201,13 +201,6 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
                     <td><strong><?php esc_html_e( 'Amount Column', 'el-core' ); ?></strong></td>
                     <td><select id="el-bk-ledger-amount-col"></select></td>
                 </tr>
-                <tr>
-                    <td><strong><?php esc_html_e( 'Bank Account', 'el-core' ); ?></strong></td>
-                    <td>
-                        <input type="text" id="el-bk-ledger-bank" list="el-bk-ledger-banks" placeholder="<?php esc_attr_e( 'e.g. Chase Business', 'el-core' ); ?>" style="width:100%;">
-                        <datalist id="el-bk-ledger-banks"></datalist>
-                    </td>
-                </tr>
             </table>
             <button class="el-btn el-btn-primary" id="el-bk-ledger-import-btn"><?php esc_html_e( 'Import Transactions', 'el-core' ); ?></button>
             <button class="el-btn el-btn-outline el-bk-ledger-cancel"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>

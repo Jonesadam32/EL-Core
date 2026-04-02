@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.36.1] — 2026-04-02
+
+### Changed
+- **Ledger Tab Import**: Removed the bank account field from the import modal. These CSVs are categorized expense lists, not bank statements — the bank account is irrelevant here and was unnecessary friction.
+
+---
+
 ## [1.36.0] — 2026-04-02
 
 ### Added

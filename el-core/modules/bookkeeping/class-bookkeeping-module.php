@@ -797,15 +797,9 @@ class EL_Bookkeeping_Module {
         if ( empty( $date_col ) || empty( $amount_col ) || empty( $merchant_col ) || empty( $category ) ) {
             fclose( $handle );
 
-            global $wpdb;
-            $accounts = $wpdb->get_col(
-                "SELECT DISTINCT bank_account FROM {$this->table('el_bk_transactions')} WHERE bank_account != '' ORDER BY bank_account ASC"
-            );
-
             EL_AJAX_Handler::success( [
                 'step'       => 'map_columns',
                 'columns'    => $header,
-                'accounts'   => $accounts ?: [],
                 'categories' => self::get_expense_categories(),
             ], __( 'Map the columns and select a category.', 'el-core' ) );
             return;
