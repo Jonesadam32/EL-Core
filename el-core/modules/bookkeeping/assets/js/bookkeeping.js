@@ -299,7 +299,7 @@
         }
     });
 
-    // ── CSV Rules Import ──────────────────────────────────────────────────────
+    // ── CSV Rules Import (3-step: columns → categories → import) ────────────
 
     let csvRulesFile = null;
 
@@ -308,6 +308,7 @@
         $('#el-bk-csv-rules-upload-btn').prop('disabled', !csvRulesFile);
     });
 
+    // Step 1: Upload file → get column headers
     $('#el-bk-csv-rules-upload-btn').on('click', function () {
         if (!csvRulesFile) return;
         const $btn = $(this).prop('disabled', true).text('Reading…');
@@ -318,11 +319,7 @@
         fd.append('csv_file', csvRulesFile);
 
         $.ajax({
-            url: ajax,
-            type: 'POST',
-            data: fd,
-            processData: false,
-            contentType: false,
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
             success: function (res) {
                 $btn.prop('disabled', false).text('Upload & Preview');
                 if (res.success && res.data && res.data.data && res.data.data.step === 'map_columns') {
@@ -336,6 +333,7 @@
                     autoSelectColumn($merchant, ['merchant', 'description', 'vendor', 'payee', 'name']);
                     autoSelectColumn($category, ['category', 'type', 'classification', 'class']);
                     $('#el-bk-csv-rules-mapping').slideDown();
+                    $('#el-bk-csv-rules-catmap').slideUp();
                 } else {
                     alert((res.data && res.data.message) || 'Unexpected response.');
                 }
@@ -359,9 +357,10 @@
         });
     }
 
-    $('#el-bk-csv-rules-import-btn').on('click', function () {
+    // Step 2: Columns selected → get unique CSV categories for mapping
+    $('#el-bk-csv-rules-next-btn').on('click', function () {
         if (!csvRulesFile) { alert('No file selected.'); return; }
-        const $btn = $(this).prop('disabled', true).text('Importing…');
+        const $btn = $(this).prop('disabled', true).text('Reading…');
         const fd = new FormData();
         fd.append('action', 'el_core_action');
         fd.append('el_action', 'bk_import_rules_csv');
@@ -371,16 +370,78 @@
         fd.append('category_col', $('#el-bk-csv-category-col').val());
 
         $.ajax({
-            url: ajax,
-            type: 'POST',
-            data: fd,
-            processData: false,
-            contentType: false,
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                $btn.prop('disabled', false).text('Next: Map Categories →');
+                if (res.success && res.data && res.data.data && res.data.data.step === 'map_categories') {
+                    const csvCats = res.data.data.csv_categories;
+                    const validCats = res.data.data.valid_categories;
+                    const $tbody = $('#el-bk-csv-catmap-body').empty();
+
+                    csvCats.forEach(function (csvCat) {
+                        const $select = $('<select class="el-select el-bk-catmap-select">');
+                        $select.append($('<option>').val('__skip__').text('— Skip —'));
+                        validCats.forEach(function (vc) {
+                            const $opt = $('<option>').val(vc).text(vc);
+                            if (vc.toLowerCase() === csvCat.toLowerCase()) $opt.prop('selected', true);
+                            $select.append($opt);
+                        });
+                        // Fuzzy match: if no exact match, try partial
+                        if ($select.val() === '__skip__') {
+                            const csvLower = csvCat.toLowerCase();
+                            validCats.forEach(function (vc) {
+                                if (vc.toLowerCase().indexOf(csvLower) !== -1 || csvLower.indexOf(vc.toLowerCase()) !== -1) {
+                                    $select.val(vc);
+                                }
+                            });
+                        }
+                        const $row = $('<tr>');
+                        $row.append($('<td>').text(csvCat).css('font-weight', '600'));
+                        $row.append($('<td>').append($select));
+                        $select.attr('data-csv-cat', csvCat);
+                        $tbody.append($row);
+                    });
+
+                    $('#el-bk-csv-rules-mapping').slideUp();
+                    $('#el-bk-csv-rules-catmap').slideDown();
+                } else {
+                    alert((res.data && res.data.message) || 'Unexpected response.');
+                }
+            },
+            error: function () {
+                $btn.prop('disabled', false).text('Next: Map Categories →');
+                alert('Request failed. Please try again.');
+            }
+        });
+    });
+
+    // Step 3: Category map done → import rules
+    $('#el-bk-csv-rules-import-btn').on('click', function () {
+        if (!csvRulesFile) { alert('No file selected.'); return; }
+        const $btn = $(this).prop('disabled', true).text('Importing…');
+
+        // Build category map from the dropdowns
+        const categoryMap = {};
+        $('#el-bk-csv-catmap-body .el-bk-catmap-select').each(function () {
+            categoryMap[$(this).attr('data-csv-cat')] = $(this).val();
+        });
+
+        const fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_import_rules_csv');
+        fd.append('nonce', nonce);
+        fd.append('csv_file', csvRulesFile);
+        fd.append('merchant_col', $('#el-bk-csv-merchant-col').val());
+        fd.append('category_col', $('#el-bk-csv-category-col').val());
+        fd.append('category_map', JSON.stringify(categoryMap));
+
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
             success: function (res) {
                 $btn.prop('disabled', false).text('Import Rules');
                 if (res.success) {
                     const msg = res.data.message || 'Import complete.';
-                    $('#el-bk-csv-rules-mapping').slideUp();
+                    $('#el-bk-csv-rules-catmap').slideUp();
                     $('#el-bk-csv-rules-result').html('<p style="color:#16a34a;font-weight:600;">' + $('<span>').text(msg).html() + '</p>').slideDown();
                     if (res.data.data && res.data.data.rules_saved > 0) {
                         setTimeout(function () { location.reload(); }, 1500);
@@ -398,9 +459,141 @@
 
     $('#el-bk-csv-rules-cancel-btn').on('click', function () {
         $('#el-bk-csv-rules-mapping').slideUp();
+        $('#el-bk-csv-rules-catmap').slideUp();
         csvRulesFile = null;
         $('#el-bk-csv-rules-file').val('');
         $('#el-bk-csv-rules-upload-btn').prop('disabled', true);
+    });
+
+    $('#el-bk-csv-rules-back-btn').on('click', function () {
+        $('#el-bk-csv-rules-catmap').slideUp();
+        $('#el-bk-csv-rules-mapping').slideDown();
+    });
+
+    // ── CSV Transaction Upload Modal ──────────────────────────────────────────
+
+    let csvTxnFile = null;
+    let csvTxnType = 'expense';
+
+    $(document).on('click', '.el-bk-upload-csv-btn', function () {
+        csvTxnType = $(this).data('type') || 'expense';
+        const label = csvTxnType === 'income' ? 'Upload Income CSV' : 'Upload Expense CSV';
+        $('#el-bk-csv-modal-title').text(label);
+        $('#el-bk-csv-step1').show();
+        $('#el-bk-csv-step2').hide();
+        $('#el-bk-csv-result').hide();
+        $('#el-bk-csv-txn-file').val('');
+        $('#el-bk-csv-bank-input').val('');
+        csvTxnFile = null;
+        $('#el-bk-csv-txn-upload-btn').prop('disabled', true);
+        $('#el-bk-csv-upload-modal').fadeIn(150);
+    });
+
+    $(document).on('click', '.el-bk-csv-modal-close, .el-bk-modal-backdrop', function () {
+        $('#el-bk-csv-upload-modal').fadeOut(150);
+    });
+
+    $('#el-bk-csv-txn-file').on('change', function () {
+        csvTxnFile = this.files[0] || null;
+        $('#el-bk-csv-txn-upload-btn').prop('disabled', !csvTxnFile);
+    });
+
+    // Step 1: Upload → get columns + bank accounts
+    $('#el-bk-csv-txn-upload-btn').on('click', function () {
+        if (!csvTxnFile) return;
+        const bank = $('#el-bk-csv-bank-input').val().trim();
+        if (!bank) { alert('Please enter a bank account name.'); return; }
+        const $btn = $(this).prop('disabled', true).text('Reading…');
+
+        const fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_import_csv');
+        fd.append('nonce', nonce);
+        fd.append('csv_file', csvTxnFile);
+        fd.append('type', csvTxnType);
+        fd.append('bank_account', bank);
+        fd.append('tax_year', elBookkeeping.taxYear);
+
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                $btn.prop('disabled', false).text('Upload & Map Columns');
+                if (res.success && res.data && res.data.data && res.data.data.step === 'map_columns') {
+                    const d = res.data.data;
+                    const cols = d.columns;
+
+                    // Populate bank account datalist for future use
+                    const $list = $('#el-bk-csv-bank-list').empty();
+                    (d.accounts || []).forEach(function (a) {
+                        $list.append($('<option>').val(a));
+                    });
+
+                    const $date = $('#el-bk-csv-date-col').empty();
+                    const $amt = $('#el-bk-csv-amount-col').empty();
+                    const $merch = $('#el-bk-csv-merchant-txn-col').empty();
+                    cols.forEach(function (c) {
+                        $date.append($('<option>').val(c).text(c));
+                        $amt.append($('<option>').val(c).text(c));
+                        $merch.append($('<option>').val(c).text(c));
+                    });
+                    autoSelectColumn($date, ['date', 'posted', 'transaction date']);
+                    autoSelectColumn($amt, ['amount', 'debit', 'credit', 'total']);
+                    autoSelectColumn($merch, ['description', 'merchant', 'payee', 'memo', 'name']);
+
+                    $('#el-bk-csv-step1').slideUp();
+                    $('#el-bk-csv-step2').slideDown();
+                } else {
+                    alert((res.data && res.data.message) || 'Unexpected response.');
+                }
+            },
+            error: function () {
+                $btn.prop('disabled', false).text('Upload & Map Columns');
+                alert('Upload failed. Please try again.');
+            }
+        });
+    });
+
+    // Step 2: Import with mapped columns
+    $('#el-bk-csv-txn-import-btn').on('click', function () {
+        if (!csvTxnFile) { alert('No file selected.'); return; }
+        const $btn = $(this).prop('disabled', true).text('Importing…');
+
+        const fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_import_csv');
+        fd.append('nonce', nonce);
+        fd.append('csv_file', csvTxnFile);
+        fd.append('type', csvTxnType);
+        fd.append('bank_account', $('#el-bk-csv-bank-input').val().trim());
+        fd.append('tax_year', elBookkeeping.taxYear);
+        fd.append('date_col', $('#el-bk-csv-date-col').val());
+        fd.append('amount_col', $('#el-bk-csv-amount-col').val());
+        fd.append('merchant_col', $('#el-bk-csv-merchant-txn-col').val());
+
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                $btn.prop('disabled', false).text('Import Transactions');
+                if (res.success) {
+                    const d = res.data.data || {};
+                    const msg = res.data.message || 'Import complete.';
+                    $('#el-bk-csv-step2').slideUp();
+                    $('#el-bk-csv-result').html(
+                        '<p style="color:#16a34a;font-weight:600;">' + $('<span>').text(msg).html() + '</p>' +
+                        '<p>' + d.imported + ' imported, ' + d.classified + ' auto-classified, ' + d.skipped + ' skipped.</p>'
+                    ).slideDown();
+                    if (d.imported > 0) {
+                        setTimeout(function () { location.reload(); }, 2000);
+                    }
+                } else {
+                    alert((res.data && res.data.message) || 'Import failed.');
+                }
+            },
+            error: function () {
+                $btn.prop('disabled', false).text('Import Transactions');
+                alert('Import failed. Please try again.');
+            }
+        });
     });
 
     // ── P&L Presets ────────────────────────────────────────────────────────────

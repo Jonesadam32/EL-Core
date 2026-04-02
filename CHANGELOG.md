@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.6] — 2026-04-02
+
+### Added
+- **CSV Transaction Import (Phase 2B)**: "Upload CSV" buttons on Expenses and Income tabs now open a modal where you select a CSV file, name the bank account (with autocomplete from previously used names), map date/amount/merchant columns, and import. Duplicate detection prevents re-importing the same transactions. Auto-classification runs Known Expenses rules and travel date rules on every imported transaction.
+- **CSV Rules Import — Category Mapping Step**: When importing prior-year expenses to create rules, the system now shows a two-column mapping table where each unique category from your CSV gets a dropdown to pick the matching bookkeeping category. No more requiring exact name matches in the CSV — you map them visually.
+- **Modal CSS**: Shared modal overlay component for the bookkeeping module.
+
+---
+
 ## [1.35.5] — 2026-04-02
 
 ### Changed

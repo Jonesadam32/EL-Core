@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.35.4 — AI Rule Builder and CSV rule import working. Known Expenses tab fully functional. Ready for prior-year data import, then CSV transaction upload (Phase 2B).
+> **Current Plugin Version:** v1.35.6 — Phase 2A (AI Rule Builder + CSV rule import with category mapping) and Phase 2B (CSV transaction import with bank account picker, column mapping, auto-classification, duplicate detection) complete. Ready for testing.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 
@@ -99,7 +99,9 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.35.1 | CSS specificity fix (scope under .el-admin-wrap) | Built |
 | v1.35.2 | **Fix CSS never loading (wrong handle `el-admin` → `el-core-admin`)** | Built |
 | v1.35.3 | **Fix `EL_Admin_UI::notice()` wrong call signature in all 7 view files** | Built |
-| v1.35.4 | **AI Rule Builder + CSV rule import on Known Expenses tab** | **CURRENT — deployed** |
+| v1.35.4 | **AI Rule Builder + CSV rule import on Known Expenses tab** | Built |
+| v1.35.5 | **Update expense categories to match actual accounting books** | Built |
+| v1.35.6 | **CSV Transaction Import + Category mapping for rule import** | **CURRENT — deployed** |
 
 ---
 

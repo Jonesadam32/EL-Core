@@ -228,6 +228,42 @@ class EL_Bookkeeping_Module {
             echo '<p>' . esc_html__( 'View not found.', 'el-core' ) . '</p>';
         }
         echo '</div>';
+
+        // ── Shared CSV Upload Modal ────────────────────────────────────────────
+        echo '<div id="el-bk-csv-upload-modal" class="el-bk-modal" style="display:none;">'; // phpcs:ignore
+        echo '<div class="el-bk-modal-backdrop"></div>'; // phpcs:ignore
+        echo '<div class="el-bk-modal-content el-bk-card">'; // phpcs:ignore
+        echo '<h3 id="el-bk-csv-modal-title">' . esc_html__( 'Upload CSV', 'el-core' ) . '</h3>';
+
+        echo '<div id="el-bk-csv-step1">';
+        echo '<div class="el-bk-form-row">';
+        echo '<label>' . esc_html__( 'CSV File:', 'el-core' ) . ' <input type="file" id="el-bk-csv-txn-file" accept=".csv"></label>';
+        echo '</div>';
+        echo '<div class="el-bk-form-row">';
+        echo '<label>' . esc_html__( 'Bank Account:', 'el-core' ) . '<br>';
+        echo '<input type="text" id="el-bk-csv-bank-input" class="el-input" list="el-bk-csv-bank-list" placeholder="' . esc_attr__( 'e.g. Chase Business, Wells Fargo Personal', 'el-core' ) . '">';
+        echo '<datalist id="el-bk-csv-bank-list"></datalist>';
+        echo '</label></div>';
+        echo '<div class="el-bk-form-actions">';
+        echo '<button class="el-btn el-btn-primary" id="el-bk-csv-txn-upload-btn" disabled>' . esc_html__( 'Upload & Map Columns', 'el-core' ) . '</button>';
+        echo '<button class="el-btn el-btn-outline el-bk-csv-modal-close">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
+        echo '</div></div>';
+
+        echo '<div id="el-bk-csv-step2" style="display:none;">';
+        echo '<p><strong>' . esc_html__( 'Map your CSV columns:', 'el-core' ) . '</strong></p>';
+        echo '<div class="el-bk-form-row">';
+        echo '<label>' . esc_html__( 'Date column:', 'el-core' ) . ' <select id="el-bk-csv-date-col" class="el-select"></select></label>';
+        echo '<label>' . esc_html__( 'Amount column:', 'el-core' ) . ' <select id="el-bk-csv-amount-col" class="el-select"></select></label>';
+        echo '<label>' . esc_html__( 'Merchant / Description:', 'el-core' ) . ' <select id="el-bk-csv-merchant-txn-col" class="el-select"></select></label>';
+        echo '</div>';
+        echo '<div class="el-bk-form-actions">';
+        echo '<button class="el-btn el-btn-primary" id="el-bk-csv-txn-import-btn">' . esc_html__( 'Import Transactions', 'el-core' ) . '</button>';
+        echo '<button class="el-btn el-btn-outline el-bk-csv-modal-close">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
+        echo '</div></div>';
+
+        echo '<div id="el-bk-csv-result" style="display:none;"></div>';
+        echo '</div></div>';
+
         $content = ob_get_clean();
 
         echo EL_Admin_UI::wrap( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -470,8 +506,227 @@ class EL_Bookkeeping_Module {
             EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
             return;
         }
-        // Phase 2
-        EL_AJAX_Handler::error( __( 'CSV import not yet implemented.', 'el-core' ) );
+
+        if ( empty( $_FILES['csv_file'] ) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK ) {
+            EL_AJAX_Handler::error( __( 'No file uploaded or upload error.', 'el-core' ) );
+            return;
+        }
+
+        $file = $_FILES['csv_file'];
+        $ext  = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+        if ( $ext !== 'csv' ) {
+            EL_AJAX_Handler::error( __( 'Only CSV files are accepted.', 'el-core' ) );
+            return;
+        }
+
+        $type         = sanitize_key( $data['type'] ?? 'expense' );
+        $bank_account = sanitize_text_field( $data['bank_account'] ?? '' );
+        $date_col     = sanitize_text_field( $data['date_col']     ?? '' );
+        $amount_col   = sanitize_text_field( $data['amount_col']   ?? '' );
+        $merchant_col = sanitize_text_field( $data['merchant_col'] ?? '' );
+        $tax_year     = absint( $data['tax_year'] ?? $this->get_tax_year() );
+
+        if ( ! in_array( $type, [ 'expense', 'income' ], true ) ) {
+            $type = 'expense';
+        }
+
+        $handle = fopen( $file['tmp_name'], 'r' );
+        if ( ! $handle ) {
+            EL_AJAX_Handler::error( __( 'Could not read the uploaded file.', 'el-core' ) );
+            return;
+        }
+
+        $header = fgetcsv( $handle );
+        if ( ! $header ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'CSV file appears to be empty.', 'el-core' ) );
+            return;
+        }
+        $header = array_map( 'trim', $header );
+
+        // Step 1: If columns not yet mapped, return header for mapping UI
+        if ( empty( $date_col ) || empty( $amount_col ) || empty( $merchant_col ) ) {
+            fclose( $handle );
+
+            // Also return previously used bank account names for the dropdown
+            global $wpdb;
+            $accounts = $wpdb->get_col(
+                "SELECT DISTINCT bank_account FROM {$this->table('el_bk_transactions')} WHERE bank_account != '' ORDER BY bank_account ASC"
+            );
+
+            EL_AJAX_Handler::success( [
+                'step'     => 'map_columns',
+                'columns'  => $header,
+                'accounts' => $accounts ?: [],
+                'filename' => basename( $file['name'] ),
+            ], __( 'Please map the columns and select a bank account.', 'el-core' ) );
+            return;
+        }
+
+        // Step 2: Import with mapped columns
+        if ( empty( $bank_account ) ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'Bank account name is required.', 'el-core' ) );
+            return;
+        }
+
+        $date_idx     = array_search( $date_col, $header, true );
+        $amount_idx   = array_search( $amount_col, $header, true );
+        $merchant_idx = array_search( $merchant_col, $header, true );
+
+        if ( $date_idx === false || $amount_idx === false || $merchant_idx === false ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'Could not find the specified columns in the CSV header.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table       = $this->table( 'el_bk_transactions' );
+        $source_file = sanitize_file_name( $file['name'] );
+
+        $imported   = 0;
+        $skipped    = 0;
+        $classified = 0;
+        $row_num    = 1;
+
+        while ( ( $row = fgetcsv( $handle ) ) !== false ) {
+            $row_num++;
+
+            $raw_date   = trim( $row[ $date_idx ]     ?? '' );
+            $raw_amount = trim( $row[ $amount_idx ]    ?? '' );
+            $merchant   = trim( $row[ $merchant_idx ]  ?? '' );
+
+            if ( empty( $raw_date ) || empty( $raw_amount ) || empty( $merchant ) ) {
+                $skipped++;
+                continue;
+            }
+
+            // Parse date — handle common formats
+            $date = $this->parse_csv_date( $raw_date );
+            if ( ! $date ) {
+                $skipped++;
+                continue;
+            }
+
+            // Parse amount — strip $, commas, parens for negatives
+            $amount = $this->parse_csv_amount( $raw_amount );
+            if ( $amount === null ) {
+                $skipped++;
+                continue;
+            }
+
+            // For expenses, amounts should be positive
+            if ( $type === 'expense' ) {
+                $amount = abs( $amount );
+            }
+
+            // Determine tax year from transaction date
+            $txn_year = (int) substr( $date, 0, 4 );
+
+            // Duplicate detection: same date + amount + merchant + bank_account
+            $exists = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE date = %s AND amount = %f AND merchant = %s AND bank_account = %s",
+                $date, $amount, $merchant, $bank_account
+            ) );
+
+            if ( (int) $exists > 0 ) {
+                $skipped++;
+                continue;
+            }
+
+            // Auto-classify using rules + travel dates
+            $classification = $this->auto_classify( $merchant, $date );
+            $category         = $classification['category'];
+            $status           = $category ? 'suggested' : 'unclassified';
+            $travel_period_id = $classification['travel_period_id'];
+
+            if ( $category ) {
+                $classified++;
+            }
+
+            $wpdb->insert( $table, [
+                'type'             => $type,
+                'date'             => $date,
+                'merchant'         => $merchant,
+                'amount'           => $amount,
+                'category'         => $category,
+                'bank_account'     => $bank_account,
+                'business'         => $this->get_business_name(),
+                'status'           => $status,
+                'comments'         => '',
+                'source_file'      => $source_file,
+                'tax_year'         => $txn_year,
+                'travel_period_id' => $travel_period_id,
+                'receipt_id'       => 0,
+            ] );
+
+            $imported++;
+        }
+
+        fclose( $handle );
+
+        $message = sprintf(
+            __( 'Import complete: %1$d transactions imported, %2$d auto-classified, %3$d skipped (duplicates or invalid rows).', 'el-core' ),
+            $imported,
+            $classified,
+            $skipped
+        );
+
+        EL_AJAX_Handler::success( [
+            'imported'   => $imported,
+            'classified' => $classified,
+            'skipped'    => $skipped,
+        ], $message );
+    }
+
+    /**
+     * Parse a date string from CSV into Y-m-d format.
+     * Handles: M/D/YYYY, MM/DD/YYYY, YYYY-MM-DD, M-D-YYYY, etc.
+     */
+    private function parse_csv_date( string $raw ): string {
+        $raw = trim( $raw );
+
+        // Already ISO format
+        if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $raw ) ) {
+            return $raw;
+        }
+
+        $ts = strtotime( $raw );
+        if ( $ts && $ts > 0 ) {
+            return date( 'Y-m-d', $ts );
+        }
+
+        return '';
+    }
+
+    /**
+     * Parse an amount string from CSV into a float.
+     * Handles: $1,234.56  (1,234.56)  -1234.56  1234.56  etc.
+     */
+    private function parse_csv_amount( string $raw ): ?float {
+        $raw = trim( $raw );
+        if ( $raw === '' ) {
+            return null;
+        }
+
+        $negative = false;
+        if ( str_starts_with( $raw, '(' ) && str_ends_with( $raw, ')' ) ) {
+            $negative = true;
+            $raw = trim( $raw, '()' );
+        }
+        if ( str_starts_with( $raw, '-' ) ) {
+            $negative = true;
+            $raw = ltrim( $raw, '-' );
+        }
+
+        $raw = str_replace( [ '$', ',', ' ' ], '', $raw );
+
+        if ( ! is_numeric( $raw ) ) {
+            return null;
+        }
+
+        $val = (float) $raw;
+        return $negative ? -$val : $val;
     }
 
     public function handle_update_transaction( array $data ): void {
@@ -793,6 +1048,7 @@ class EL_Bookkeeping_Module {
 
         $merchant_col = sanitize_text_field( $data['merchant_col'] ?? '' );
         $category_col = sanitize_text_field( $data['category_col'] ?? '' );
+        $category_map_json = wp_unslash( $data['category_map'] ?? '' );
 
         $handle = fopen( $file['tmp_name'], 'r' );
         if ( ! $handle ) {
@@ -809,6 +1065,7 @@ class EL_Bookkeeping_Module {
 
         $header = array_map( 'trim', $header );
 
+        // Step 1: No columns selected yet — return column headers for mapping
         if ( empty( $merchant_col ) || empty( $category_col ) ) {
             fclose( $handle );
             EL_AJAX_Handler::success( [
@@ -827,34 +1084,62 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $valid_categories = self::get_expense_categories();
-        $pairs = [];
-
+        // Read all rows to extract data
+        $rows = [];
         while ( ( $row = fgetcsv( $handle ) ) !== false ) {
             $merchant = trim( $row[ $merchant_idx ] ?? '' );
             $category = trim( $row[ $category_idx ] ?? '' );
+            if ( ! empty( $merchant ) && ! empty( $category ) ) {
+                $rows[] = [ 'merchant' => $merchant, 'category' => $category ];
+            }
+        }
+        fclose( $handle );
 
-            if ( empty( $merchant ) || empty( $category ) ) {
+        // Step 2: Columns selected but no category map — return unique CSV categories for mapping
+        if ( empty( $category_map_json ) ) {
+            $csv_categories = array_values( array_unique( array_column( $rows, 'category' ) ) );
+            sort( $csv_categories );
+
+            EL_AJAX_Handler::success( [
+                'step'           => 'map_categories',
+                'csv_categories' => $csv_categories,
+                'valid_categories' => self::get_expense_categories(),
+                'row_count'      => count( $rows ),
+            ], __( 'Map your CSV categories to the bookkeeping categories.', 'el-core' ) );
+            return;
+        }
+
+        // Step 3: Category map provided — apply mapping and create rules
+        $category_map = json_decode( $category_map_json, true );
+        if ( ! is_array( $category_map ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid category mapping.', 'el-core' ) );
+            return;
+        }
+
+        $valid_categories = self::get_expense_categories();
+        $pairs = [];
+
+        foreach ( $rows as $r ) {
+            $merchant     = $r['merchant'];
+            $csv_category = $r['category'];
+            $mapped       = $category_map[ $csv_category ] ?? '';
+
+            if ( empty( $mapped ) || $mapped === '__skip__' ) {
                 continue;
             }
 
-            if ( ! in_array( $category, $valid_categories, true ) ) {
+            if ( ! in_array( $mapped, $valid_categories, true ) ) {
                 continue;
             }
 
             $key = strtolower( $merchant );
             if ( ! isset( $pairs[ $key ] ) ) {
-                $pairs[ $key ] = [ 'keyword' => $merchant, 'category' => $category, 'match_type' => 'contains' ];
+                $pairs[ $key ] = [ 'keyword' => $merchant, 'category' => $mapped, 'match_type' => 'contains' ];
             }
         }
 
-        fclose( $handle );
-
         if ( empty( $pairs ) ) {
-            EL_AJAX_Handler::error(
-                __( 'No valid merchant/category pairs found. Make sure your category column uses exact Schedule C category names.', 'el-core' )
-                . "\n\n" . __( 'Valid categories: ', 'el-core' ) . implode( ', ', $valid_categories )
-            );
+            EL_AJAX_Handler::error( __( 'No valid merchant/category pairs found after mapping. Make sure at least one category is mapped.', 'el-core' ) );
             return;
         }
 
