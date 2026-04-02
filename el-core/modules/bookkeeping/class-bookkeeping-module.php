@@ -232,38 +232,41 @@ class EL_Bookkeeping_Module {
         }
         echo '</div>';
 
-        // ── Shared CSV Upload Modal ────────────────────────────────────────────
+        // ── Shared Bank Statement Upload Modal ──────────────────────────────────
         echo '<div id="el-bk-csv-upload-modal" class="el-bk-modal" style="display:none;">'; // phpcs:ignore
         echo '<div class="el-bk-modal-backdrop"></div>'; // phpcs:ignore
         echo '<div class="el-bk-modal-content el-bk-card">'; // phpcs:ignore
-        echo '<h3 id="el-bk-csv-modal-title">' . esc_html__( 'Upload CSV', 'el-core' ) . '</h3>';
+        echo '<h3 id="el-bk-csv-modal-title">' . esc_html__( 'Upload Bank Statement', 'el-core' ) . '</h3>';
+        echo '<p class="description">' . esc_html__( 'Upload one or more monthly CSV files from your bank. Deposits become income, charges become expenses (auto-classified by your rules and travel dates).', 'el-core' ) . '</p>';
 
         echo '<div id="el-bk-csv-step1">';
         echo '<div class="el-bk-form-row">';
-        echo '<label>' . esc_html__( 'CSV File:', 'el-core' ) . ' <input type="file" id="el-bk-csv-txn-file" accept=".csv"></label>';
-        echo '</div>';
-        echo '<div class="el-bk-form-row">';
         echo '<label>' . esc_html__( 'Bank Account:', 'el-core' ) . '<br>';
-        echo '<input type="text" id="el-bk-csv-bank-input" class="el-input" list="el-bk-csv-bank-list" placeholder="' . esc_attr__( 'e.g. Chase Business, Wells Fargo Personal', 'el-core' ) . '">';
+        echo '<input type="text" id="el-bk-csv-bank-input" class="el-input" list="el-bk-csv-bank-list" placeholder="' . esc_attr__( 'e.g. Chase Business, Wells Fargo Personal', 'el-core' ) . '" style="width:100%;max-width:320px;">';
         echo '<datalist id="el-bk-csv-bank-list"></datalist>';
         echo '</label></div>';
-        echo '<div class="el-bk-form-actions">';
+        echo '<div class="el-bk-form-row" style="margin-top:8px;">';
+        echo '<label>' . esc_html__( 'CSV Files (select one or more):', 'el-core' ) . ' <input type="file" id="el-bk-csv-txn-file" accept=".csv" multiple></label>';
+        echo '</div>';
+        echo '<div class="el-bk-form-actions" style="margin-top:12px;">';
         echo '<button class="el-btn el-btn-primary" id="el-bk-csv-txn-upload-btn" disabled>' . esc_html__( 'Upload & Map Columns', 'el-core' ) . '</button>';
         echo '<button class="el-btn el-btn-outline el-bk-csv-modal-close">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
         echo '</div></div>';
 
         echo '<div id="el-bk-csv-step2" style="display:none;">';
         echo '<p><strong>' . esc_html__( 'Map your CSV columns:', 'el-core' ) . '</strong></p>';
+        echo '<p class="description">' . esc_html__( 'These mappings will be used for all selected files.', 'el-core' ) . '</p>';
         echo '<div class="el-bk-form-row">';
         echo '<label>' . esc_html__( 'Date column:', 'el-core' ) . ' <select id="el-bk-csv-date-col" class="el-select"></select></label>';
         echo '<label>' . esc_html__( 'Amount column:', 'el-core' ) . ' <select id="el-bk-csv-amount-col" class="el-select"></select></label>';
         echo '<label>' . esc_html__( 'Merchant / Description:', 'el-core' ) . ' <select id="el-bk-csv-merchant-txn-col" class="el-select"></select></label>';
         echo '</div>';
         echo '<div class="el-bk-form-actions">';
-        echo '<button class="el-btn el-btn-primary" id="el-bk-csv-txn-import-btn">' . esc_html__( 'Import Transactions', 'el-core' ) . '</button>';
+        echo '<button class="el-btn el-btn-primary" id="el-bk-csv-txn-import-btn">' . esc_html__( 'Import All Files', 'el-core' ) . '</button>';
         echo '<button class="el-btn el-btn-outline el-bk-csv-modal-close">' . esc_html__( 'Cancel', 'el-core' ) . '</button>';
         echo '</div></div>';
 
+        echo '<div id="el-bk-csv-progress" style="display:none; margin-top:10px;"></div>';
         echo '<div id="el-bk-csv-result" style="display:none;"></div>';
         echo '</div></div>';
 
@@ -522,16 +525,10 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $type         = sanitize_key( $data['type'] ?? 'expense' );
         $bank_account = sanitize_text_field( $data['bank_account'] ?? '' );
         $date_col     = sanitize_text_field( $data['date_col']     ?? '' );
         $amount_col   = sanitize_text_field( $data['amount_col']   ?? '' );
         $merchant_col = sanitize_text_field( $data['merchant_col'] ?? '' );
-        $tax_year     = absint( $data['tax_year'] ?? $this->get_tax_year() );
-
-        if ( ! in_array( $type, [ 'expense', 'income' ], true ) ) {
-            $type = 'expense';
-        }
 
         $handle = fopen( $file['tmp_name'], 'r' );
         if ( ! $handle ) {
@@ -551,7 +548,6 @@ class EL_Bookkeeping_Module {
         if ( empty( $date_col ) || empty( $amount_col ) || empty( $merchant_col ) ) {
             fclose( $handle );
 
-            // Also return previously used bank account names for the dropdown
             global $wpdb;
             $accounts = $wpdb->get_col(
                 "SELECT DISTINCT bank_account FROM {$this->table('el_bk_transactions')} WHERE bank_account != '' ORDER BY bank_account ASC"
@@ -587,14 +583,12 @@ class EL_Bookkeeping_Module {
         $table       = $this->table( 'el_bk_transactions' );
         $source_file = sanitize_file_name( $file['name'] );
 
-        $imported   = 0;
-        $skipped    = 0;
-        $classified = 0;
-        $row_num    = 1;
+        $income_imported  = 0;
+        $expense_imported = 0;
+        $classified       = 0;
+        $skipped          = 0;
 
         while ( ( $row = fgetcsv( $handle ) ) !== false ) {
-            $row_num++;
-
             $raw_date   = trim( $row[ $date_idx ]     ?? '' );
             $raw_amount = trim( $row[ $amount_idx ]    ?? '' );
             $merchant   = trim( $row[ $merchant_idx ]  ?? '' );
@@ -604,32 +598,33 @@ class EL_Bookkeeping_Module {
                 continue;
             }
 
-            // Parse date — handle common formats
             $date = $this->parse_csv_date( $raw_date );
             if ( ! $date ) {
                 $skipped++;
                 continue;
             }
 
-            // Parse amount — strip $, commas, parens for negatives
             $amount = $this->parse_csv_amount( $raw_amount );
-            if ( $amount === null ) {
+            if ( $amount === null || $amount == 0 ) {
                 $skipped++;
                 continue;
             }
 
-            // For expenses, amounts should be positive
-            if ( $type === 'expense' ) {
-                $amount = abs( $amount );
+            // Auto-sort: positive = income, negative = expense
+            if ( $amount >= 0 ) {
+                $type       = 'income';
+                $store_amt  = $amount;
+            } else {
+                $type       = 'expense';
+                $store_amt  = abs( $amount );
             }
 
-            // Determine tax year from transaction date
             $txn_year = (int) substr( $date, 0, 4 );
 
-            // Duplicate detection: same date + amount + merchant + bank_account
+            // Duplicate detection
             $exists = $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE date = %s AND amount = %f AND merchant = %s AND bank_account = %s",
-                $date, $amount, $merchant, $bank_account
+                "SELECT COUNT(*) FROM {$table} WHERE date = %s AND amount = %f AND merchant = %s AND bank_account = %s AND type = %s",
+                $date, $store_amt, $merchant, $bank_account, $type
             ) );
 
             if ( (int) $exists > 0 ) {
@@ -637,21 +632,26 @@ class EL_Bookkeeping_Module {
                 continue;
             }
 
-            // Auto-classify using rules + travel dates
-            $classification = $this->auto_classify( $merchant, $date );
-            $category         = $classification['category'];
-            $status           = $category ? 'suggested' : 'unclassified';
-            $travel_period_id = $classification['travel_period_id'];
+            // Auto-classify expenses using rules + travel dates
+            $category         = '';
+            $status           = 'unclassified';
+            $travel_period_id = 0;
 
-            if ( $category ) {
-                $classified++;
+            if ( $type === 'expense' ) {
+                $classification   = $this->auto_classify( $merchant, $date );
+                $category         = $classification['category'];
+                $status           = $category ? 'suggested' : 'unclassified';
+                $travel_period_id = $classification['travel_period_id'];
+                if ( $category ) {
+                    $classified++;
+                }
             }
 
             $wpdb->insert( $table, [
                 'type'             => $type,
                 'date'             => $date,
                 'merchant'         => $merchant,
-                'amount'           => $amount,
+                'amount'           => $store_amt,
                 'category'         => $category,
                 'bank_account'     => $bank_account,
                 'business'         => $this->get_business_name(),
@@ -663,22 +663,30 @@ class EL_Bookkeeping_Module {
                 'receipt_id'       => 0,
             ] );
 
-            $imported++;
+            if ( $type === 'income' ) {
+                $income_imported++;
+            } else {
+                $expense_imported++;
+            }
         }
 
         fclose( $handle );
 
+        $total_imported = $income_imported + $expense_imported;
         $message = sprintf(
-            __( 'Import complete: %1$d transactions imported, %2$d auto-classified, %3$d skipped (duplicates or invalid rows).', 'el-core' ),
-            $imported,
+            __( 'Import complete: %1$d income, %2$d expenses (%3$d auto-classified), %4$d skipped.', 'el-core' ),
+            $income_imported,
+            $expense_imported,
             $classified,
             $skipped
         );
 
         EL_AJAX_Handler::success( [
-            'imported'   => $imported,
-            'classified' => $classified,
-            'skipped'    => $skipped,
+            'imported'         => $total_imported,
+            'income_imported'  => $income_imported,
+            'expense_imported' => $expense_imported,
+            'classified'       => $classified,
+            'skipped'          => $skipped,
         ], $message );
     }
 

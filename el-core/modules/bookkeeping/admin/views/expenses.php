@@ -34,9 +34,6 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
         <button class="el-btn el-btn-outline el-bk-export-btn" data-format="csv">
             <?php esc_html_e( 'Download CSV', 'el-core' ); ?>
         </button>
-        <button class="el-btn el-btn-primary el-bk-upload-csv-btn" data-type="expense">
-            <?php esc_html_e( 'Upload CSV', 'el-core' ); ?>
-        </button>
         <button class="el-btn el-btn-outline" id="el-bk-import-ledger-btn">
             <?php esc_html_e( 'Import Ledger Tab', 'el-core' ); ?>
         </button>
@@ -99,7 +96,7 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
 </div>
 
 <?php if ( empty( $transactions ) ) : ?>
-    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No expense transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No expense transactions found for this tax year. Go to the Income & Deposits tab and upload your bank statements — expenses will be auto-sorted here.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 
 <div class="el-bk-table-wrap">

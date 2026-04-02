@@ -27,8 +27,8 @@ $business_name = $module->get_business_name();
         <button class="el-btn el-btn-outline el-bk-export-btn" data-format="csv" data-type="income">
             <?php esc_html_e( 'Download CSV', 'el-core' ); ?>
         </button>
-        <button class="el-btn el-btn-primary el-bk-upload-csv-btn" data-type="income">
-            <?php esc_html_e( 'Upload CSV', 'el-core' ); ?>
+        <button class="el-btn el-btn-primary el-bk-upload-csv-btn">
+            <?php esc_html_e( 'Upload Bank Statement', 'el-core' ); ?>
         </button>
     </div>
 </div>

@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.0] — 2026-04-02
+
+### Changed
+- **Unified Bank Statement Import**: The Income & Deposits tab is now the single entry point for all bank data. Upload one or more monthly CSV files per bank account, and the system auto-sorts every transaction: positive amounts become income, negative amounts become expenses. Expenses are auto-classified using known expense rules and travel dates. No more uploading the same CSV on two tabs.
+- **Multi-file upload**: The bank statement modal now accepts multiple CSV files at once (e.g., all 12 months). Files are processed sequentially with a progress indicator showing "Importing file 3 of 12: January.csv..."
+- **Expenses tab is now review-only**: Removed the "Upload CSV" button from the Expenses tab. Expenses are created automatically when bank statements are imported on the Income & Deposits tab. The Expenses tab is now purely for reviewing and editing classifications. "Import Ledger Tab" and "Download CSV" remain.
+- **Income tab button renamed**: "Upload CSV" is now "Upload Bank Statement" to reflect the unified flow.
+- **Import summary**: After import, shows breakdown of income vs expenses, auto-classified count, and skipped duplicates.
+
+---
+
 ## [1.36.3] — 2026-04-02
 
 ### Added

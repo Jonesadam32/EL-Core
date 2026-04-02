@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.36.3 — Rules table now has category filter, keyword search, and bulk delete with checkboxes.
+> **Current Plugin Version:** v1.37.0 — Unified Bank Statement Import. Upload all monthly CSVs on Income & Deposits tab; system auto-sorts income vs expenses, applies rules and travel dates. Expenses tab is review-only.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 
