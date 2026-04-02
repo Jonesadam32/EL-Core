@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.5] — 2026-04-02
+
+### Changed
+- **Expense categories updated to match actual books**: Replaced generic Schedule C category names with the exact category names used in the user's accounting spreadsheet. Categories now include: Accounting Fees, Advertising & Promotion, Bank Service Charges, Computer - Hardware/Hosting/Software, Dues & Subscriptions, Education & Training, Health Care Insurance, Insurance-General Liability, Vehicles, Interest Expense, Meals & Entertainment, Merchant Account Fees, Office Supplies, Out of pocket Medical Expenses, Parking & tolls, Professional Fees, Rent Expense, Telephone - Wireless, Travel Expense, Vehicle - Fuel, Vehicle - Repairs and Maintenance, Contract Labor.
+- **Travel auto-mapping updated**: Travel period auto-classification now maps to the new category names (Travel Expense, Meals & Entertainment, Vehicle - Fuel).
+
+---
+
 ## [1.35.4] — 2026-04-02
 
 ### Added

@@ -262,42 +262,30 @@ class EL_Bookkeeping_Module {
 
     public static function get_expense_categories(): array {
         return [
-            'Supplies and Materials',
-            'Repairs',
-            'Utilities',
-            'Shipping and Postage',
-            'Telephone and Communication',
-            'Continuing Education',
-            'Outside Services',
-            'Travel',
+            'Accounting Fees',
+            'Advertising & Promotion',
+            'Bank Service Charges',
+            'Computer - Hardware',
+            'Computer - Hosting',
+            'Computer - Software',
+            'Dues & Subscriptions',
+            'Education & Training',
+            'Health Care Insurance',
+            'Insurance-General Liability',
+            'Vehicles',
+            'Interest Expense',
+            'Meals & Entertainment',
+            'Merchant Account Fees',
             'Office Supplies',
-            'Advertising and Marketing',
-            'Interest Charges',
+            'Out of pocket Medical Expenses',
+            'Parking & tolls',
             'Professional Fees',
-            'Membership and Subscription',
-            'Software and Application Fees',
-            'Bank Fees and Services',
-            'Payroll Taxes',
-            'Salary and Wages',
-            'Vehicle Expense - Gas',
-            'Vehicle Expense Total',
-            'Health Insurance',
-            'Home Office - Rent',
-            'Home Office - Indirect',
-            'Meals',
-            'Taxes and Licenses',
-            'COGS',
+            'Rent Expense',
+            'Telephone - Wireless',
+            'Travel Expense',
+            'Vehicle - Fuel',
+            'Vehicle - Repairs and Maintenance',
             'Contract Labor',
-            'Office Furniture',
-            'Rental Equipment',
-            'Commercial Office - Rent',
-            'Refunds',
-            'Foreign Labor',
-            'Payroll Fees',
-            'Equipment',
-            'Office Expense',
-            'Distributions',
-            'Shareholder Loan',
         ];
     }
 
@@ -464,13 +452,13 @@ class EL_Bookkeeping_Module {
         $meals    = [ 'RESTAURANT', 'CAFE', 'COFFEE', 'MCDONALD', 'CHICK-FIL', 'SUBWAY', 'STARBUCKS', 'DUNKIN', 'DOORDASH', 'GRUBHUB', 'UBEREATS' ];
         $gas      = [ 'GAS', 'SHELL', 'EXXON', 'CHEVRON', 'BP', 'SUNOCO' ];
 
-        foreach ( $airlines as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel'; }
-        foreach ( $hotels   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel'; }
-        foreach ( $ground   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel'; }
-        foreach ( $meals    as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Meals'; }
-        foreach ( $gas      as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Vehicle Expense - Gas'; }
+        foreach ( $airlines as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel Expense'; }
+        foreach ( $hotels   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel Expense'; }
+        foreach ( $ground   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel Expense'; }
+        foreach ( $meals    as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Meals & Entertainment'; }
+        foreach ( $gas      as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Vehicle - Fuel'; }
 
-        return 'Travel';
+        return 'Travel Expense';
     }
 
     // ─────────────────────────────────────────────────────────────

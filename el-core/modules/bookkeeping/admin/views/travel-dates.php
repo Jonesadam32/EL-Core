@@ -108,10 +108,10 @@ $tax_year = $tax_year ?? $module->get_tax_year();
     <table class="widefat el-bk-travel-map-table">
         <thead><tr><th><?php esc_html_e( 'Merchant contains…', 'el-core' ); ?></th><th><?php esc_html_e( 'Auto-category', 'el-core' ); ?></th></tr></thead>
         <tbody>
-            <tr><td>AIRLINE, DELTA, UNITED, AMERICAN, SOUTHWEST, SPIRIT, JETBLUE, FRONTIER, HOTEL, MARRIOTT, HILTON, HYATT, IHG, WESTIN, AIRBNB, VRBO, UBER, LYFT, TAXI, CAB, PARKING, GARAGE</td><td>Travel</td></tr>
-            <tr><td>RESTAURANT, CAFE, COFFEE, MCDONALD, CHICK-FIL, SUBWAY, STARBUCKS, DUNKIN, DOORDASH, GRUBHUB, UBEREATS</td><td>Meals</td></tr>
-            <tr><td>GAS, SHELL, EXXON, CHEVRON, BP, SUNOCO</td><td>Vehicle Expense - Gas</td></tr>
-            <tr><td><em><?php esc_html_e( 'All other merchants during travel period', 'el-core' ); ?></em></td><td>Travel (default)</td></tr>
+            <tr><td>AIRLINE, DELTA, UNITED, AMERICAN, SOUTHWEST, SPIRIT, JETBLUE, FRONTIER, HOTEL, MARRIOTT, HILTON, HYATT, IHG, WESTIN, AIRBNB, VRBO, UBER, LYFT, TAXI, CAB, PARKING, GARAGE</td><td>Travel Expense</td></tr>
+            <tr><td>RESTAURANT, CAFE, COFFEE, MCDONALD, CHICK-FIL, SUBWAY, STARBUCKS, DUNKIN, DOORDASH, GRUBHUB, UBEREATS</td><td>Meals &amp; Entertainment</td></tr>
+            <tr><td>GAS, SHELL, EXXON, CHEVRON, BP, SUNOCO</td><td>Vehicle - Fuel</td></tr>
+            <tr><td><em><?php esc_html_e( 'All other merchants during travel period', 'el-core' ); ?></em></td><td>Travel Expense (default)</td></tr>
         </tbody>
     </table>
 </div>
