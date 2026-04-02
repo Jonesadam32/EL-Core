@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.36.3] — 2026-04-02
+
+### Added
+- **Rules table: category filter** — dropdown to show only rules for a specific category (e.g., show only "Accounting Fees" rules).
+- **Rules table: keyword search** — live text filter to find rules by merchant/keyword.
+- **Rules table: bulk delete** — checkboxes on every row, select-all for visible rows, and a "Delete Selected" button. Supports filtering first (e.g., filter to a wrong category, select all, delete).
+- **Rules table: rule count** — shows total rule count in the header and "Showing X of Y" when filtered.
+- New `handle_bulk_delete_rules()` AJAX handler for server-side bulk deletion.
+
+---
+
 ## [1.36.2] — 2026-04-02
 
 ### Changed

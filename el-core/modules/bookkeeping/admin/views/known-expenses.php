@@ -83,16 +83,48 @@ $rules = $module->get_rules();
 <!-- Manual Rules Table -->
 <div class="el-bk-card">
     <div class="el-bk-card-header">
-        <h3><?php esc_html_e( 'Rule Table', 'el-core' ); ?></h3>
+        <h3><?php esc_html_e( 'Rule Table', 'el-core' ); ?>
+            <?php if ( ! empty( $rules ) ) : ?>
+                <span id="el-bk-rules-count" style="font-weight:normal;font-size:13px;color:#64748b;margin-left:8px;">(<?php echo count( $rules ); ?> rules)</span>
+            <?php endif; ?>
+        </h3>
         <button class="el-btn el-btn-outline" id="el-bk-add-rule-btn"><?php esc_html_e( '+ Add Rule', 'el-core' ); ?></button>
     </div>
 
     <?php if ( empty( $rules ) ) : ?>
         <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No rules defined yet. Use the AI chat above or click Add Rule.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
     <?php else : ?>
+
+    <?php
+    $rule_categories = array_values( array_unique( array_map( fn( $r ) => $r->category, $rules ) ) );
+    sort( $rule_categories );
+    ?>
+
+    <!-- Filter bar -->
+    <div class="el-bk-rules-filter-bar" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+        <label style="display:flex; align-items:center; gap:4px;">
+            <?php esc_html_e( 'Category:', 'el-core' ); ?>
+            <select id="el-bk-rules-filter-cat" class="el-select" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— All Categories —', 'el-core' ); ?></option>
+                <?php foreach ( $rule_categories as $rc ) : ?>
+                    <option value="<?php echo esc_attr( $rc ); ?>"><?php echo esc_html( $rc ); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label style="display:flex; align-items:center; gap:4px;">
+            <?php esc_html_e( 'Search:', 'el-core' ); ?>
+            <input type="text" id="el-bk-rules-search" class="el-input" placeholder="<?php esc_attr_e( 'Filter by keyword…', 'el-core' ); ?>" style="min-width:200px;">
+        </label>
+        <span id="el-bk-rules-visible-count" style="font-size:13px;color:#64748b;"></span>
+        <button class="el-btn el-btn-outline" id="el-bk-bulk-delete-btn" style="margin-left:auto; color:#dc2626; border-color:#dc2626; display:none;">
+            <?php esc_html_e( 'Delete Selected', 'el-core' ); ?>
+        </button>
+    </div>
+
     <table class="el-bk-rules-table widefat" id="el-bk-rules-table">
         <thead>
             <tr>
+                <th style="width:32px;"><input type="checkbox" id="el-bk-rules-select-all" title="<?php esc_attr_e( 'Select all visible', 'el-core' ); ?>"></th>
                 <th class="el-bk-drag-handle-col"></th>
                 <th><?php esc_html_e( 'Merchant / Keyword', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Match Type', 'el-core' ); ?></th>
@@ -102,7 +134,8 @@ $rules = $module->get_rules();
         </thead>
         <tbody id="el-bk-rules-tbody">
             <?php foreach ( $rules as $rule ) : ?>
-            <tr data-rule-id="<?php echo esc_attr( $rule->id ); ?>">
+            <tr data-rule-id="<?php echo esc_attr( $rule->id ); ?>" data-category="<?php echo esc_attr( $rule->category ); ?>" data-keyword="<?php echo esc_attr( strtolower( $rule->keyword ) ); ?>">
+                <td><input type="checkbox" class="el-bk-rule-check" value="<?php echo esc_attr( $rule->id ); ?>"></td>
                 <td class="el-bk-drag-handle">⠿</td>
                 <td><?php echo esc_html( $rule->keyword ); ?></td>
                 <td><?php echo esc_html( ucfirst( $rule->match_type ) ); ?></td>

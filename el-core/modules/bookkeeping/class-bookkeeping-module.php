@@ -59,6 +59,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_process_rules',       [ $this, 'handle_process_rules' ] );
         add_action( 'el_core_ajax_bk_save_rule',           [ $this, 'handle_save_rule' ] );
         add_action( 'el_core_ajax_bk_delete_rule',         [ $this, 'handle_delete_rule' ] );
+        add_action( 'el_core_ajax_bk_bulk_delete_rules',   [ $this, 'handle_bulk_delete_rules' ] );
         add_action( 'el_core_ajax_bk_reorder_rules',       [ $this, 'handle_reorder_rules' ] );
         add_action( 'el_core_ajax_bk_import_rules_csv',    [ $this, 'handle_import_rules_csv' ] );
         add_action( 'el_core_ajax_bk_import_ledger',       [ $this, 'handle_import_ledger' ] );
@@ -1194,6 +1195,40 @@ class EL_Bookkeeping_Module {
         global $wpdb;
         $wpdb->delete( $this->table( 'el_bk_rules' ), [ 'id' => $id ] );
         EL_AJAX_Handler::success( null, __( 'Rule deleted.', 'el-core' ) );
+    }
+
+    public function handle_bulk_delete_rules( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $raw = sanitize_text_field( $data['ids'] ?? '' );
+        if ( empty( $raw ) ) {
+            EL_AJAX_Handler::error( __( 'No rule IDs provided.', 'el-core' ) );
+            return;
+        }
+
+        $ids = array_filter( array_map( 'absint', explode( ',', $raw ) ) );
+        if ( empty( $ids ) ) {
+            EL_AJAX_Handler::error( __( 'No valid rule IDs provided.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table        = $this->table( 'el_bk_rules' );
+        $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+        $deleted      = $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$table} WHERE id IN ({$placeholders})",
+            ...$ids
+        ) );
+
+        EL_AJAX_Handler::success( [
+            'deleted' => (int) $deleted,
+        ], sprintf(
+            __( 'Deleted %d rule(s).', 'el-core' ),
+            (int) $deleted
+        ) );
     }
 
     public function handle_reorder_rules( array $data ): void {

@@ -130,6 +130,81 @@
         });
     });
 
+    // ── Rules: Filter, Search, Bulk Delete ──────────────────────────────────────
+
+    function filterRulesTable() {
+        var cat = ($('#el-bk-rules-filter-cat').val() || '').toLowerCase();
+        var search = ($('#el-bk-rules-search').val() || '').toLowerCase();
+        var visible = 0;
+
+        $('#el-bk-rules-tbody tr').each(function () {
+            var $row = $(this);
+            var rowCat = ($row.attr('data-category') || '').toLowerCase();
+            var rowKey = ($row.attr('data-keyword') || '').toLowerCase();
+            var matchCat = !cat || rowCat === cat;
+            var matchSearch = !search || rowKey.indexOf(search) !== -1;
+            if (matchCat && matchSearch) {
+                $row.show();
+                visible++;
+            } else {
+                $row.hide();
+                $row.find('.el-bk-rule-check').prop('checked', false);
+            }
+        });
+
+        var total = $('#el-bk-rules-tbody tr').length;
+        var $count = $('#el-bk-rules-visible-count');
+        if (cat || search) {
+            $count.text('Showing ' + visible + ' of ' + total);
+        } else {
+            $count.text('');
+        }
+
+        updateBulkDeleteBtn();
+    }
+
+    $('#el-bk-rules-filter-cat').on('change', filterRulesTable);
+    $('#el-bk-rules-search').on('input', filterRulesTable);
+
+    // Select all visible
+    $('#el-bk-rules-select-all').on('change', function () {
+        var checked = $(this).prop('checked');
+        $('#el-bk-rules-tbody tr:visible .el-bk-rule-check').prop('checked', checked);
+        updateBulkDeleteBtn();
+    });
+
+    $(document).on('change', '.el-bk-rule-check', function () {
+        updateBulkDeleteBtn();
+    });
+
+    function updateBulkDeleteBtn() {
+        var count = $('#el-bk-rules-tbody .el-bk-rule-check:checked').length;
+        var $btn = $('#el-bk-bulk-delete-btn');
+        if (count > 0) {
+            $btn.show().text('Delete Selected (' + count + ')');
+        } else {
+            $btn.hide();
+        }
+    }
+
+    $('#el-bk-bulk-delete-btn').on('click', function () {
+        var ids = [];
+        $('#el-bk-rules-tbody .el-bk-rule-check:checked').each(function () {
+            ids.push($(this).val());
+        });
+        if (!ids.length) return;
+        if (!confirm('Delete ' + ids.length + ' selected rule(s)? This cannot be undone.')) return;
+
+        var $btn = $(this).prop('disabled', true).text('Deleting…');
+        elBkAjax('bk_bulk_delete_rules', { ids: ids.join(',') }, function (data) {
+            alert((data.data || data).message || 'Deleted.');
+            location.reload();
+        }, function (msg) {
+            alert(msg);
+            $btn.prop('disabled', false).text('Delete Selected');
+        });
+    });
+
     // ── Travel Periods: Add/Edit Form Toggle ───────────────────────────────────
 
     $('#el-bk-add-period-btn').on('click', function () {

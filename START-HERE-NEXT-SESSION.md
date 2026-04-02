@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.36.2 — Import Rules from Prior-Year Expenses rewritten for single-category-per-CSV flow. Pick category, upload CSV, map description column, done.
+> **Current Plugin Version:** v1.36.3 — Rules table now has category filter, keyword search, and bulk delete with checkboxes.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 
