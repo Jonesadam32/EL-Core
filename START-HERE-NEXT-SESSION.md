@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.35.3 — Fixed bookkeeping tab critical errors. All `EL_Admin_UI::notice()` calls converted to array syntax. All tabs should now render cleanly.
+> **Current Plugin Version:** v1.35.4 — AI Rule Builder and CSV rule import working. Known Expenses tab fully functional. Ready for prior-year data import, then CSV transaction upload (Phase 2B).
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 
@@ -98,7 +98,8 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.35.0 | Full UI redesign: Dashboard, tab pills, all views | Built |
 | v1.35.1 | CSS specificity fix (scope under .el-admin-wrap) | Built |
 | v1.35.2 | **Fix CSS never loading (wrong handle `el-admin` → `el-core-admin`)** | Built |
-| v1.35.3 | **Fix `EL_Admin_UI::notice()` wrong call signature in all 7 view files** | **CURRENT — deployed** |
+| v1.35.3 | **Fix `EL_Admin_UI::notice()` wrong call signature in all 7 view files** | Built |
+| v1.35.4 | **AI Rule Builder + CSV rule import on Known Expenses tab** | **CURRENT — deployed** |
 
 ---
 

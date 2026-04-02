@@ -59,6 +59,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_save_rule',           [ $this, 'handle_save_rule' ] );
         add_action( 'el_core_ajax_bk_delete_rule',         [ $this, 'handle_delete_rule' ] );
         add_action( 'el_core_ajax_bk_reorder_rules',       [ $this, 'handle_reorder_rules' ] );
+        add_action( 'el_core_ajax_bk_import_rules_csv',    [ $this, 'handle_import_rules_csv' ] );
 
         // ── Travel Dates ──────────────────────────────────────────
         add_action( 'el_core_ajax_bk_save_travel_period',   [ $this, 'handle_save_travel_period' ] );
@@ -567,8 +568,143 @@ class EL_Bookkeeping_Module {
             EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
             return;
         }
-        // Phase 3
-        EL_AJAX_Handler::error( __( 'AI rule processing not yet implemented.', 'el-core' ) );
+
+        $message = sanitize_textarea_field( wp_unslash( $data['message'] ?? '' ) );
+        if ( empty( $message ) ) {
+            EL_AJAX_Handler::error( __( 'Please enter some text to process.', 'el-core' ) );
+            return;
+        }
+
+        if ( ! $this->core || ! $this->core->ai || ! $this->core->ai->is_configured() ) {
+            EL_AJAX_Handler::error( __( 'AI is not configured. Go to EL Core → Brand → AI Configuration to add your API key.', 'el-core' ) );
+            return;
+        }
+
+        $categories_list = implode( ', ', self::get_expense_categories() );
+
+        $result = $this->core->ai->complete( [
+            'system' => "You are a bookkeeping assistant that extracts merchant-to-category classification rules from natural language.\n\n"
+                      . "VALID CATEGORIES (use EXACTLY these names):\n{$categories_list}\n\n"
+                      . "The user will describe merchants and what category they belong to. Extract each merchant/keyword and its category.\n\n"
+                      . "Respond ONLY with a JSON array. Each element must have:\n"
+                      . "- \"keyword\": the merchant name or keyword (e.g. \"Adobe\", \"Chick-fil-A\")\n"
+                      . "- \"category\": one of the valid categories above (EXACT match required)\n"
+                      . "- \"match_type\": \"contains\" (default) or \"exact\"\n\n"
+                      . "If a category the user mentions doesn't match any valid category, pick the closest valid one.\n"
+                      . "If you cannot determine any rules, return an empty array: []\n\n"
+                      . "Example input: \"Adobe is Software and Application Fees, Chick-fil-A is Meals\"\n"
+                      . "Example output: [{\"keyword\":\"Adobe\",\"category\":\"Software and Application Fees\",\"match_type\":\"contains\"},{\"keyword\":\"Chick-fil-A\",\"category\":\"Meals\",\"match_type\":\"contains\"}]",
+            'prompt'     => $message,
+            'max_tokens' => 2048,
+        ] );
+
+        if ( ! $result['success'] ) {
+            EL_AJAX_Handler::error( sprintf( __( 'AI error: %s', 'el-core' ), $result['error'] ) );
+            return;
+        }
+
+        $parsed = $this->parse_rules_from_ai_response( $result['content'] );
+
+        if ( empty( $parsed ) ) {
+            EL_AJAX_Handler::success( [
+                'reply'       => __( 'I couldn\'t extract any rules from that. Try something like: "Adobe is Software and Application Fees, Starbucks is Meals"', 'el-core' ),
+                'rules_saved' => 0,
+            ] );
+            return;
+        }
+
+        $saved = $this->bulk_save_rules( $parsed );
+
+        $reply = sprintf(
+            _n( 'Created %d rule:', 'Created %d rules:', $saved, 'el-core' ),
+            $saved
+        ) . "\n";
+        foreach ( $parsed as $r ) {
+            $reply .= "• {$r['keyword']} → {$r['category']}\n";
+        }
+
+        EL_AJAX_Handler::success( [
+            'reply'       => $reply,
+            'rules_saved' => $saved,
+            'rules'       => $parsed,
+        ] );
+    }
+
+    /**
+     * Parse JSON rules array from AI response text.
+     * Handles cases where the AI wraps JSON in markdown code fences.
+     */
+    private function parse_rules_from_ai_response( string $content ): array {
+        $content = trim( $content );
+
+        if ( preg_match( '/```(?:json)?\s*([\s\S]*?)```/', $content, $m ) ) {
+            $content = trim( $m[1] );
+        }
+
+        $decoded = json_decode( $content, true );
+        if ( ! is_array( $decoded ) ) {
+            return [];
+        }
+
+        $valid_categories = self::get_expense_categories();
+        $rules = [];
+
+        foreach ( $decoded as $item ) {
+            $keyword  = sanitize_text_field( $item['keyword']    ?? '' );
+            $category = sanitize_text_field( $item['category']   ?? '' );
+            $type     = sanitize_key( $item['match_type']        ?? 'contains' );
+
+            if ( empty( $keyword ) || empty( $category ) ) {
+                continue;
+            }
+            if ( ! in_array( $category, $valid_categories, true ) ) {
+                continue;
+            }
+            if ( ! in_array( $type, [ 'contains', 'exact' ], true ) ) {
+                $type = 'contains';
+            }
+
+            $rules[] = [ 'keyword' => $keyword, 'category' => $category, 'match_type' => $type ];
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Save multiple rules at once, skipping duplicates (same keyword+category).
+     * Returns count of newly inserted rules.
+     */
+    private function bulk_save_rules( array $rules ): int {
+        global $wpdb;
+        $table    = $this->table( 'el_bk_rules' );
+        $existing = $wpdb->get_results( "SELECT keyword, category FROM {$table}", ARRAY_A );
+
+        $existing_set = [];
+        foreach ( $existing as $e ) {
+            $existing_set[ strtolower( $e['keyword'] ) . '|' . $e['category'] ] = true;
+        }
+
+        $max_priority = (int) $wpdb->get_var( "SELECT MAX(priority) FROM {$table}" );
+        $saved = 0;
+
+        foreach ( $rules as $rule ) {
+            $key = strtolower( $rule['keyword'] ) . '|' . $rule['category'];
+            if ( isset( $existing_set[ $key ] ) ) {
+                continue;
+            }
+
+            $max_priority++;
+            $wpdb->insert( $table, [
+                'keyword'    => $rule['keyword'],
+                'match_type' => $rule['match_type'],
+                'category'   => $rule['category'],
+                'priority'   => $max_priority,
+            ] );
+            $existing_set[ $key ] = true;
+            $saved++;
+        }
+
+        return $saved;
     }
 
     public function handle_save_rule( array $data ): void {
@@ -643,6 +779,108 @@ class EL_Bookkeeping_Module {
         }
 
         EL_AJAX_Handler::success( null, __( 'Rules reordered.', 'el-core' ) );
+    }
+
+    /**
+     * Import rules from a prior-year categorized expense CSV.
+     * Expects columns for merchant/description and category.
+     */
+    public function handle_import_rules_csv( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        if ( empty( $_FILES['csv_file'] ) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK ) {
+            EL_AJAX_Handler::error( __( 'No file uploaded or upload error.', 'el-core' ) );
+            return;
+        }
+
+        $file = $_FILES['csv_file'];
+        $ext  = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+        if ( $ext !== 'csv' ) {
+            EL_AJAX_Handler::error( __( 'Only CSV files are accepted.', 'el-core' ) );
+            return;
+        }
+
+        $merchant_col = sanitize_text_field( $data['merchant_col'] ?? '' );
+        $category_col = sanitize_text_field( $data['category_col'] ?? '' );
+
+        $handle = fopen( $file['tmp_name'], 'r' );
+        if ( ! $handle ) {
+            EL_AJAX_Handler::error( __( 'Could not read the uploaded file.', 'el-core' ) );
+            return;
+        }
+
+        $header = fgetcsv( $handle );
+        if ( ! $header ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'CSV file appears to be empty.', 'el-core' ) );
+            return;
+        }
+
+        $header = array_map( 'trim', $header );
+
+        if ( empty( $merchant_col ) || empty( $category_col ) ) {
+            fclose( $handle );
+            EL_AJAX_Handler::success( [
+                'step'    => 'map_columns',
+                'columns' => $header,
+            ], __( 'Please map the columns.', 'el-core' ) );
+            return;
+        }
+
+        $merchant_idx = array_search( $merchant_col, $header, true );
+        $category_idx = array_search( $category_col, $header, true );
+
+        if ( $merchant_idx === false || $category_idx === false ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'Could not find the specified columns in the CSV header.', 'el-core' ) );
+            return;
+        }
+
+        $valid_categories = self::get_expense_categories();
+        $pairs = [];
+
+        while ( ( $row = fgetcsv( $handle ) ) !== false ) {
+            $merchant = trim( $row[ $merchant_idx ] ?? '' );
+            $category = trim( $row[ $category_idx ] ?? '' );
+
+            if ( empty( $merchant ) || empty( $category ) ) {
+                continue;
+            }
+
+            if ( ! in_array( $category, $valid_categories, true ) ) {
+                continue;
+            }
+
+            $key = strtolower( $merchant );
+            if ( ! isset( $pairs[ $key ] ) ) {
+                $pairs[ $key ] = [ 'keyword' => $merchant, 'category' => $category, 'match_type' => 'contains' ];
+            }
+        }
+
+        fclose( $handle );
+
+        if ( empty( $pairs ) ) {
+            EL_AJAX_Handler::error(
+                __( 'No valid merchant/category pairs found. Make sure your category column uses exact Schedule C category names.', 'el-core' )
+                . "\n\n" . __( 'Valid categories: ', 'el-core' ) . implode( ', ', $valid_categories )
+            );
+            return;
+        }
+
+        $saved = $this->bulk_save_rules( array_values( $pairs ) );
+
+        EL_AJAX_Handler::success( [
+            'rules_saved' => $saved,
+            'total_found' => count( $pairs ),
+        ], sprintf(
+            __( 'Found %1$d unique merchant/category pairs. Created %2$d new rules (%3$d already existed).', 'el-core' ),
+            count( $pairs ),
+            $saved,
+            count( $pairs ) - $saved
+        ) );
     }
 
     // ─────────────────────────────────────────────────────────────

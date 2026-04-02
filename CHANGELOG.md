@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.4] — 2026-04-02
+
+### Added
+- **AI Rule Builder (Known Expenses)**: The AI chat interface now works — type natural language like "Adobe is Software and Application Fees, Starbucks is Meals" and Claude parses it into rules automatically. Duplicate rules are skipped.
+- **Import Rules from Prior-Year CSV**: Upload a CSV export of last year's categorized expenses (e.g. from Google Sheets). The system reads the column headers, lets you map merchant and category columns, then bulk-creates rules from every unique merchant/category pair. Duplicates are automatically skipped.
+
+---
+
 ## [1.35.3] — 2026-04-02
 
 ### Fixed

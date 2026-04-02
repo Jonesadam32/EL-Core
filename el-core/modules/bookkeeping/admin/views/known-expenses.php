@@ -35,6 +35,44 @@ $rules = $module->get_rules();
     </div>
 </div>
 
+<!-- Import Rules from Prior-Year CSV -->
+<div class="el-bk-card el-bk-csv-import-card">
+    <h3><?php esc_html_e( 'Import Rules from Prior-Year Expenses', 'el-core' ); ?></h3>
+    <p class="el-bk-hint"><?php esc_html_e( 'Upload a CSV export of last year\'s categorized expenses (e.g. from Google Sheets). The system will extract unique merchant → category pairs and create rules automatically. Your category column must use the exact Schedule C category names.', 'el-core' ); ?></p>
+
+    <div id="el-bk-csv-rules-upload-area">
+        <div class="el-bk-form-row">
+            <input type="file" id="el-bk-csv-rules-file" accept=".csv" style="max-width:320px;">
+            <button class="el-btn el-btn-primary" id="el-bk-csv-rules-upload-btn" disabled>
+                <?php esc_html_e( 'Upload & Preview', 'el-core' ); ?>
+            </button>
+        </div>
+    </div>
+
+    <!-- Column mapping (shown after file is read) -->
+    <div id="el-bk-csv-rules-mapping" style="display:none;">
+        <p><strong><?php esc_html_e( 'Map your CSV columns:', 'el-core' ); ?></strong></p>
+        <div class="el-bk-form-row">
+            <label><?php esc_html_e( 'Merchant / Description column:', 'el-core' ); ?>
+                <select id="el-bk-csv-merchant-col" class="el-select"></select>
+            </label>
+            <label><?php esc_html_e( 'Category column:', 'el-core' ); ?>
+                <select id="el-bk-csv-category-col" class="el-select"></select>
+            </label>
+        </div>
+        <div class="el-bk-form-actions">
+            <button class="el-btn el-btn-primary" id="el-bk-csv-rules-import-btn">
+                <?php esc_html_e( 'Import Rules', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline" id="el-bk-csv-rules-cancel-btn">
+                <?php esc_html_e( 'Cancel', 'el-core' ); ?>
+            </button>
+        </div>
+    </div>
+
+    <div id="el-bk-csv-rules-result" style="display:none;"></div>
+</div>
+
 <!-- Manual Rules Table -->
 <div class="el-bk-card">
     <div class="el-bk-card-header">
