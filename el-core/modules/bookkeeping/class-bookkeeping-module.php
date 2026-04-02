@@ -132,19 +132,64 @@ class EL_Bookkeeping_Module {
             wp_die( esc_html__( 'You do not have permission to access this page.', 'el-core' ) );
         }
 
-        $active_tab = sanitize_key( $_GET['tab'] ?? 'expenses' );
+        $active_tab = sanitize_key( $_GET['tab'] ?? 'dashboard' );
 
         // Tax year from URL param, falling back to the stored default setting.
         $current_year     = (int) gmdate( 'Y' );
         $default_tax_year = $this->get_setting( 'tax_year', $current_year );
         $selected_year    = isset( $_GET['year'] ) ? absint( $_GET['year'] ) : (int) $default_tax_year;
 
-        // Clamp to a sensible range
+        // Clamp to a sensible range.
         if ( $selected_year < 2000 || $selected_year > $current_year + 1 ) {
             $selected_year = (int) $default_tax_year;
         }
 
+        // Validate tab; gate settings.
+        $valid_tabs = [
+            'dashboard', 'expenses', 'income', 'profit-loss', 'contractors',
+            'known-expenses', 'travel-dates', 'receipts', 'settings',
+        ];
+        if ( ! in_array( $active_tab, $valid_tabs, true ) ) {
+            $active_tab = 'dashboard';
+        }
+        if ( $active_tab === 'settings' && ! el_core_can( 'manage_bookkeeping_settings' ) ) {
+            $active_tab = 'dashboard';
+        }
+
+        $tax_year = $selected_year;
+
+        // ── Pre-fetch DB data BEFORE ob_start so fatals surface cleanly ──────
+        $prefetch_expenses    = in_array( $active_tab, [ 'dashboard', 'expenses' ], true )
+                                    ? $this->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year ] )
+                                    : [];
+        $prefetch_income      = in_array( $active_tab, [ 'dashboard', 'income' ], true )
+                                    ? $this->get_transactions( [ 'type' => 'income', 'tax_year' => $tax_year ] )
+                                    : [];
+        $prefetch_contractors = in_array( $active_tab, [ 'dashboard', 'contractors' ], true )
+                                    ? $this->get_contractors()
+                                    : [];
+        $prefetch_receipts    = in_array( $active_tab, [ 'dashboard', 'receipts' ], true )
+                                    ? $this->get_receipts( 'unreviewed' )
+                                    : [];
+        $prefetch_contract_labor = ( $active_tab === 'contractors' )
+                                    ? $this->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year, 'category' => 'Contract Labor' ] )
+                                    : [];
+
+        $base_url = admin_url( 'admin.php?page=els-bookkeeping&year=' . $selected_year );
+
+        // ── Year selector ─────────────────────────────────────────────────────
+        $year_selector_url = admin_url( 'admin.php?page=els-bookkeeping&tab=' . $active_tab );
+        $year_selector  = '<div class="el-bk-year-selector">';
+        $year_selector .= '<label for="el-bk-year-select">' . esc_html__( 'Tax Year:', 'el-core' ) . '</label>';
+        $year_selector .= '<select id="el-bk-year-select" onchange="window.location=\'' . esc_js( $year_selector_url ) . '&year=\'+this.value">';
+        for ( $y = $current_year + 1; $y >= 2020; $y-- ) {
+            $year_selector .= '<option value="' . esc_attr( $y ) . '"' . selected( $y, $selected_year, false ) . '>' . esc_html( $y ) . '</option>';
+        }
+        $year_selector .= '</select></div>';
+
+        // ── Tab navigation ────────────────────────────────────────────────────
         $tabs = [
+            'dashboard'      => __( 'Dashboard', 'el-core' ),
             'expenses'       => __( 'Expenses', 'el-core' ),
             'income'         => __( 'Income & Deposits', 'el-core' ),
             'profit-loss'    => __( 'Profit & Loss', 'el-core' ),
@@ -155,48 +200,28 @@ class EL_Bookkeeping_Module {
             'settings'       => __( 'Settings', 'el-core' ),
         ];
 
-        // Gate Settings tab
-        if ( $active_tab === 'settings' && ! el_core_can( 'manage_bookkeeping_settings' ) ) {
-            $active_tab = 'expenses';
-        }
-
-        $base_url = admin_url( 'admin.php?page=els-bookkeeping&year=' . $selected_year );
-
-        // ── Year selector ────────────────────────────────────────
-        $year_selector_url = admin_url( 'admin.php?page=els-bookkeeping&tab=' . $active_tab );
-        $year_selector  = '<div class="el-bk-year-selector">';
-        $year_selector .= '<label for="el-bk-year-select">' . esc_html__( 'Tax Year:', 'el-core' ) . '</label>';
-        $year_selector .= '<select id="el-bk-year-select" onchange="window.location=\'' . esc_js( $year_selector_url ) . '&year=\'+this.value">';
-        for ( $y = $current_year + 1; $y >= 2020; $y-- ) {
-            $sel           = selected( $y, $selected_year, false );
-            $year_selector .= '<option value="' . esc_attr( $y ) . '"' . $sel . '>' . esc_html( $y ) . '</option>';
-        }
-        $year_selector .= '</select>';
-        $year_selector .= '</div>';
-
-        // ── Tab bar ──────────────────────────────────────────────
-        $tab_html = '<nav class="el-bk-tabs">';
+        $tab_html = '<nav class="el-bk-tab-nav" role="navigation">';
         foreach ( $tabs as $slug => $label ) {
             if ( $slug === 'settings' && ! el_core_can( 'manage_bookkeeping_settings' ) ) {
                 continue;
             }
-            $active_class = ( $slug === $active_tab ) ? ' el-bk-tab--active' : '';
-            $url          = esc_url( $base_url . '&tab=' . $slug );
-            $tab_html    .= '<a href="' . $url . '" class="el-bk-tab' . $active_class . '">'
-                          . esc_html( $label ) . '</a>';
+            $is_active = ( $slug === $active_tab );
+            $classes   = 'el-bk-tab-btn' . ( $is_active ? ' el-bk-tab-btn--active' : '' );
+            $url       = esc_url( $base_url . '&tab=' . $slug );
+            $tab_html .= '<a href="' . $url . '" class="' . $classes . '"' . ( $is_active ? ' aria-current="page"' : '' ) . '>'
+                       . esc_html( $label ) . '</a>';
         }
         $tab_html .= '</nav>';
 
-        // ── Tab content ──────────────────────────────────────────
+        // ── Render content ────────────────────────────────────────────────────
         $view_file = __DIR__ . '/admin/views/' . $active_tab . '.php';
 
         ob_start();
         echo $year_selector; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-        echo $tab_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-        echo '<div class="el-bk-tab-content">'; // phpcs:ignore
+        echo $tab_html;      // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo '<div class="el-bk-tab-content">'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
         if ( file_exists( $view_file ) ) {
-            $module   = $this;
-            $tax_year = $selected_year; // available to all views as $tax_year
+            $module = $this;
             include $view_file;
         } else {
             echo '<p>' . esc_html__( 'View not found.', 'el-core' ) . '</p>';
@@ -207,7 +232,7 @@ class EL_Bookkeeping_Module {
         echo EL_Admin_UI::wrap( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             EL_Admin_UI::page_header( [
                 'title'    => __( 'ELS Bookkeeping', 'el-core' ),
-                'subtitle' => __( 'Expense tracking, income, contractors, and Schedule C reporting.', 'el-core' ),
+                'subtitle' => sprintf( __( '%d — Expense tracking, income, contractors, and Schedule C reporting.', 'el-core' ), $selected_year ),
             ] )
             . $content
         );

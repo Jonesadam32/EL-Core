@@ -3,13 +3,13 @@
    CSS prefix: el-bk-
    ============================================================================= */
 
-/* ── Layout ────────────────────────────────────────────────────────────────── */
+/* ── Year Selector ──────────────────────────────────────────────────────────── */
 
 .el-bk-year-selector {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 
 .el-bk-year-selector label {
@@ -22,7 +22,7 @@
 .el-bk-year-selector select {
     font-size: 14px;
     font-weight: 600;
-    padding: 4px 10px;
+    padding: 5px 10px;
     border: 1px solid var(--el-admin-border, #e0e0e0);
     border-radius: 4px;
     background: #fff;
@@ -31,50 +31,61 @@
 }
 
 .el-bk-year-selector select:focus {
-    outline: 2px solid var(--el-admin-accent, #0073aa);
+    outline: 2px solid var(--el-primary, #2271b1);
     outline-offset: 1px;
 }
 
-.el-bk-tabs {
+/* ── Tab Navigation (pill style) ─────────────────────────────────────────────── */
+
+.el-bk-tab-nav {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
-    border-bottom: 2px solid var(--el-admin-border, #e0e0e0);
+    gap: 6px;
     margin-bottom: 24px;
+    padding-bottom: 0;
+    border-bottom: 2px solid var(--el-admin-border, #e0e0e0);
+    padding-bottom: 8px;
 }
 
-.el-bk-tab {
+.el-bk-tab-btn {
     display: inline-block;
-    padding: 10px 18px;
-    font-size: 14px;
+    padding: 8px 16px;
+    font-size: 13px;
     font-weight: 500;
-    color: var(--el-admin-text-muted, #666);
-    text-decoration: none;
-    border: 1px solid transparent;
-    border-bottom: none;
-    border-radius: 4px 4px 0 0;
-    background: transparent;
-    transition: background 0.15s, color 0.15s;
-}
-
-.el-bk-tab:hover {
-    background: var(--el-admin-bg-hover, #f5f5f5);
     color: var(--el-admin-text, #1d2327);
+    text-decoration: none;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 20px;
+    background: #fff;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    line-height: 1.4;
 }
 
-.el-bk-tab--active {
-    background: #fff;
+.el-bk-tab-btn:hover {
+    background: #f0f6ff;
     color: var(--el-primary, #2271b1);
-    border-color: var(--el-admin-border, #e0e0e0);
-    border-bottom-color: #fff;
-    margin-bottom: -2px;
+    border-color: var(--el-primary, #2271b1);
+    text-decoration: none;
+}
+
+.el-bk-tab-btn--active {
+    background: var(--el-primary, #2271b1);
+    color: #fff !important;
+    border-color: var(--el-primary, #2271b1);
+    font-weight: 600;
+}
+
+.el-bk-tab-btn--active:hover {
+    background: #1a5fa0;
+    border-color: #1a5fa0;
 }
 
 .el-bk-tab-content {
     min-height: 400px;
 }
 
-/* ── Tab Header ────────────────────────────────────────────────────────────── */
+/* ── Tab Header (inside each tab view) ───────────────────────────────────────── */
 
 .el-bk-tab-header {
     display: flex;
@@ -94,6 +105,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .el-bk-tab-desc {
@@ -102,7 +114,7 @@
     font-size: 13px;
 }
 
-/* ── Cards ─────────────────────────────────────────────────────────────────── */
+/* ── Cards ───────────────────────────────────────────────────────────────────── */
 
 .el-bk-card {
     background: #fff;
@@ -129,7 +141,94 @@
     margin: 0;
 }
 
-/* ── Transaction Table ─────────────────────────────────────────────────────── */
+/* ── Dashboard ───────────────────────────────────────────────────────────────── */
+
+.el-bk-dashboard-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--el-admin-text-muted, #666);
+    margin: 28px 0 14px;
+}
+
+.el-bk-dashboard-section-title:first-child {
+    margin-top: 0;
+}
+
+.el-bk-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+@media (max-width: 1200px) {
+    .el-bk-quick-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .el-bk-quick-grid { grid-template-columns: 1fr; }
+}
+
+.el-bk-quick-card {
+    background: #fff;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-decoration: none;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.el-bk-quick-card:hover {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    border-color: var(--el-primary, #2271b1);
+    text-decoration: none;
+}
+
+.el-bk-quick-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #eff6ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--el-primary, #2271b1);
+}
+
+.el-bk-quick-card-icon .dashicons {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+}
+
+.el-bk-quick-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--el-admin-text, #1d2327);
+    margin: 0;
+}
+
+.el-bk-quick-card-desc {
+    font-size: 12px;
+    color: var(--el-admin-text-muted, #666);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.el-bk-quick-card-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--el-primary, #2271b1);
+    margin-top: auto;
+}
+
+/* ── Transaction Table ───────────────────────────────────────────────────────── */
 
 .el-bk-table-wrap {
     overflow-x: auto;
@@ -140,7 +239,8 @@
 .el-bk-rules-table,
 .el-bk-contractors-table,
 .el-bk-travel-table,
-.el-bk-receipts-table {
+.el-bk-receipts-table,
+.el-bk-pl-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
@@ -155,7 +255,9 @@
 .el-bk-travel-table th,
 .el-bk-travel-table td,
 .el-bk-receipts-table th,
-.el-bk-receipts-table td {
+.el-bk-receipts-table td,
+.el-bk-pl-table th,
+.el-bk-pl-table td {
     padding: 8px 10px;
     border-bottom: 1px solid var(--el-admin-border, #e0e0e0);
     vertical-align: middle;
@@ -169,6 +271,7 @@
     background: var(--el-admin-bg, #f6f7f7);
     font-weight: 600;
     text-align: left;
+    white-space: nowrap;
 }
 
 /* Row status colors */
@@ -187,7 +290,167 @@
     font-weight: 600;
 }
 
-/* ── Inline Editing ────────────────────────────────────────────────────────── */
+/* ── Color Legend ────────────────────────────────────────────────────────────── */
+
+.el-bk-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    font-size: 12px;
+}
+
+.el-bk-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.el-bk-legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: 1px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+}
+
+.el-bk-legend-swatch--classified { background: #d1fae5; }
+.el-bk-legend-swatch--suggested  { background: #fef3c7; }
+.el-bk-legend-swatch--rejected   { background: #fee2e2; }
+
+/* ── Expenses Summary Bar ────────────────────────────────────────────────────── */
+
+.el-bk-summary-bar {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    border-radius: 6px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+}
+
+.el-bk-summary-bar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.el-bk-summary-bar-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #166534;
+}
+
+.el-bk-summary-bar-total {
+    font-size: 15px;
+    font-weight: 700;
+    color: #166534;
+}
+
+.el-bk-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px 20px;
+}
+
+.el-bk-summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+    color: #166534;
+    gap: 8px;
+}
+
+.el-bk-summary-item-label {
+    font-weight: 500;
+}
+
+.el-bk-summary-item-amount {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ── Action Row ──────────────────────────────────────────────────────────────── */
+
+.el-bk-action-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.el-bk-action-row-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--el-admin-border, #e0e0e0);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+.el-bk-date-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.el-bk-date-range input[type="date"] {
+    padding: 5px 8px;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+/* ── Income Header Bar ───────────────────────────────────────────────────────── */
+
+.el-bk-income-header-bar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.el-bk-income-notices {
+    flex: 1;
+    min-width: 280px;
+}
+
+.el-bk-income-total-card {
+    background: #1e3a5f;
+    color: #fff;
+    border-radius: 6px;
+    padding: 14px 20px;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.el-bk-income-total-card-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.8;
+    margin-bottom: 4px;
+}
+
+.el-bk-income-total-card-amount {
+    font-size: 24px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Inline Editing ──────────────────────────────────────────────────────────── */
 
 .el-bk-inline-select,
 .el-bk-inline-input {
@@ -209,36 +472,54 @@
     outline: none;
 }
 
-/* ── Bulk Actions ──────────────────────────────────────────────────────────── */
+/* ── Contractors Summary Bar ─────────────────────────────────────────────────── */
 
-.el-bk-bulk-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
+.el-bk-contractors-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
-/* ── Income Total Bar ──────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+    .el-bk-contractors-summary { grid-template-columns: 1fr; }
+}
 
-.el-bk-income-total-bar {
+.el-bk-contractors-summary-panel {
+    background: #fff;
+    border: 1px solid var(--el-admin-border, #e0e0e0);
+    border-radius: 6px;
+    padding: 16px 20px;
+}
+
+.el-bk-contractors-summary-panel h4 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: #f0f9ff;
-    border: 1px solid #bae6fd;
-    border-radius: 6px;
-    padding: 12px 20px;
-    margin-bottom: 16px;
-    font-size: 16px;
+    gap: 6px;
+}
+
+.el-bk-contractor-total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--el-admin-border, #f0f0f0);
+}
+
+.el-bk-contractor-total-row:last-child {
+    border-bottom: none;
+}
+
+.el-bk-contractor-total-amount {
     font-weight: 600;
+    color: #166534;
+    font-variant-numeric: tabular-nums;
 }
 
-.el-bk-income-total-amount {
-    color: #0369a1;
-    font-size: 22px;
-}
-
-/* ── P&L Controls ──────────────────────────────────────────────────────────── */
+/* ── P&L Report ──────────────────────────────────────────────────────────────── */
 
 .el-bk-pl-controls {
     display: flex;
@@ -266,25 +547,88 @@
     flex-wrap: wrap;
 }
 
-.el-bk-pl-report {
+.el-bk-pl-report-wrap {
     background: #fff;
     border: 1px solid var(--el-admin-border, #e0e0e0);
     border-radius: 6px;
-    padding: 24px;
-}
-
-.el-bk-pl-header {
-    text-align: center;
+    overflow: hidden;
     margin-bottom: 20px;
 }
 
-.el-bk-pl-header h3 {
-    margin: 0 0 4px;
-    font-size: 18px;
+.el-bk-pl-report-header {
+    padding: 20px 24px 16px;
+    border-bottom: 2px solid var(--el-admin-border, #e0e0e0);
 }
 
-.el-bk-pl-table {
-    width: 100%;
+.el-bk-pl-report-header h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.el-bk-pl-report-header p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--el-admin-text-muted, #666);
+}
+
+.el-bk-pl-summary-row {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--el-admin-border, #e0e0e0);
+}
+
+.el-bk-pl-summary-cell {
+    flex: 1;
+    padding: 16px 24px;
+    border-right: 1px solid var(--el-admin-border, #e0e0e0);
+}
+
+.el-bk-pl-summary-cell:last-child {
+    border-right: none;
+}
+
+.el-bk-pl-summary-cell-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--el-admin-text-muted, #666);
+    margin-bottom: 4px;
+}
+
+.el-bk-pl-summary-cell-amount {
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.el-bk-pl-summary-cell-amount--income  { color: #166534; }
+.el-bk-pl-summary-cell-amount--expense { color: #991b1b; }
+.el-bk-pl-summary-cell-amount--profit  { color: #166534; }
+.el-bk-pl-summary-cell-amount--loss    { color: #991b1b; }
+
+.el-bk-pl-expense-section {
+    padding: 0 24px 20px;
+}
+
+.el-bk-pl-expense-section h4 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--el-admin-text-muted, #666);
+    margin: 20px 0 8px;
+}
+
+.el-bk-pl-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+}
+
+.el-bk-pl-table tr:last-child td {
+    border-bottom: none;
 }
 
 .el-bk-pl-table td:last-child {
@@ -292,16 +636,33 @@
     font-variant-numeric: tabular-nums;
 }
 
+.el-bk-pl-subtotal-row td {
+    font-weight: 700;
+    background: var(--el-admin-bg, #f6f7f7);
+    border-top: 2px solid var(--el-admin-border, #e0e0e0);
+}
+
+.el-bk-pl-net-income-row {
+    background: #1e3a5f;
+    color: #fff;
+}
+
+.el-bk-pl-net-income-row td {
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px 24px;
+    border-bottom: none;
+}
+
 .el-bk-pl-export-row {
     display: flex;
     gap: 8px;
-    margin-top: 20px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--el-admin-border, #e0e0e0);
     justify-content: flex-end;
 }
 
-/* ── AI Chat ────────────────────────────────────────────────────────────────── */
-
-.el-bk-ai-chat-card {}
+/* ── AI Chat ─────────────────────────────────────────────────────────────────── */
 
 .el-bk-chat-log {
     min-height: 120px;
@@ -345,11 +706,9 @@
     flex: 1;
 }
 
-/* ── Rules Table Drag Handle ────────────────────────────────────────────────── */
+/* ── Rules Table ─────────────────────────────────────────────────────────────── */
 
-.el-bk-drag-handle-col {
-    width: 24px;
-}
+.el-bk-drag-handle-col { width: 24px; }
 
 .el-bk-drag-handle {
     cursor: grab;
@@ -358,16 +717,14 @@
     text-align: center;
 }
 
-/* ── Travel Map Table ───────────────────────────────────────────────────────── */
-
-.el-bk-travel-map-card {}
+/* ── Travel Map ──────────────────────────────────────────────────────────────── */
 
 .el-bk-travel-map-table td:first-child {
     font-size: 12px;
     color: var(--el-admin-text-muted, #666);
 }
 
-/* ── Receipt Grid ───────────────────────────────────────────────────────────── */
+/* ── Receipt Grid ────────────────────────────────────────────────────────────── */
 
 .el-bk-upload-zone {
     text-align: center;
@@ -401,9 +758,7 @@
     transition: box-shadow 0.15s;
 }
 
-.el-bk-receipt-thumb:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
+.el-bk-receipt-thumb:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
 .el-bk-receipt-thumb img {
     width: 100%;
@@ -439,7 +794,7 @@
     vertical-align: middle;
 }
 
-/* ── Forms ──────────────────────────────────────────────────────────────────── */
+/* ── Forms ───────────────────────────────────────────────────────────────────── */
 
 .el-bk-form-row {
     display: flex;
@@ -464,14 +819,29 @@
     margin-top: 16px;
 }
 
-.el-bk-settings-form .el-bk-card {
-    margin-bottom: 20px;
+.el-bk-settings-form .el-bk-card { margin-bottom: 20px; }
+
+/* ── Bulk Actions ────────────────────────────────────────────────────────────── */
+
+.el-bk-bulk-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
 }
 
-/* ── Hint Text ──────────────────────────────────────────────────────────────── */
+/* ── Misc ────────────────────────────────────────────────────────────────────── */
 
 .el-bk-hint {
     font-size: 12px;
     color: var(--el-admin-text-muted, #666);
     margin: 4px 0 0;
+}
+
+.el-bk-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 24px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--el-admin-border, #e0e0e0);
 }

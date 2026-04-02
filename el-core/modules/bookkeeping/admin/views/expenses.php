@@ -2,17 +2,28 @@
 /**
  * Bookkeeping — Expenses Tab
  *
- * Displays expense transactions for the selected tax year.
- * Phase 2 will add CSV upload, inline editing, and filters.
- *
  * @var EL_Bookkeeping_Module $module
+ * @var int                   $tax_year
+ * @var array                 $prefetch_expenses
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-$tax_year     = $tax_year ?? $module->get_tax_year();
-$transactions = $module->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year ] );
+$transactions = $prefetch_expenses;
 $categories   = EL_Bookkeeping_Module::get_expense_categories();
+
+// ── Build category totals for summary bar ────────────────────────────────────
+$category_totals = [];
+$total_classified = 0.0;
+foreach ( $transactions as $t ) {
+    if ( ! empty( $t->category ) ) {
+        $category_totals[ $t->category ] = ( $category_totals[ $t->category ] ?? 0.0 ) + (float) $t->amount;
+        $total_classified += (float) $t->amount;
+    }
+}
+arsort( $category_totals );
+
+$total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions ) );
 ?>
 
 <div class="el-bk-tab-header">
@@ -20,32 +31,73 @@ $categories   = EL_Bookkeeping_Module::get_expense_categories();
         <h2><?php echo esc_html( sprintf( __( 'Expenses — %d', 'el-core' ), $tax_year ) ); ?></h2>
     </div>
     <div class="el-bk-tab-header-right">
+        <button class="el-btn el-btn-outline el-bk-export-btn" data-format="csv">
+            <?php esc_html_e( 'Download CSV', 'el-core' ); ?>
+        </button>
         <button class="el-btn el-btn-primary el-bk-upload-csv-btn" data-type="expense">
             <?php esc_html_e( 'Upload CSV', 'el-core' ); ?>
         </button>
     </div>
 </div>
 
-<?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-    __( 'CSV upload, inline editing, and auto-classification will be available in Phase 2.', 'el-core' ),
-    'info'
-); ?>
+<?php if ( ! empty( $category_totals ) ) : ?>
+<div class="el-bk-summary-bar">
+    <div class="el-bk-summary-bar-header">
+        <span class="el-bk-summary-bar-title">
+            <?php echo esc_html( sprintf( __( 'Business — %s', 'el-core' ), $module->get_business_name() ) ); ?>
+        </span>
+        <span class="el-bk-summary-bar-total">
+            <?php echo esc_html( sprintf( __( 'Estimated Business Expenses (TENTATIVE): $%s', 'el-core' ), number_format( $total_classified, 2 ) ) ); ?>
+        </span>
+    </div>
+    <div class="el-bk-summary-grid">
+        <?php foreach ( $category_totals as $cat => $amount ) : ?>
+        <div class="el-bk-summary-item">
+            <span class="el-bk-summary-item-label"><?php echo esc_html( $cat ); ?>:</span>
+            <span class="el-bk-summary-item-amount">$<?php echo esc_html( number_format( $amount, 2 ) ); ?></span>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
 
-<?php if ( empty( $transactions ) ) : ?>
-    <?php echo EL_Admin_UI::notice( __( 'No expense transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'info' ); // phpcs:ignore ?>
-<?php else : ?>
-
-<div class="el-bk-bulk-actions">
+<div class="el-bk-action-row">
     <button class="el-btn el-btn-outline el-bk-confirm-all-btn" data-scope="all">
         <?php esc_html_e( 'Confirm All Suggestions', 'el-core' ); ?>
     </button>
     <button class="el-btn el-btn-outline el-bk-confirm-all-btn" data-scope="travel">
         <?php esc_html_e( 'Confirm Travel Suggestions', 'el-core' ); ?>
     </button>
-    <button class="el-btn el-btn-outline el-bk-export-btn" data-format="csv">
-        <?php esc_html_e( 'Download CSV', 'el-core' ); ?>
-    </button>
+    <span class="el-bk-action-row-divider"></span>
+    <div class="el-bk-date-range">
+        <label><?php esc_html_e( 'From', 'el-core' ); ?>
+            <input type="date" id="el-bk-exp-from" value="<?php echo esc_attr( $tax_year . '-01-01' ); ?>">
+        </label>
+        <label><?php esc_html_e( 'To', 'el-core' ); ?>
+            <input type="date" id="el-bk-exp-to" value="<?php echo esc_attr( $tax_year . '-12-31' ); ?>">
+        </label>
+        <button class="el-btn el-btn-outline" id="el-bk-exp-filter-btn"><?php esc_html_e( 'Filter', 'el-core' ); ?></button>
+    </div>
 </div>
+
+<div class="el-bk-legend">
+    <span class="el-bk-legend-item">
+        <span class="el-bk-legend-swatch el-bk-legend-swatch--classified"></span>
+        <?php esc_html_e( 'Classified Transactions', 'el-core' ); ?>
+    </span>
+    <span class="el-bk-legend-item">
+        <span class="el-bk-legend-swatch el-bk-legend-swatch--suggested"></span>
+        <?php esc_html_e( 'Suggestions not yet applied', 'el-core' ); ?>
+    </span>
+    <span class="el-bk-legend-item">
+        <span class="el-bk-legend-swatch el-bk-legend-swatch--rejected"></span>
+        <?php esc_html_e( 'Rejected Suggestions', 'el-core' ); ?>
+    </span>
+</div>
+
+<?php if ( empty( $transactions ) ) : ?>
+    <?php echo EL_Admin_UI::notice( __( 'No expense transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+<?php else : ?>
 
 <div class="el-bk-table-wrap">
     <table class="el-bk-transactions-table widefat">
@@ -70,7 +122,7 @@ $categories   = EL_Bookkeeping_Module::get_expense_categories();
                     'rejected'   => 'el-bk-row--rejected',
                     default      => '',
                 };
-                $travel_badge  = $t->travel_period_id ? ' ✈️' : '';
+                $travel_badge  = $t->travel_period_id ? ' ✈' : '';
                 $receipt_badge = $t->receipt_id       ? ' 📎' : '';
             ?>
             <tr class="el-bk-transaction-row <?php echo esc_attr( $row_class ); ?>" data-id="<?php echo esc_attr( $t->id ); ?>">
@@ -84,7 +136,7 @@ $categories   = EL_Bookkeeping_Module::get_expense_categories();
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <?php echo esc_html( $travel_badge ); ?>
+                    <?php if ( $travel_badge ) echo '<span title="' . esc_attr__( 'Travel period', 'el-core' ) . '">✈</span>'; ?>
                 </td>
                 <td><?php echo esc_html( $t->business ); ?></td>
                 <td class="el-bk-amount">$<?php echo esc_html( number_format( (float) $t->amount, 2 ) ); ?></td>
@@ -99,6 +151,13 @@ $categories   = EL_Bookkeeping_Module::get_expense_categories();
             </tr>
             <?php endforeach; ?>
         </tbody>
+        <tfoot>
+            <tr class="el-bk-total-row">
+                <td colspan="3"><strong><?php esc_html_e( 'Total', 'el-core' ); ?></strong></td>
+                <td class="el-bk-amount"><strong>$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></strong></td>
+                <td colspan="5"></td>
+            </tr>
+        </tfoot>
     </table>
 </div>
 

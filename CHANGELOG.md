@@ -6,6 +6,26 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.0] — 2026-03-10
+
+### Added
+- **Bookkeeping Dashboard tab**: New default landing page with 4 stat cards (Total Expenses, Total Income, Net Profit/Loss, Unreviewed Receipts) computed live from DB, plus a 4×2 quick-access card grid linking to all 8 module tabs.
+- **Expenses summary bar**: Green category-totals bar at the top of the Expenses tab showing all classified Schedule C categories with running amounts (matches reference site design).
+- **Color legend**: Visual key for classified/suggested/rejected row colors on the Expenses tab.
+- **Expenses action row**: Date range filter (From/To), Confirm All Suggestions, Confirm Travel Suggestions, Download CSV, and Upload CSV buttons.
+- **Income header bar**: Blue info notices + dark blue business total income callout card matching reference site.
+- **P&L structured report**: Full server-rendered Profit & Loss report with summary cells (Revenue/Expenses/Net Income), expense breakdown by Schedule C category, and net income footer row. Driven by date-range filter.
+- **Contractors two-panel summary**: Contractor Totals (left) and Business Totals (right) panels above the transaction table. Contractor directory table added above contract labor assignments.
+
+### Changed
+- **Tab navigation redesigned**: Tabs are now clearly separated pill-style buttons with hover/active states — no longer a run-on string of unseparated links.
+- **Default tab changed** from Expenses to Dashboard.
+- **DB calls moved before ob_start()**: All `get_transactions()`, `get_contractors()`, and `get_receipts()` calls now execute before output buffering begins, so any DB errors surface as clean PHP errors instead of mid-page critical error messages.
+- Page header subtitle now shows the selected tax year.
+- `income.php`, `expenses.php`, `contractors.php`, `profit-loss.php` views all fully redesigned.
+
+---
+
 ## [1.34.9] — 2026-03-10
 
 ### Fixed

@@ -3,20 +3,20 @@
  * Bookkeeping — Income & Deposits Tab
  *
  * @var EL_Bookkeeping_Module $module
+ * @var int                   $tax_year
+ * @var array                 $prefetch_income
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-$tax_year     = $tax_year ?? $module->get_tax_year();
-$transactions = $module->get_transactions( [ 'type' => 'income', 'tax_year' => $tax_year ] );
+$transactions = $prefetch_income;
 $categories   = EL_Bookkeeping_Module::get_income_categories();
 
-$total = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions ) );
-
-// Excluded from tax total
-$excluded = [ 'Other', 'Bank Transfer', 'Ignore' ];
-$taxable  = array_filter( $transactions, fn( $t ) => ! in_array( $t->category, $excluded, true ) );
-$taxable_total = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable ) );
+$excluded      = [ 'Other', 'Bank Transfer', 'Ignore' ];
+$taxable       = array_filter( $transactions, fn( $t ) => ! in_array( $t->category, $excluded, true ) );
+$total_all     = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions ) );
+$total_taxable = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable ) );
+$business_name = $module->get_business_name();
 ?>
 
 <div class="el-bk-tab-header">
@@ -24,31 +24,51 @@ $taxable_total = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable 
         <h2><?php echo esc_html( sprintf( __( 'Income & Deposits — %d', 'el-core' ), $tax_year ) ); ?></h2>
     </div>
     <div class="el-bk-tab-header-right">
+        <button class="el-btn el-btn-outline el-bk-export-btn" data-format="csv" data-type="income">
+            <?php esc_html_e( 'Download CSV', 'el-core' ); ?>
+        </button>
         <button class="el-btn el-btn-primary el-bk-upload-csv-btn" data-type="income">
             <?php esc_html_e( 'Upload CSV', 'el-core' ); ?>
         </button>
     </div>
 </div>
 
-<?php if ( ! empty( $transactions ) ) : ?>
-<div class="el-bk-income-total-bar">
-    <span class="el-bk-income-total-label"><?php esc_html_e( 'Business Total Income:', 'el-core' ); ?></span>
-    <span class="el-bk-income-total-amount">$<?php echo esc_html( number_format( $taxable_total, 2 ) ); ?></span>
+<div class="el-bk-income-header-bar">
+    <div class="el-bk-income-notices">
+        <?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            __( 'Transactions marked "Other", "Bank Transfer", and "Ignore" will have no effect on your business books or your taxes. As long as it is not income it doesn\'t matter.', 'el-core' ),
+            'info'
+        ); ?>
+        <?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            __( 'The Total Income on the right of this sheet should equal your declared business total income. Please include all business income.', 'el-core' ),
+            'info'
+        ); ?>
+    </div>
+    <div class="el-bk-income-total-card">
+        <div class="el-bk-income-total-card-label">
+            <?php echo esc_html( $business_name ); ?><br>
+            <?php esc_html_e( 'Income:', 'el-core' ); ?>
+        </div>
+        <div class="el-bk-income-total-card-amount">
+            $<?php echo esc_html( number_format( $total_taxable, 2 ) ); ?>
+        </div>
+    </div>
 </div>
-<?php endif; ?>
 
-<?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-    __( 'Transactions marked Other, Bank Transfer, and Ignore have no effect on your taxes.', 'el-core' ),
-    'info'
-); ?>
-
-<?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-    __( 'CSV upload and manual entry will be available in Phase 8.', 'el-core' ),
-    'info'
-); ?>
+<div class="el-bk-action-row">
+    <div class="el-bk-date-range">
+        <label><?php esc_html_e( 'From', 'el-core' ); ?>
+            <input type="date" id="el-bk-inc-from" value="<?php echo esc_attr( $tax_year . '-01-01' ); ?>">
+        </label>
+        <label><?php esc_html_e( 'To', 'el-core' ); ?>
+            <input type="date" id="el-bk-inc-to" value="<?php echo esc_attr( $tax_year . '-12-31' ); ?>">
+        </label>
+        <button class="el-btn el-btn-outline" id="el-bk-inc-filter-btn"><?php esc_html_e( 'Filter', 'el-core' ); ?></button>
+    </div>
+</div>
 
 <?php if ( empty( $transactions ) ) : ?>
-    <?php echo EL_Admin_UI::notice( __( 'No income transactions found for this tax year.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( __( 'No income transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'info' ); // phpcs:ignore ?>
 <?php else : ?>
 
 <div class="el-bk-table-wrap">
@@ -58,7 +78,7 @@ $taxable_total = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable 
                 <th>#</th>
                 <th><?php esc_html_e( 'Category', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Amount', 'el-core' ); ?></th>
-                <th><?php esc_html_e( 'Description', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Merchant / Description', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Date', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Bank Account', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Comments', 'el-core' ); ?></th>
@@ -66,7 +86,7 @@ $taxable_total = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable 
         </thead>
         <tbody>
             <?php foreach ( $transactions as $i => $t ) : ?>
-            <tr class="el-bk-transaction-row" data-id="<?php echo esc_attr( $t->id ); ?>">
+            <tr class="el-bk-transaction-row el-bk-row--classified" data-id="<?php echo esc_attr( $t->id ); ?>">
                 <td><?php echo esc_html( $i + 1 ); ?></td>
                 <td>
                     <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $t->id ); ?>">
@@ -91,8 +111,8 @@ $taxable_total = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable 
         </tbody>
         <tfoot>
             <tr class="el-bk-total-row">
-                <td colspan="2"><strong><?php esc_html_e( 'Total', 'el-core' ); ?></strong></td>
-                <td class="el-bk-amount"><strong>$<?php echo esc_html( number_format( $total, 2 ) ); ?></strong></td>
+                <td colspan="2"><strong><?php esc_html_e( 'Total (all)', 'el-core' ); ?></strong></td>
+                <td class="el-bk-amount"><strong>$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></strong></td>
                 <td colspan="4"></td>
             </tr>
         </tfoot>
