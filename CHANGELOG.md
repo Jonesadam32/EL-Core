@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.7] — 2026-04-02
+
+### Fixed
+- **AJAX error messages now display correctly**: The `elBkAjax` utility was showing "Request failed. Please try again." for all non-200 responses instead of the actual server error message. Now parses the response JSON from failed requests to show the real error (e.g. "AI is not configured").
+
+---
+
 ## [1.35.6] — 2026-04-02
 
 ### Added

@@ -24,8 +24,12 @@
                 const msg = (res && res.data && res.data.message) ? res.data.message : 'An error occurred.';
                 if (onError) onError(msg); else alert(msg);
             }
-        }).fail(function () {
-            const msg = 'Request failed. Please try again.';
+        }).fail(function (xhr) {
+            var msg = 'Request failed. Please try again.';
+            try {
+                var res = JSON.parse(xhr.responseText);
+                if (res && res.data && res.data.message) msg = res.data.message;
+            } catch (e) { /* ignore parse errors */ }
             if (onError) onError(msg); else alert(msg);
         });
     }
