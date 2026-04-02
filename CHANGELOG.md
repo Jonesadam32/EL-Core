@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.8] — 2026-04-02
+
+### Fixed
+- **AI chat response not displaying**: The chat callback was reading `data.reply` but the AJAX success wrapper nests it at `data.data.reply`. Now correctly reads the nested response and displays the rule creation summary. Page auto-reloads when rules are saved.
+
+---
+
 ## [1.35.7] — 2026-04-02
 
 ### Fixed

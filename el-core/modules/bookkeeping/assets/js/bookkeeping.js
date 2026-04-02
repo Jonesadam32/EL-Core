@@ -287,10 +287,11 @@
         $('#el-bk-chat-input').val('');
 
         elBkAjax('bk_process_rules', { message }, function (data) {
-            $log.append('<div class="el-bk-chat-message-ai"><strong>Assistant:</strong> ' + $('<span>').text(data.reply || 'Done.').html() + '</div>');
+            var d = data.data || data;
+            $log.append('<div class="el-bk-chat-message-ai"><strong>Assistant:</strong> ' + $('<span>').text(d.reply || data.message || 'Done.').html() + '</div>');
             $log.scrollTop($log[0].scrollHeight);
             $btn.prop('disabled', false).text('Process Rules');
-            if (data.rules_saved) location.reload();
+            if (d.rules_saved) location.reload();
         }, function (msg) {
             $log.append('<div class="el-bk-chat-message-ai" style="color:red;"><strong>Error:</strong> ' + $('<span>').text(msg).html() + '</div>');
             $btn.prop('disabled', false).text('Process Rules');
