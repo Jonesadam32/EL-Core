@@ -38,31 +38,38 @@ $rules = $module->get_rules();
 <!-- Import Rules from Prior-Year CSV -->
 <div class="el-bk-card el-bk-csv-import-card">
     <h3><?php esc_html_e( 'Import Rules from Prior-Year Expenses', 'el-core' ); ?></h3>
-    <p class="el-bk-hint"><?php esc_html_e( 'Upload a CSV export of last year\'s categorized expenses (e.g. from Google Sheets). The system will extract unique merchant → category pairs. You\'ll be able to map your spreadsheet categories to the bookkeeping categories using dropdowns.', 'el-core' ); ?></p>
+    <p class="el-bk-hint"><?php esc_html_e( 'Upload one CSV per category (e.g. your "Accounting Fees" tab exported as CSV). Pick the category, map the description column, and every unique description becomes a rule.', 'el-core' ); ?></p>
 
-    <div id="el-bk-csv-rules-upload-area">
-        <div class="el-bk-form-row">
-            <input type="file" id="el-bk-csv-rules-file" accept=".csv" style="max-width:320px;">
+    <!-- Step 1: Pick category + upload file -->
+    <div id="el-bk-csv-rules-step1">
+        <div class="el-bk-form-row" style="align-items:flex-end; gap:12px; flex-wrap:wrap;">
+            <label><?php esc_html_e( 'Category for this CSV:', 'el-core' ); ?>
+                <select id="el-bk-csv-rules-category" class="el-select" style="min-width:220px;">
+                    <option value=""><?php esc_html_e( '— Select Category —', 'el-core' ); ?></option>
+                    <?php foreach ( EL_Bookkeeping_Module::get_expense_categories() as $cat ) : ?>
+                        <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label><?php esc_html_e( 'CSV File:', 'el-core' ); ?>
+                <input type="file" id="el-bk-csv-rules-file" accept=".csv" style="max-width:320px;">
+            </label>
             <button class="el-btn el-btn-primary" id="el-bk-csv-rules-upload-btn" disabled>
-                <?php esc_html_e( 'Upload & Preview', 'el-core' ); ?>
+                <?php esc_html_e( 'Upload & Detect Columns', 'el-core' ); ?>
             </button>
         </div>
     </div>
 
-    <!-- Step 1: Column mapping (shown after file is read) -->
-    <div id="el-bk-csv-rules-mapping" style="display:none;">
-        <p><strong><?php esc_html_e( 'Step 1: Map your CSV columns', 'el-core' ); ?></strong></p>
-        <div class="el-bk-form-row">
-            <label><?php esc_html_e( 'Merchant / Description column:', 'el-core' ); ?>
-                <select id="el-bk-csv-merchant-col" class="el-select"></select>
+    <!-- Step 2: Map the description column -->
+    <div id="el-bk-csv-rules-step2" style="display:none;">
+        <p><strong><?php esc_html_e( 'Map the description/merchant column:', 'el-core' ); ?></strong></p>
+        <p class="el-bk-hint" id="el-bk-csv-rules-cat-label"></p>
+        <div class="el-bk-form-row" style="align-items:flex-end; gap:12px;">
+            <label><?php esc_html_e( 'Description / Merchant column:', 'el-core' ); ?>
+                <select id="el-bk-csv-rules-desc-col" class="el-select"></select>
             </label>
-            <label><?php esc_html_e( 'Category column:', 'el-core' ); ?>
-                <select id="el-bk-csv-category-col" class="el-select"></select>
-            </label>
-        </div>
-        <div class="el-bk-form-actions">
-            <button class="el-btn el-btn-primary" id="el-bk-csv-rules-next-btn">
-                <?php esc_html_e( 'Next: Map Categories →', 'el-core' ); ?>
+            <button class="el-btn el-btn-primary" id="el-bk-csv-rules-import-btn">
+                <?php esc_html_e( 'Import as Rules', 'el-core' ); ?>
             </button>
             <button class="el-btn el-btn-outline" id="el-bk-csv-rules-cancel-btn">
                 <?php esc_html_e( 'Cancel', 'el-core' ); ?>
@@ -70,28 +77,7 @@ $rules = $module->get_rules();
         </div>
     </div>
 
-    <!-- Step 2: Category mapping (shown after columns are selected) -->
-    <div id="el-bk-csv-rules-catmap" style="display:none;">
-        <p><strong><?php esc_html_e( 'Step 2: Map your spreadsheet categories to bookkeeping categories', 'el-core' ); ?></strong></p>
-        <p class="el-bk-hint"><?php esc_html_e( 'Select the matching bookkeeping category for each of your spreadsheet categories. Set to "— Skip —" to exclude a category.', 'el-core' ); ?></p>
-        <table class="widefat" id="el-bk-csv-catmap-table" style="max-width:700px;">
-            <thead><tr>
-                <th><?php esc_html_e( 'Your Spreadsheet Category', 'el-core' ); ?></th>
-                <th><?php esc_html_e( 'Bookkeeping Category', 'el-core' ); ?></th>
-            </tr></thead>
-            <tbody id="el-bk-csv-catmap-body"></tbody>
-        </table>
-        <div class="el-bk-form-actions" style="margin-top:12px;">
-            <button class="el-btn el-btn-primary" id="el-bk-csv-rules-import-btn">
-                <?php esc_html_e( 'Import Rules', 'el-core' ); ?>
-            </button>
-            <button class="el-btn el-btn-outline" id="el-bk-csv-rules-back-btn">
-                <?php esc_html_e( '← Back', 'el-core' ); ?>
-            </button>
-        </div>
-    </div>
-
-    <div id="el-bk-csv-rules-result" style="display:none;"></div>
+    <div id="el-bk-csv-rules-result" style="display:none; margin-top:10px;"></div>
 </div>
 
 <!-- Manual Rules Table -->

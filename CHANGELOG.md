@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.36.2] — 2026-04-02
+
+### Changed
+- **Import Rules from Prior-Year Expenses — completely rewritten**: The old 3-step flow (map merchant column, map category column, then map each CSV category to a bookkeeping category per-row) was replaced with a simple 2-step flow: (1) Pick the category from a dropdown + upload the CSV, (2) Map the description column → import. Every unique description becomes a rule for that single category. One CSV = one category, matching how the user's spreadsheet is organized (one tab per expense category).
+
+---
+
 ## [1.36.1] — 2026-04-02
 
 ### Changed

@@ -1239,9 +1239,8 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $merchant_col = sanitize_text_field( $data['merchant_col'] ?? '' );
-        $category_col = sanitize_text_field( $data['category_col'] ?? '' );
-        $category_map_json = wp_unslash( $data['category_map'] ?? '' );
+        $merchant_col    = sanitize_text_field( $data['merchant_col']    ?? '' );
+        $single_category = sanitize_text_field( $data['single_category'] ?? '' );
 
         $handle = fopen( $file['tmp_name'], 'r' );
         if ( ! $handle ) {
@@ -1249,103 +1248,94 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $header = fgetcsv( $handle );
+        // Skip non-data header rows
+        $header   = null;
+        $max_skip = 20;
+        while ( $max_skip-- > 0 ) {
+            $row = fgetcsv( $handle );
+            if ( $row === false ) {
+                break;
+            }
+            $row       = array_map( 'trim', $row );
+            $non_empty = count( array_filter( $row, fn( $c ) => $c !== '' ) );
+            if ( $non_empty >= 2 ) {
+                $joined = strtolower( implode( ' ', $row ) );
+                if ( preg_match( '/date|description|amount|debit|credit|merchant|memo/i', $joined ) ) {
+                    $header = $row;
+                    break;
+                }
+            }
+        }
+
         if ( ! $header ) {
             fclose( $handle );
-            EL_AJAX_Handler::error( __( 'CSV file appears to be empty.', 'el-core' ) );
+            EL_AJAX_Handler::error( __( 'Could not find a valid column header row in the CSV.', 'el-core' ) );
             return;
         }
 
-        $header = array_map( 'trim', $header );
-
-        // Step 1: No columns selected yet — return column headers for mapping
-        if ( empty( $merchant_col ) || empty( $category_col ) ) {
+        // Step 1: No merchant column selected yet — return headers for mapping
+        if ( empty( $merchant_col ) ) {
             fclose( $handle );
             EL_AJAX_Handler::success( [
                 'step'    => 'map_columns',
                 'columns' => $header,
-            ], __( 'Please map the columns.', 'el-core' ) );
+            ], __( 'Please map the description column.', 'el-core' ) );
+            return;
+        }
+
+        // Validate the chosen category
+        if ( empty( $single_category ) || ! in_array( $single_category, self::get_expense_categories(), true ) ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'Invalid or missing category.', 'el-core' ) );
             return;
         }
 
         $merchant_idx = array_search( $merchant_col, $header, true );
-        $category_idx = array_search( $category_col, $header, true );
-
-        if ( $merchant_idx === false || $category_idx === false ) {
+        if ( $merchant_idx === false ) {
             fclose( $handle );
-            EL_AJAX_Handler::error( __( 'Could not find the specified columns in the CSV header.', 'el-core' ) );
+            EL_AJAX_Handler::error( __( 'Could not find the specified column in the CSV header.', 'el-core' ) );
             return;
         }
 
-        // Read all rows to extract data
-        $rows = [];
+        // Read all rows and collect unique merchants
+        $merchants = [];
         while ( ( $row = fgetcsv( $handle ) ) !== false ) {
             $merchant = trim( $row[ $merchant_idx ] ?? '' );
-            $category = trim( $row[ $category_idx ] ?? '' );
-            if ( ! empty( $merchant ) && ! empty( $category ) ) {
-                $rows[] = [ 'merchant' => $merchant, 'category' => $category ];
+            if ( empty( $merchant ) ) {
+                continue;
+            }
+            $merchant_lower = strtolower( $merchant );
+            if ( str_contains( $merchant_lower, 'total' ) || str_contains( $merchant_lower, 'balance' ) || str_contains( $merchant_lower, 'starting' ) ) {
+                continue;
+            }
+            if ( ! isset( $merchants[ $merchant_lower ] ) ) {
+                $merchants[ $merchant_lower ] = $merchant;
             }
         }
         fclose( $handle );
 
-        // Step 2: Columns selected but no category map — return unique CSV categories for mapping
-        if ( empty( $category_map_json ) ) {
-            $csv_categories = array_values( array_unique( array_column( $rows, 'category' ) ) );
-            sort( $csv_categories );
-
-            EL_AJAX_Handler::success( [
-                'step'           => 'map_categories',
-                'csv_categories' => $csv_categories,
-                'valid_categories' => self::get_expense_categories(),
-                'row_count'      => count( $rows ),
-            ], __( 'Map your CSV categories to the bookkeeping categories.', 'el-core' ) );
+        if ( empty( $merchants ) ) {
+            EL_AJAX_Handler::error( __( 'No valid descriptions found in the CSV.', 'el-core' ) );
             return;
         }
 
-        // Step 3: Category map provided — apply mapping and create rules
-        $category_map = json_decode( $category_map_json, true );
-        if ( ! is_array( $category_map ) ) {
-            EL_AJAX_Handler::error( __( 'Invalid category mapping.', 'el-core' ) );
-            return;
+        // Build rules from unique merchants, all with the single category
+        $rules_data = [];
+        foreach ( $merchants as $m ) {
+            $rules_data[] = [ 'keyword' => $m, 'category' => $single_category, 'match_type' => 'contains' ];
         }
 
-        $valid_categories = self::get_expense_categories();
-        $pairs = [];
-
-        foreach ( $rows as $r ) {
-            $merchant     = $r['merchant'];
-            $csv_category = $r['category'];
-            $mapped       = $category_map[ $csv_category ] ?? '';
-
-            if ( empty( $mapped ) || $mapped === '__skip__' ) {
-                continue;
-            }
-
-            if ( ! in_array( $mapped, $valid_categories, true ) ) {
-                continue;
-            }
-
-            $key = strtolower( $merchant );
-            if ( ! isset( $pairs[ $key ] ) ) {
-                $pairs[ $key ] = [ 'keyword' => $merchant, 'category' => $mapped, 'match_type' => 'contains' ];
-            }
-        }
-
-        if ( empty( $pairs ) ) {
-            EL_AJAX_Handler::error( __( 'No valid merchant/category pairs found after mapping. Make sure at least one category is mapped.', 'el-core' ) );
-            return;
-        }
-
-        $saved = $this->bulk_save_rules( array_values( $pairs ) );
+        $saved = $this->bulk_save_rules( $rules_data );
 
         EL_AJAX_Handler::success( [
             'rules_saved' => $saved,
-            'total_found' => count( $pairs ),
+            'total_found' => count( $merchants ),
         ], sprintf(
-            __( 'Found %1$d unique merchant/category pairs. Created %2$d new rules (%3$d already existed).', 'el-core' ),
-            count( $pairs ),
+            __( 'Found %1$d unique descriptions. Created %2$d new rules for "%3$s" (%4$d already existed).', 'el-core' ),
+            count( $merchants ),
             $saved,
-            count( $pairs ) - $saved
+            $single_category,
+            count( $merchants ) - $saved
         ) );
     }
 

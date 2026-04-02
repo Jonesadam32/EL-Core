@@ -34,6 +34,18 @@
         });
     }
 
+    function autoSelectColumn($select, hints) {
+        $select.find('option').each(function () {
+            var val = $(this).val().toLowerCase();
+            for (var i = 0; i < hints.length; i++) {
+                if (val.indexOf(hints[i]) !== -1) {
+                    $select.val($(this).val());
+                    return false;
+                }
+            }
+        });
+    }
+
     // ── Inline Transaction Editing ─────────────────────────────────────────────
 
     $(document).on('change', '.el-bk-inline-select', function () {
@@ -304,20 +316,27 @@
         }
     });
 
-    // ── CSV Rules Import (3-step: columns → categories → import) ────────────
+    // ── CSV Rules Import (single-category: pick category → upload → map desc col → import) ──
 
     let csvRulesFile = null;
 
     $('#el-bk-csv-rules-file').on('change', function () {
         csvRulesFile = this.files[0] || null;
-        $('#el-bk-csv-rules-upload-btn').prop('disabled', !csvRulesFile);
+        $('#el-bk-csv-rules-upload-btn').prop('disabled', !csvRulesFile || !$('#el-bk-csv-rules-category').val());
+    });
+
+    $('#el-bk-csv-rules-category').on('change', function () {
+        $('#el-bk-csv-rules-upload-btn').prop('disabled', !csvRulesFile || !$(this).val());
     });
 
     // Step 1: Upload file → get column headers
     $('#el-bk-csv-rules-upload-btn').on('click', function () {
         if (!csvRulesFile) return;
-        const $btn = $(this).prop('disabled', true).text('Reading…');
-        const fd = new FormData();
+        var category = $('#el-bk-csv-rules-category').val();
+        if (!category) { alert('Please select a category first.'); return; }
+
+        var $btn = $(this).prop('disabled', true).text('Reading…');
+        var fd = new FormData();
         fd.append('action', 'el_core_action');
         fd.append('el_action', 'bk_import_rules_csv');
         fd.append('nonce', nonce);
@@ -326,129 +345,54 @@
         $.ajax({
             url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
             success: function (res) {
-                $btn.prop('disabled', false).text('Upload & Preview');
+                $btn.prop('disabled', false).text('Upload & Detect Columns');
                 if (res.success && res.data && res.data.data && res.data.data.step === 'map_columns') {
-                    const cols = res.data.data.columns;
-                    const $merchant = $('#el-bk-csv-merchant-col').empty();
-                    const $category = $('#el-bk-csv-category-col').empty();
+                    var cols = res.data.data.columns;
+                    var $desc = $('#el-bk-csv-rules-desc-col').empty();
                     cols.forEach(function (c) {
-                        $merchant.append($('<option>').val(c).text(c));
-                        $category.append($('<option>').val(c).text(c));
+                        $desc.append($('<option>').val(c).text(c));
                     });
-                    autoSelectColumn($merchant, ['merchant', 'description', 'vendor', 'payee', 'name']);
-                    autoSelectColumn($category, ['category', 'type', 'classification', 'class']);
-                    $('#el-bk-csv-rules-mapping').slideDown();
-                    $('#el-bk-csv-rules-catmap').slideUp();
+                    autoSelectColumn($desc, ['description', 'merchant', 'vendor', 'payee', 'name', 'memo']);
+
+                    $('#el-bk-csv-rules-cat-label').text('All descriptions will be saved as rules for: ' + category);
+                    $('#el-bk-csv-rules-step1').slideUp();
+                    $('#el-bk-csv-rules-step2').slideDown();
                 } else {
                     alert((res.data && res.data.message) || 'Unexpected response.');
                 }
             },
             error: function () {
-                $btn.prop('disabled', false).text('Upload & Preview');
+                $btn.prop('disabled', false).text('Upload & Detect Columns');
                 alert('Upload failed. Please try again.');
             }
         });
     });
 
-    function autoSelectColumn($select, hints) {
-        $select.find('option').each(function () {
-            const val = $(this).val().toLowerCase();
-            for (const h of hints) {
-                if (val.indexOf(h) !== -1) {
-                    $select.val($(this).val());
-                    return false;
-                }
-            }
-        });
-    }
-
-    // Step 2: Columns selected → get unique CSV categories for mapping
-    $('#el-bk-csv-rules-next-btn').on('click', function () {
-        if (!csvRulesFile) { alert('No file selected.'); return; }
-        const $btn = $(this).prop('disabled', true).text('Reading…');
-        const fd = new FormData();
-        fd.append('action', 'el_core_action');
-        fd.append('el_action', 'bk_import_rules_csv');
-        fd.append('nonce', nonce);
-        fd.append('csv_file', csvRulesFile);
-        fd.append('merchant_col', $('#el-bk-csv-merchant-col').val());
-        fd.append('category_col', $('#el-bk-csv-category-col').val());
-
-        $.ajax({
-            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
-            success: function (res) {
-                $btn.prop('disabled', false).text('Next: Map Categories →');
-                if (res.success && res.data && res.data.data && res.data.data.step === 'map_categories') {
-                    const csvCats = res.data.data.csv_categories;
-                    const validCats = res.data.data.valid_categories;
-                    const $tbody = $('#el-bk-csv-catmap-body').empty();
-
-                    csvCats.forEach(function (csvCat) {
-                        const $select = $('<select class="el-select el-bk-catmap-select">');
-                        $select.append($('<option>').val('__skip__').text('— Skip —'));
-                        validCats.forEach(function (vc) {
-                            const $opt = $('<option>').val(vc).text(vc);
-                            if (vc.toLowerCase() === csvCat.toLowerCase()) $opt.prop('selected', true);
-                            $select.append($opt);
-                        });
-                        // Fuzzy match: if no exact match, try partial
-                        if ($select.val() === '__skip__') {
-                            const csvLower = csvCat.toLowerCase();
-                            validCats.forEach(function (vc) {
-                                if (vc.toLowerCase().indexOf(csvLower) !== -1 || csvLower.indexOf(vc.toLowerCase()) !== -1) {
-                                    $select.val(vc);
-                                }
-                            });
-                        }
-                        const $row = $('<tr>');
-                        $row.append($('<td>').text(csvCat).css('font-weight', '600'));
-                        $row.append($('<td>').append($select));
-                        $select.attr('data-csv-cat', csvCat);
-                        $tbody.append($row);
-                    });
-
-                    $('#el-bk-csv-rules-mapping').slideUp();
-                    $('#el-bk-csv-rules-catmap').slideDown();
-                } else {
-                    alert((res.data && res.data.message) || 'Unexpected response.');
-                }
-            },
-            error: function () {
-                $btn.prop('disabled', false).text('Next: Map Categories →');
-                alert('Request failed. Please try again.');
-            }
-        });
-    });
-
-    // Step 3: Category map done → import rules
+    // Step 2: Import — send file + category + description column
     $('#el-bk-csv-rules-import-btn').on('click', function () {
         if (!csvRulesFile) { alert('No file selected.'); return; }
-        const $btn = $(this).prop('disabled', true).text('Importing…');
+        var category = $('#el-bk-csv-rules-category').val();
+        if (!category) { alert('No category selected.'); return; }
 
-        // Build category map from the dropdowns
-        const categoryMap = {};
-        $('#el-bk-csv-catmap-body .el-bk-catmap-select').each(function () {
-            categoryMap[$(this).attr('data-csv-cat')] = $(this).val();
-        });
-
-        const fd = new FormData();
+        var $btn = $(this).prop('disabled', true).text('Importing…');
+        var fd = new FormData();
         fd.append('action', 'el_core_action');
         fd.append('el_action', 'bk_import_rules_csv');
         fd.append('nonce', nonce);
         fd.append('csv_file', csvRulesFile);
-        fd.append('merchant_col', $('#el-bk-csv-merchant-col').val());
-        fd.append('category_col', $('#el-bk-csv-category-col').val());
-        fd.append('category_map', JSON.stringify(categoryMap));
+        fd.append('merchant_col', $('#el-bk-csv-rules-desc-col').val());
+        fd.append('single_category', category);
 
         $.ajax({
             url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
             success: function (res) {
-                $btn.prop('disabled', false).text('Import Rules');
+                $btn.prop('disabled', false).text('Import as Rules');
                 if (res.success) {
-                    const msg = res.data.message || 'Import complete.';
-                    $('#el-bk-csv-rules-catmap').slideUp();
+                    var msg = res.data.message || 'Import complete.';
+                    $('#el-bk-csv-rules-step2').slideUp();
                     $('#el-bk-csv-rules-result').html('<p style="color:#16a34a;font-weight:600;">' + $('<span>').text(msg).html() + '</p>').slideDown();
-                    if (res.data.data && res.data.data.rules_saved > 0) {
+                    var d = res.data.data || {};
+                    if (d.rules_saved > 0) {
                         setTimeout(function () { location.reload(); }, 1500);
                     }
                 } else {
@@ -456,23 +400,16 @@
                 }
             },
             error: function () {
-                $btn.prop('disabled', false).text('Import Rules');
+                $btn.prop('disabled', false).text('Import as Rules');
                 alert('Import failed. Please try again.');
             }
         });
     });
 
     $('#el-bk-csv-rules-cancel-btn').on('click', function () {
-        $('#el-bk-csv-rules-mapping').slideUp();
-        $('#el-bk-csv-rules-catmap').slideUp();
-        csvRulesFile = null;
-        $('#el-bk-csv-rules-file').val('');
-        $('#el-bk-csv-rules-upload-btn').prop('disabled', true);
-    });
-
-    $('#el-bk-csv-rules-back-btn').on('click', function () {
-        $('#el-bk-csv-rules-catmap').slideUp();
-        $('#el-bk-csv-rules-mapping').slideDown();
+        $('#el-bk-csv-rules-step2').slideUp();
+        $('#el-bk-csv-rules-step1').slideDown();
+        $('#el-bk-csv-rules-result').slideUp();
     });
 
     // ── CSV Transaction Upload Modal ──────────────────────────────────────────
