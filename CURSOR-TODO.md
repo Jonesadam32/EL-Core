@@ -737,8 +737,61 @@ pending_assignment → awaiting_input → pending_dm_review → awaiting_ai
 
 ---
 
-## v1.34.0 — Visual Identity Phase (Phase 5)
+## ELS BOOKKEEPING MODULE — Current Work (v1.35.x)
 
+> **Status:** Phase 1 foundation built. CSS fixed. Dashboard works. All other tabs crash.
+> **Next build:** v1.35.3 — fix `EL_Admin_UI::notice()` wrong call signature (10 min fix)
+> **Spec:** `SPEC-BOOKKEEPING-MODULE.md`
+
+### IMMEDIATE — Fix critical error on all tabs
+- [ ] In all `el-core/modules/bookkeeping/admin/views/*.php`, change every:
+  `EL_Admin_UI::notice( __( 'msg', 'el-core' ), 'type' )`
+  to:
+  `EL_Admin_UI::notice( [ 'message' => __( 'msg', 'el-core' ), 'type' => 'type' ] )`
+- [ ] Affected files: income.php, expenses.php, contractors.php, travel-dates.php, settings.php, receipts.php, known-expenses.php
+- [ ] Bump to v1.35.3, build ZIP, push, upload to staging
+
+### Phase 1 — Foundation ✅ BUILT
+- [x] `module.json` with full DB schema (6 tables)
+- [x] `class-bookkeeping-module.php` with singleton, 19 AJAX stubs, admin menu
+- [x] Dashboard tab (stat cards + quick-access card grid)
+- [x] All 8 tab views (expenses, income, profit-loss, contractors, known-expenses, travel-dates, receipts, settings)
+- [x] CSS (scoped under `.el-admin-wrap`, pill tabs, dashboard grid, summary bar, P&L styles)
+- [x] JS stubs
+
+### Phase 2 — CSV Import & Transaction Management (future)
+- [ ] CSV parser: parse Bank of America export format
+- [ ] Import wizard: preview rows, confirm, import to `el_bk_transactions`
+- [ ] Inline editing: category dropdown saves via AJAX
+- [ ] Bulk confirm suggestions
+- [ ] Download CSV export
+
+### Phase 3 — AI Known Expenses (future)
+- [ ] Wire up AI chat in known-expenses.php to `EL_AI_Client`
+- [ ] AJAX handler `bk_process_rules`: run all rules against unclassified transactions
+- [ ] AJAX handler `bk_save_rule` / `bk_delete_rule`
+
+### Phase 4 — Travel Dates CRUD (future)
+- [ ] AJAX handlers: `bk_save_travel_period`, `bk_delete_travel_period`
+- [ ] AJAX handler `bk_reapply_travel_rules`: re-tag all transactions in travel periods
+
+### Phase 5 — Receipts (future)
+- [ ] File upload handler: save to `/wp-content/uploads/els-bookkeeping/receipts/`
+- [ ] AI receipt scanner using `EL_AI_Client` vision
+- [ ] Match receipt to transaction
+
+### Phase 6 — Contractors & 1099 (future)
+- [ ] CRUD for contractors
+- [ ] Assignment of contract labor transactions to contractors
+- [ ] 1099 export
+
+### Phase 7 — P&L Export (future)
+- [ ] CSV export of P&L report
+- [ ] PDF export
+
+---
+
+## v1.34.0 — Visual Identity Phase (Phase 5)
 > **Full spec:** `SPEC-VISUAL-IDENTITY-PHASE.md` (repo root)
 > **Status:** Built in this session — **module fails to load, NOT deployed**
 > **Next build:** v1.34.1 — fix the load error, then deploy
