@@ -155,7 +155,7 @@ arsort( $business_totals );
 </h3>
 
 <?php if ( empty( $contract_labor ) ) : ?>
-    <?php echo EL_Admin_UI::notice( __( 'No Contract Labor transactions found for this tax year. Classify expense transactions as "Contract Labor" in the Expenses tab to see them here.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No Contract Labor transactions found for this tax year. Classify expense transactions as "Contract Labor" in the Expenses tab to see them here.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 <div class="el-bk-table-wrap">
     <table class="el-bk-transactions-table widefat">

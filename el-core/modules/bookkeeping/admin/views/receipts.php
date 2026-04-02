@@ -18,10 +18,10 @@ $all       = $module->get_receipts();
     </div>
 </div>
 
-<?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-    __( 'AI receipt scanning and file upload will be available in Phase 6.', 'el-core' ),
-    'info'
-); ?>
+<?php echo EL_Admin_UI::notice( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    'message' => __( 'AI receipt scanning and file upload will be available in Phase 6.', 'el-core' ),
+    'type'    => 'info',
+] ); ?>
 
 <!-- Upload Drop Zone -->
 <div class="el-bk-card el-bk-upload-zone" id="el-bk-receipt-upload-zone">
@@ -64,7 +64,7 @@ $all       = $module->get_receipts();
 
 <!-- All Receipts Table -->
 <?php if ( empty( $all ) ) : ?>
-    <?php echo EL_Admin_UI::notice( __( 'No receipts uploaded yet.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No receipts uploaded yet.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 <div class="el-bk-card">
     <h3><?php esc_html_e( 'All Receipts', 'el-core' ); ?></h3>

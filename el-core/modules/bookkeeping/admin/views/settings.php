@@ -8,7 +8,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 if ( ! el_core_can( 'manage_bookkeeping_settings' ) ) {
-    echo EL_Admin_UI::notice( __( 'You do not have permission to manage bookkeeping settings.', 'el-core' ), 'error' ); // phpcs:ignore
+    echo EL_Admin_UI::notice( [ 'message' => __( 'You do not have permission to manage bookkeeping settings.', 'el-core' ), 'type' => 'error' ] ); // phpcs:ignore
     return;
 }
 
@@ -28,7 +28,7 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['el_bk_settings_nonc
         $module->core->settings->set( 'mod_bookkeeping', 'home_office_pct',      (float) ( $_POST['home_office_pct']    ?? 0 ) );
         $module->core->settings->set( 'mod_bookkeeping', 'vehicle_mileage_rate', (float) ( $_POST['vehicle_mileage_rate'] ?? 0.67 ) );
 
-        echo EL_Admin_UI::notice( __( 'Settings saved.', 'el-core' ), 'success' ); // phpcs:ignore
+        echo EL_Admin_UI::notice( [ 'message' => __( 'Settings saved.', 'el-core' ), 'type' => 'success' ] ); // phpcs:ignore
 
         // Refresh values
         $business_name   = $module->get_setting( 'business_name',        'Expanded Learning Solutions LLC' );

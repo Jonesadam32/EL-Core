@@ -96,7 +96,7 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
 </div>
 
 <?php if ( empty( $transactions ) ) : ?>
-    <?php echo EL_Admin_UI::notice( __( 'No expense transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No expense transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 
 <div class="el-bk-table-wrap">

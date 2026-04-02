@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.3] — 2026-04-02
+
+### Fixed
+- **Bookkeeping tabs crash (critical error)**: All 7 bookkeeping view files (Income, Expenses, Contractors, Travel Dates, Settings, Receipts, Known Expenses) called `EL_Admin_UI::notice()` with positional string arguments instead of the required array argument. This caused a `TypeError` on PHP 8 — fatal inside the `ob_start` buffer, producing "There has been a critical error on this website." Converted all 11 calls to the correct `notice( ['message' => ..., 'type' => ...] )` format.
+
+---
+
 ## [1.35.2] — 2026-03-10
 
 ### Fixed

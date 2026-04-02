@@ -43,7 +43,7 @@ $rules = $module->get_rules();
     </div>
 
     <?php if ( empty( $rules ) ) : ?>
-        <?php echo EL_Admin_UI::notice( __( 'No rules defined yet. Use the AI chat above or click Add Rule.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+        <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No rules defined yet. Use the AI chat above or click Add Rule.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
     <?php else : ?>
     <table class="el-bk-rules-table widefat" id="el-bk-rules-table">
         <thead>

@@ -55,7 +55,7 @@ $tax_year = $tax_year ?? $module->get_tax_year();
 
 <!-- Travel Periods Table -->
 <?php if ( empty( $periods ) ) : ?>
-    <?php echo EL_Admin_UI::notice( __( 'No travel periods defined. Add a period to start auto-tagging travel transactions.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No travel periods defined. Add a period to start auto-tagging travel transactions.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 <table class="el-bk-travel-table widefat">
     <thead>

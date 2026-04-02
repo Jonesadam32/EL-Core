@@ -3,9 +3,9 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** March 10, 2026
+> **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.35.2 — Bookkeeping module UI redesign in progress. CSS now loading. Dashboard tab works perfectly. Individual tabs (Income, Expenses, etc.) crash with critical error. Root cause identified — fix is 10 minutes.
+> **Current Plugin Version:** v1.35.3 — Fixed bookkeeping tab critical errors. All `EL_Admin_UI::notice()` calls converted to array syntax. All tabs should now render cleanly.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 
@@ -81,9 +81,13 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 - Year selector: dropdown above tabs, persists year across tab switches
 - DB pre-fetch pattern: data fetched before `ob_start()` so fatals surface cleanly (instead of mid-page critical error)
 - All view files redesigned per reference site
+- **All tabs render without critical error** — `EL_Admin_UI::notice()` calls fixed in v1.35.3
 
-### What's Broken ❌
-- Every tab except Dashboard crashes due to `EL_Admin_UI::notice()` wrong call signature (see above)
+### What Was Fixed in v1.35.3 ✅
+- All 11 `EL_Admin_UI::notice()` calls across 7 view files converted from positional args to array syntax
+- Files fixed: income.php, expenses.php, contractors.php, travel-dates.php, settings.php, receipts.php, known-expenses.php
+
+### Remaining CSS Issue
 - Tabs still visually render as plain links (CSS specificity issue — scoped under `.el-admin-wrap` but WP admin still wins on `<a>` tags in some themes)
 
 ### Version History for This Work
@@ -93,8 +97,8 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.34.9 | Fix `$wpdb->prepare()` fatal + add year selector | Built |
 | v1.35.0 | Full UI redesign: Dashboard, tab pills, all views | Built |
 | v1.35.1 | CSS specificity fix (scope under .el-admin-wrap) | Built |
-| v1.35.2 | **Fix CSS never loading (wrong handle `el-admin` → `el-core-admin`)** | **CURRENT — deployed** |
-| v1.35.3 | Fix `EL_Admin_UI::notice()` wrong call signature | **NEXT — 10 min fix** |
+| v1.35.2 | **Fix CSS never loading (wrong handle `el-admin` → `el-core-admin`)** | Built |
+| v1.35.3 | **Fix `EL_Admin_UI::notice()` wrong call signature in all 7 view files** | **CURRENT — deployed** |
 
 ---
 

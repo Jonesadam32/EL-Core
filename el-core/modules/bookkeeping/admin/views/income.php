@@ -35,14 +35,14 @@ $business_name = $module->get_business_name();
 
 <div class="el-bk-income-header-bar">
     <div class="el-bk-income-notices">
-        <?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            __( 'Transactions marked "Other", "Bank Transfer", and "Ignore" will have no effect on your business books or your taxes. As long as it is not income it doesn\'t matter.', 'el-core' ),
-            'info'
-        ); ?>
-        <?php echo EL_Admin_UI::notice( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-            __( 'The Total Income on the right of this sheet should equal your declared business total income. Please include all business income.', 'el-core' ),
-            'info'
-        ); ?>
+        <?php echo EL_Admin_UI::notice( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            'message' => __( 'Transactions marked "Other", "Bank Transfer", and "Ignore" will have no effect on your business books or your taxes. As long as it is not income it doesn\'t matter.', 'el-core' ),
+            'type'    => 'info',
+        ] ); ?>
+        <?php echo EL_Admin_UI::notice( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            'message' => __( 'The Total Income on the right of this sheet should equal your declared business total income. Please include all business income.', 'el-core' ),
+            'type'    => 'info',
+        ] ); ?>
     </div>
     <div class="el-bk-income-total-card">
         <div class="el-bk-income-total-card-label">
@@ -68,7 +68,7 @@ $business_name = $module->get_business_name();
 </div>
 
 <?php if ( empty( $transactions ) ) : ?>
-    <?php echo EL_Admin_UI::notice( __( 'No income transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'info' ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No income transactions found for this tax year. Upload a CSV to get started.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 
 <div class="el-bk-table-wrap">
