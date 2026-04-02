@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.36.0] — 2026-04-02
+
+### Added
+- **Ledger Tab Import**: New "Import Ledger Tab" button on the Expenses tab allows importing a single-category CSV. User selects the category from a dropdown (e.g., "Accounting Fees"), maps Date/Description/Amount columns, and optionally specifies a bank account. All transactions are created with the chosen category, and rules are auto-generated from unique merchants. This replaces the need for debit/credit/balance columns or a separate category column — one CSV per category.
+- New `handle_import_ledger()` AJAX handler with 2-step flow: (1) upload CSV to detect columns, (2) map columns + select category to import.
+- Modal UI with column mapping, category dropdown, and bank account input with datalist.
+
+---
+
 ## [1.35.9] — 2026-04-02
 
 ### Fixed

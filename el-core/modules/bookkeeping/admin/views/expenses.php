@@ -37,6 +37,9 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
         <button class="el-btn el-btn-primary el-bk-upload-csv-btn" data-type="expense">
             <?php esc_html_e( 'Upload CSV', 'el-core' ); ?>
         </button>
+        <button class="el-btn el-btn-outline" id="el-bk-import-ledger-btn">
+            <?php esc_html_e( 'Import Ledger Tab', 'el-core' ); ?>
+        </button>
     </div>
 </div>
 
@@ -162,3 +165,53 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
 </div>
 
 <?php endif; ?>
+
+<!-- Ledger Tab Import Modal -->
+<div id="el-bk-ledger-modal" class="el-bk-modal" style="display:none;">
+    <div class="el-bk-modal-backdrop"></div>
+    <div class="el-bk-modal-content" style="max-width:560px;">
+        <h3><?php esc_html_e( 'Import Ledger Tab (Single Category)', 'el-core' ); ?></h3>
+        <p class="description"><?php esc_html_e( 'Upload a CSV that represents one expense category. Each row is a transaction. You\'ll pick the category and map the columns.', 'el-core' ); ?></p>
+
+        <!-- Step 1: File upload -->
+        <div id="el-bk-ledger-step1">
+            <label><strong><?php esc_html_e( 'CSV File', 'el-core' ); ?></strong></label>
+            <input type="file" id="el-bk-ledger-file" accept=".csv" style="display:block; margin:8px 0 16px;">
+            <button class="el-btn el-btn-primary" id="el-bk-ledger-upload-btn"><?php esc_html_e( 'Upload & Detect Columns', 'el-core' ); ?></button>
+            <button class="el-btn el-btn-outline el-bk-ledger-cancel"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>
+            <div id="el-bk-ledger-status" style="margin-top:10px;"></div>
+        </div>
+
+        <!-- Step 2: Column mapping + category -->
+        <div id="el-bk-ledger-step2" style="display:none;">
+            <table class="widefat" style="margin-bottom:12px;">
+                <tr>
+                    <td><strong><?php esc_html_e( 'Category', 'el-core' ); ?></strong></td>
+                    <td><select id="el-bk-ledger-category"></select></td>
+                </tr>
+                <tr>
+                    <td><strong><?php esc_html_e( 'Date Column', 'el-core' ); ?></strong></td>
+                    <td><select id="el-bk-ledger-date-col"></select></td>
+                </tr>
+                <tr>
+                    <td><strong><?php esc_html_e( 'Description Column', 'el-core' ); ?></strong></td>
+                    <td><select id="el-bk-ledger-merchant-col"></select></td>
+                </tr>
+                <tr>
+                    <td><strong><?php esc_html_e( 'Amount Column', 'el-core' ); ?></strong></td>
+                    <td><select id="el-bk-ledger-amount-col"></select></td>
+                </tr>
+                <tr>
+                    <td><strong><?php esc_html_e( 'Bank Account', 'el-core' ); ?></strong></td>
+                    <td>
+                        <input type="text" id="el-bk-ledger-bank" list="el-bk-ledger-banks" placeholder="<?php esc_attr_e( 'e.g. Chase Business', 'el-core' ); ?>" style="width:100%;">
+                        <datalist id="el-bk-ledger-banks"></datalist>
+                    </td>
+                </tr>
+            </table>
+            <button class="el-btn el-btn-primary" id="el-bk-ledger-import-btn"><?php esc_html_e( 'Import Transactions', 'el-core' ); ?></button>
+            <button class="el-btn el-btn-outline el-bk-ledger-cancel"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>
+            <div id="el-bk-ledger-result" style="margin-top:10px;"></div>
+        </div>
+    </div>
+</div>

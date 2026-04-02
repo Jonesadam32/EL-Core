@@ -49,6 +49,7 @@ class EL_Bookkeeping_Module {
 
         // ── Expenses ──────────────────────────────────────────────
         add_action( 'el_core_ajax_bk_import_csv',          [ $this, 'handle_csv_import' ] );
+        add_action( 'el_core_ajax_bk_import_ledger',       [ $this, 'handle_import_ledger' ] );
         add_action( 'el_core_ajax_bk_update_transaction',  [ $this, 'handle_update_transaction' ] );
         add_action( 'el_core_ajax_bk_bulk_confirm',        [ $this, 'handle_bulk_confirm' ] );
         add_action( 'el_core_ajax_bk_export_csv',          [ $this, 'handle_export_csv' ] );
@@ -60,6 +61,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_delete_rule',         [ $this, 'handle_delete_rule' ] );
         add_action( 'el_core_ajax_bk_reorder_rules',       [ $this, 'handle_reorder_rules' ] );
         add_action( 'el_core_ajax_bk_import_rules_csv',    [ $this, 'handle_import_rules_csv' ] );
+        add_action( 'el_core_ajax_bk_import_ledger',       [ $this, 'handle_import_ledger' ] );
 
         // ── Travel Dates ──────────────────────────────────────────
         add_action( 'el_core_ajax_bk_save_travel_period',   [ $this, 'handle_save_travel_period' ] );
@@ -727,6 +729,203 @@ class EL_Bookkeeping_Module {
 
         $val = (float) $raw;
         return $negative ? -$val : $val;
+    }
+
+    /**
+     * Import a single-category ledger tab CSV.
+     * Each file = one category. Columns: Date, Description, Amount.
+     * Creates transactions AND rules from unique merchants.
+     */
+    public function handle_import_ledger( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        if ( empty( $_FILES['csv_file'] ) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK ) {
+            EL_AJAX_Handler::error( __( 'No file uploaded or upload error.', 'el-core' ) );
+            return;
+        }
+
+        $file = $_FILES['csv_file'];
+        $ext  = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+        if ( $ext !== 'csv' ) {
+            EL_AJAX_Handler::error( __( 'Only CSV files are accepted.', 'el-core' ) );
+            return;
+        }
+
+        $category     = sanitize_text_field( $data['category']     ?? '' );
+        $date_col     = sanitize_text_field( $data['date_col']     ?? '' );
+        $amount_col   = sanitize_text_field( $data['amount_col']   ?? '' );
+        $merchant_col = sanitize_text_field( $data['merchant_col'] ?? '' );
+        $bank_account = sanitize_text_field( $data['bank_account'] ?? '' );
+
+        $handle = fopen( $file['tmp_name'], 'r' );
+        if ( ! $handle ) {
+            EL_AJAX_Handler::error( __( 'Could not read the uploaded file.', 'el-core' ) );
+            return;
+        }
+
+        // Skip non-data header rows (lines that don't look like CSV column headers)
+        $header = null;
+        $max_skip = 20;
+        while ( $max_skip-- > 0 ) {
+            $row = fgetcsv( $handle );
+            if ( $row === false ) {
+                break;
+            }
+            $row = array_map( 'trim', $row );
+            // A valid header has at least 2 non-empty cells
+            $non_empty = count( array_filter( $row, fn( $c ) => $c !== '' ) );
+            if ( $non_empty >= 2 ) {
+                // Check if this looks like a data header (contains common keywords)
+                $joined = strtolower( implode( ' ', $row ) );
+                if ( preg_match( '/date|description|amount|debit|credit|merchant|memo/i', $joined ) ) {
+                    $header = $row;
+                    break;
+                }
+            }
+        }
+
+        if ( ! $header ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'Could not find a valid column header row in the CSV.', 'el-core' ) );
+            return;
+        }
+
+        // Step 1: If columns not yet mapped, return header for mapping UI
+        if ( empty( $date_col ) || empty( $amount_col ) || empty( $merchant_col ) || empty( $category ) ) {
+            fclose( $handle );
+
+            global $wpdb;
+            $accounts = $wpdb->get_col(
+                "SELECT DISTINCT bank_account FROM {$this->table('el_bk_transactions')} WHERE bank_account != '' ORDER BY bank_account ASC"
+            );
+
+            EL_AJAX_Handler::success( [
+                'step'       => 'map_columns',
+                'columns'    => $header,
+                'accounts'   => $accounts ?: [],
+                'categories' => self::get_expense_categories(),
+            ], __( 'Map the columns and select a category.', 'el-core' ) );
+            return;
+        }
+
+        // Validate category
+        if ( ! in_array( $category, self::get_expense_categories(), true ) ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'Invalid category selected.', 'el-core' ) );
+            return;
+        }
+
+        $date_idx     = array_search( $date_col, $header, true );
+        $amount_idx   = array_search( $amount_col, $header, true );
+        $merchant_idx = array_search( $merchant_col, $header, true );
+
+        if ( $date_idx === false || $amount_idx === false || $merchant_idx === false ) {
+            fclose( $handle );
+            EL_AJAX_Handler::error( __( 'Could not find the specified columns in the CSV header.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table       = $this->table( 'el_bk_transactions' );
+        $source_file = sanitize_file_name( $file['name'] );
+
+        $imported    = 0;
+        $skipped     = 0;
+        $merchants   = [];
+
+        while ( ( $row = fgetcsv( $handle ) ) !== false ) {
+            $raw_date   = trim( $row[ $date_idx ]     ?? '' );
+            $raw_amount = trim( $row[ $amount_idx ]    ?? '' );
+            $merchant   = trim( $row[ $merchant_idx ]  ?? '' );
+
+            if ( empty( $raw_date ) || empty( $merchant ) ) {
+                $skipped++;
+                continue;
+            }
+
+            // Skip summary/total rows
+            $merchant_lower = strtolower( $merchant );
+            if ( str_contains( $merchant_lower, 'total' ) || str_contains( $merchant_lower, 'balance' ) || str_contains( $merchant_lower, 'starting' ) ) {
+                $skipped++;
+                continue;
+            }
+
+            $date = $this->parse_csv_date( $raw_date );
+            if ( ! $date ) {
+                $skipped++;
+                continue;
+            }
+
+            $amount = $this->parse_csv_amount( $raw_amount );
+            if ( $amount === null || $amount == 0 ) {
+                $skipped++;
+                continue;
+            }
+
+            $amount   = abs( $amount );
+            $txn_year = (int) substr( $date, 0, 4 );
+
+            // Duplicate detection
+            $exists = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE date = %s AND amount = %f AND merchant = %s AND category = %s",
+                $date, $amount, $merchant, $category
+            ) );
+
+            if ( (int) $exists > 0 ) {
+                $skipped++;
+                continue;
+            }
+
+            $wpdb->insert( $table, [
+                'type'             => 'expense',
+                'date'             => $date,
+                'merchant'         => $merchant,
+                'amount'           => $amount,
+                'category'         => $category,
+                'bank_account'     => $bank_account,
+                'business'         => $this->get_business_name(),
+                'status'           => 'classified',
+                'comments'         => '',
+                'source_file'      => $source_file,
+                'tax_year'         => $txn_year,
+                'travel_period_id' => 0,
+                'receipt_id'       => 0,
+            ] );
+
+            $imported++;
+
+            // Collect unique merchants for rule creation
+            $merch_key = strtolower( $merchant );
+            if ( ! isset( $merchants[ $merch_key ] ) ) {
+                $merchants[ $merch_key ] = $merchant;
+            }
+        }
+
+        fclose( $handle );
+
+        // Bulk-create rules from unique merchants
+        $rules_data = [];
+        foreach ( $merchants as $m ) {
+            $rules_data[] = [ 'keyword' => $m, 'category' => $category, 'match_type' => 'contains' ];
+        }
+        $rules_saved = $this->bulk_save_rules( $rules_data );
+
+        $message = sprintf(
+            __( 'Import complete: %1$d transactions imported as "%2$s", %3$d skipped. %4$d new rules created from unique merchants.', 'el-core' ),
+            $imported,
+            $category,
+            $skipped,
+            $rules_saved
+        );
+
+        EL_AJAX_Handler::success( [
+            'imported'    => $imported,
+            'skipped'     => $skipped,
+            'rules_saved' => $rules_saved,
+        ], $message );
     }
 
     public function handle_update_transaction( array $data ): void {

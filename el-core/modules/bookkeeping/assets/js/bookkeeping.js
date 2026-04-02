@@ -601,6 +601,132 @@
         });
     });
 
+    // ── Ledger Tab Import (Single Category CSV) ─────────────────────────────
+
+    let ledgerFile = null;
+
+    $('#el-bk-import-ledger-btn').on('click', function () {
+        $('#el-bk-ledger-step1').show();
+        $('#el-bk-ledger-step2').hide();
+        $('#el-bk-ledger-status').empty();
+        $('#el-bk-ledger-result').empty();
+        $('#el-bk-ledger-file').val('');
+        ledgerFile = null;
+        $('#el-bk-ledger-modal').fadeIn(150);
+    });
+
+    $(document).on('click', '.el-bk-ledger-cancel, #el-bk-ledger-modal .el-bk-modal-backdrop', function () {
+        $('#el-bk-ledger-modal').fadeOut(150);
+    });
+
+    $('#el-bk-ledger-file').on('change', function () {
+        ledgerFile = this.files[0] || null;
+    });
+
+    // Step 1: Upload file → get column headers + categories
+    $('#el-bk-ledger-upload-btn').on('click', function () {
+        if (!ledgerFile) { alert('Please select a CSV file.'); return; }
+        var $btn = $(this).prop('disabled', true).text('Reading…');
+        var $status = $('#el-bk-ledger-status').html('<em>Uploading…</em>');
+
+        var fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_import_ledger');
+        fd.append('nonce', nonce);
+        fd.append('csv_file', ledgerFile);
+
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                $btn.prop('disabled', false).text('Upload & Detect Columns');
+                $status.empty();
+                if (res.success && res.data && res.data.data && res.data.data.step === 'map_columns') {
+                    var d = res.data.data;
+                    var cols = d.columns;
+
+                    // Populate category dropdown
+                    var $cat = $('#el-bk-ledger-category').empty();
+                    (d.categories || []).forEach(function (c) {
+                        $cat.append($('<option>').val(c).text(c));
+                    });
+
+                    // Populate column dropdowns
+                    var $date = $('#el-bk-ledger-date-col').empty();
+                    var $merch = $('#el-bk-ledger-merchant-col').empty();
+                    var $amt = $('#el-bk-ledger-amount-col').empty();
+                    cols.forEach(function (c) {
+                        $date.append($('<option>').val(c).text(c));
+                        $merch.append($('<option>').val(c).text(c));
+                        $amt.append($('<option>').val(c).text(c));
+                    });
+                    autoSelectColumn($date, ['date', 'posted', 'transaction date']);
+                    autoSelectColumn($merch, ['description', 'merchant', 'payee', 'memo', 'name']);
+                    autoSelectColumn($amt, ['amount', 'debit', 'credit', 'total']);
+
+                    // Populate bank account datalist
+                    var $list = $('#el-bk-ledger-banks').empty();
+                    (d.accounts || []).forEach(function (a) {
+                        $list.append($('<option>').val(a));
+                    });
+
+                    $('#el-bk-ledger-step1').slideUp();
+                    $('#el-bk-ledger-step2').slideDown();
+                } else {
+                    alert((res.data && res.data.message) || 'Unexpected response.');
+                }
+            },
+            error: function () {
+                $btn.prop('disabled', false).text('Upload & Detect Columns');
+                $status.html('<span style="color:red;">Upload failed. Please try again.</span>');
+            }
+        });
+    });
+
+    // Step 2: Import with mapped columns + selected category
+    $('#el-bk-ledger-import-btn').on('click', function () {
+        if (!ledgerFile) { alert('No file selected.'); return; }
+        var category = $('#el-bk-ledger-category').val();
+        if (!category) { alert('Please select a category.'); return; }
+
+        var $btn = $(this).prop('disabled', true).text('Importing…');
+        var $result = $('#el-bk-ledger-result').html('<em>Importing transactions…</em>');
+
+        var fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_import_ledger');
+        fd.append('nonce', nonce);
+        fd.append('csv_file', ledgerFile);
+        fd.append('category', category);
+        fd.append('date_col', $('#el-bk-ledger-date-col').val());
+        fd.append('merchant_col', $('#el-bk-ledger-merchant-col').val());
+        fd.append('amount_col', $('#el-bk-ledger-amount-col').val());
+        fd.append('bank_account', $('#el-bk-ledger-bank').val().trim());
+
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                $btn.prop('disabled', false).text('Import Transactions');
+                if (res.success) {
+                    var d = res.data.data || {};
+                    var msg = res.data.message || 'Import complete.';
+                    $result.html(
+                        '<p style="color:#16a34a;font-weight:600;">' + $('<span>').text(msg).html() + '</p>' +
+                        '<p>' + (d.imported || 0) + ' imported, ' + (d.skipped || 0) + ' skipped, ' + (d.rules_saved || 0) + ' new rules.</p>'
+                    );
+                    if (d.imported > 0) {
+                        setTimeout(function () { location.reload(); }, 2000);
+                    }
+                } else {
+                    $result.html('<span style="color:red;">' + $('<span>').text((res.data && res.data.message) || 'Import failed.').html() + '</span>');
+                }
+            },
+            error: function () {
+                $btn.prop('disabled', false).text('Import Transactions');
+                $result.html('<span style="color:red;">Import failed. Please try again.</span>');
+            }
+        });
+    });
+
     // ── P&L Presets ────────────────────────────────────────────────────────────
 
     $(document).on('click', '.el-bk-preset-btn', function () {
