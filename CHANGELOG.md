@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.9] — 2026-04-02
+
+### Fixed
+- **CRITICAL: Plugin deletion wiped all settings**: `uninstall.php` deleted every `el_core_*` and `el_mod_*` option from the database, plus all `el_*` tables. This meant API keys, brand settings, module configurations, and all bookkeeping data were destroyed whenever the plugin was deleted and re-uploaded (common update workflow). Replaced with a no-op — settings and data now survive plugin replacement.
+
+---
+
 ## [1.35.8] — 2026-04-02
 
 ### Fixed
