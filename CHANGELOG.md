@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.35.2] — 2026-03-10
+
+### Fixed
+- **Bookkeeping CSS never loaded**: The `wp_enqueue_style` dependency was set to `el-admin` but the actual registered handle is `el-core-admin`. WordPress silently skipped loading `bookkeeping.css` entirely — this is why every previous version showed unstyled tabs and no card grid. Fixed dependency handle.
+
+---
+
 ## [1.35.1] — 2026-03-10
 
 ### Fixed

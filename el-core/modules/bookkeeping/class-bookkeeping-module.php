@@ -104,7 +104,7 @@ class EL_Bookkeeping_Module {
         wp_enqueue_style(
             'el-bookkeeping',
             $base . 'css/bookkeeping.css',
-            [ 'el-admin' ],
+            [ 'el-core-admin' ],
             $ver
         );
 
