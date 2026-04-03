@@ -46,9 +46,17 @@ $rules = $module->get_rules();
             <label><?php esc_html_e( 'Category for this CSV:', 'el-core' ); ?>
                 <select id="el-bk-csv-rules-category" class="el-select" style="min-width:220px;">
                     <option value=""><?php esc_html_e( '— Select Category —', 'el-core' ); ?></option>
-                    <?php foreach ( EL_Bookkeeping_Module::get_expense_categories() as $cat ) : ?>
-                        <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
-                    <?php endforeach; ?>
+                    <?php $ke_grouped = EL_Bookkeeping_Module::get_expense_categories_grouped(); ?>
+                    <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                        <?php foreach ( $ke_grouped['business'] as $cat ) : ?>
+                            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                        <?php foreach ( $ke_grouped['personal'] as $cat ) : ?>
+                            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
                 </select>
             </label>
             <label><?php esc_html_e( 'CSV File:', 'el-core' ); ?>
@@ -177,9 +185,17 @@ $rules = $module->get_rules();
         <label><?php esc_html_e( 'Category', 'el-core' ); ?>
             <select id="el-bk-rule-category" class="el-select">
                 <option value=""><?php esc_html_e( '— Select —', 'el-core' ); ?></option>
-                <?php foreach ( EL_Bookkeeping_Module::get_expense_categories() as $cat ) : ?>
-                    <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
-                <?php endforeach; ?>
+                <?php $rc_grouped = EL_Bookkeeping_Module::get_expense_categories_grouped(); ?>
+                <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                    <?php foreach ( $rc_grouped['business'] as $cat ) : ?>
+                        <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                    <?php endforeach; ?>
+                </optgroup>
+                <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                    <?php foreach ( $rc_grouped['personal'] as $cat ) : ?>
+                        <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                    <?php endforeach; ?>
+                </optgroup>
             </select>
         </label>
     </div>

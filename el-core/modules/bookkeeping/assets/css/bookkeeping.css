@@ -506,6 +506,31 @@
     text-align: center;
 }
 
+/* ── Business / Personal Type Badges ────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-type-badge {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+.el-admin-wrap .el-bk-type-badge--business {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.el-admin-wrap .el-bk-type-badge--personal {
+    background: #fce7f3;
+    color: #be185d;
+}
+
 /* ── Income Header Bar ───────────────────────────────────────────────────────── */
 
 .el-admin-wrap .el-bk-income-header-bar {

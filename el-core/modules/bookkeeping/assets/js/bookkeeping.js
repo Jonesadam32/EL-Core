@@ -144,6 +144,7 @@
         var cat      = $('#el-bk-exp-cat-filter').val() || '';
         var bank     = $('#el-bk-exp-bank-filter').val() || '';
         var status   = $('#el-bk-exp-status-filter').val() || '';
+        var expType  = $('#el-bk-exp-type-filter').val() || '';
         var dateFrom = $('#el-bk-exp-from').val() || '';
         var dateTo   = $('#el-bk-exp-to').val() || '';
 
@@ -162,6 +163,7 @@
             var rowBank     = $row.attr('data-bank') || '';
             var rowDate     = $row.attr('data-date') || '';
             var rowStatus   = $row.attr('data-status') || '';
+            var rowExpType  = $row.attr('data-expense-type') || '';
 
             var show = true;
 
@@ -185,6 +187,8 @@
                 if (effectiveStatus !== status) show = false;
             }
 
+            if (show && expType && rowExpType !== expType) show = false;
+
             if (show && dateFrom && rowDate < dateFrom) show = false;
             if (show && dateTo && rowDate > dateTo) show = false;
 
@@ -199,7 +203,7 @@
         });
 
         var $count = $('#el-bk-exp-filter-count');
-        var isFiltered = search || cat || bank || status;
+        var isFiltered = search || cat || bank || status || expType;
         if (isFiltered) {
             $count.html('Showing <strong>' + visible + '</strong> of ' + total + ' &mdash; $' + visibleAmount.toFixed(2));
         } else {
@@ -208,7 +212,7 @@
     }
 
     $('#el-bk-exp-search').on('input', filterExpenseTable);
-    $('#el-bk-exp-cat-filter, #el-bk-exp-bank-filter, #el-bk-exp-status-filter').on('change', filterExpenseTable);
+    $('#el-bk-exp-cat-filter, #el-bk-exp-bank-filter, #el-bk-exp-status-filter, #el-bk-exp-type-filter').on('change', filterExpenseTable);
     $('#el-bk-exp-from, #el-bk-exp-to').on('change', filterExpenseTable);
 
     $('#el-bk-exp-clear-filters').on('click', function () {
@@ -216,6 +220,7 @@
         $('#el-bk-exp-cat-filter').val('');
         $('#el-bk-exp-bank-filter').val('');
         $('#el-bk-exp-status-filter').val('');
+        $('#el-bk-exp-type-filter').val('');
         var year = elBookkeeping.taxYear || new Date().getFullYear();
         $('#el-bk-exp-from').val(year + '-01-01');
         $('#el-bk-exp-to').val(year + '-12-31');

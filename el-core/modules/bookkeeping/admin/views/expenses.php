@@ -11,16 +11,24 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 $transactions  = $prefetch_expenses;
 $categories    = EL_Bookkeeping_Module::get_expense_categories();
+$cat_grouped   = EL_Bookkeeping_Module::get_expense_categories_grouped();
 $bank_accounts = array_unique( array_filter( array_map( fn( $t ) => $t->bank_account ?? '', $transactions ) ) );
 sort( $bank_accounts );
 
 // ── Build category totals for summary bar ────────────────────────────────────
-$category_totals = [];
-$total_classified = 0.0;
+$category_totals    = [];
+$total_classified   = 0.0;
+$total_business     = 0.0;
+$total_personal     = 0.0;
 foreach ( $transactions as $t ) {
     if ( ! empty( $t->category ) ) {
         $category_totals[ $t->category ] = ( $category_totals[ $t->category ] ?? 0.0 ) + (float) $t->amount;
         $total_classified += (float) $t->amount;
+        if ( EL_Bookkeeping_Module::get_category_type( $t->category ) === 'personal' ) {
+            $total_personal += (float) $t->amount;
+        } else {
+            $total_business += (float) $t->amount;
+        }
     }
 }
 arsort( $category_totals );
@@ -49,13 +57,22 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
             <?php echo esc_html( sprintf( __( 'Business — %s', 'el-core' ), $module->get_business_name() ) ); ?>
         </span>
         <span class="el-bk-summary-bar-total">
-            <?php echo esc_html( sprintf( __( 'Estimated Business Expenses (TENTATIVE): $%s', 'el-core' ), number_format( $total_classified, 2 ) ) ); ?>
+            <?php echo esc_html( sprintf( __( 'Business Expenses: $%s', 'el-core' ), number_format( $total_business, 2 ) ) ); ?>
+            &nbsp;|&nbsp;
+            <?php echo esc_html( sprintf( __( 'Personal Expenses: $%s', 'el-core' ), number_format( $total_personal, 2 ) ) ); ?>
+            &nbsp;|&nbsp;
+            <?php echo esc_html( sprintf( __( 'Total: $%s', 'el-core' ), number_format( $total_classified, 2 ) ) ); ?>
         </span>
     </div>
     <div class="el-bk-summary-grid">
-        <?php foreach ( $category_totals as $cat => $amount ) : ?>
+        <?php foreach ( $category_totals as $cat => $amount ) :
+            $cat_type = EL_Bookkeeping_Module::get_category_type( $cat );
+        ?>
         <div class="el-bk-summary-item">
-            <span class="el-bk-summary-item-label"><?php echo esc_html( $cat ); ?>:</span>
+            <span class="el-bk-summary-item-label">
+                <span class="el-bk-type-badge el-bk-type-badge--<?php echo esc_attr( $cat_type ); ?>"><?php echo $cat_type === 'business' ? 'B' : 'P'; ?></span>
+                <?php echo esc_html( $cat ); ?>:
+            </span>
             <span class="el-bk-summary-item-amount">$<?php echo esc_html( number_format( $amount, 2 ) ); ?></span>
         </div>
         <?php endforeach; ?>
@@ -105,6 +122,14 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
                 <option value="suggested"><?php esc_html_e( 'Suggested', 'el-core' ); ?></option>
                 <option value="unclassified"><?php esc_html_e( 'Unclassified', 'el-core' ); ?></option>
                 <option value="rejected"><?php esc_html_e( 'Rejected', 'el-core' ); ?></option>
+            </select>
+        </div>
+        <div class="el-bk-filter-field">
+            <label for="el-bk-exp-type-filter"><?php esc_html_e( 'Expense Type', 'el-core' ); ?></label>
+            <select id="el-bk-exp-type-filter">
+                <option value=""><?php esc_html_e( '— All —', 'el-core' ); ?></option>
+                <option value="business"><?php esc_html_e( 'Business', 'el-core' ); ?></option>
+                <option value="personal"><?php esc_html_e( 'Personal', 'el-core' ); ?></option>
             </select>
         </div>
     </div>
@@ -171,6 +196,7 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
                 };
                 $travel_badge  = $t->travel_period_id ? ' ✈' : '';
                 $receipt_badge = $t->receipt_id       ? ' 📎' : '';
+                $expense_type  = ! empty( $t->category ) ? EL_Bookkeeping_Module::get_category_type( $t->category ) : '';
             ?>
             <tr class="el-bk-transaction-row <?php echo esc_attr( $row_class ); ?>"
                 data-id="<?php echo esc_attr( $t->id ); ?>"
@@ -181,16 +207,26 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
                 data-bank="<?php echo esc_attr( $t->bank_account ?? '' ); ?>"
                 data-date="<?php echo esc_attr( $t->date ); ?>"
                 data-status="<?php echo esc_attr( $t->status ); ?>"
+                data-expense-type="<?php echo esc_attr( $expense_type ); ?>"
             >
                 <td><?php echo esc_html( $i + 1 ); ?></td>
                 <td>
                     <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $t->id ); ?>">
                         <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
-                        <?php foreach ( $categories as $cat ) : ?>
-                            <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
-                                <?php echo esc_html( $cat ); ?>
-                            </option>
-                        <?php endforeach; ?>
+                        <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                            <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
+                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
+                                    <?php echo esc_html( $cat ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                        <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                            <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
+                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
+                                    <?php echo esc_html( $cat ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </optgroup>
                     </select>
                     <?php if ( $t->status === 'classified' ) echo '<span class="el-bk-lock-badge" title="' . esc_attr__( 'Locked — won\'t change on Re-Classify', 'el-core' ) . '">🔒</span>'; ?>
                     <?php if ( $travel_badge ) echo '<span title="' . esc_attr__( 'Travel period', 'el-core' ) . '">✈</span>'; ?>

@@ -311,46 +311,62 @@ class EL_Bookkeeping_Module {
     // ─────────────────────────────────────────────────────────────
 
     public static function get_expense_categories(): array {
+        $grouped = self::get_expense_categories_grouped();
+        $all = array_merge( $grouped['business'], $grouped['personal'] );
+        sort( $all );
+        return $all;
+    }
+
+    public static function get_expense_categories_grouped(): array {
         return [
-            'Accounting Fees',
-            'Advertising & Promotion',
-            'Auto Loan Payment',
-            'Bank Service Charges',
-            'Credit Card Payment',
-            'Computer - Hardware',
-            'Computer - Hosting',
-            'Computer - Software',
-            'Dues & Subscriptions',
-            'Education & Training',
-            'Health Care Insurance',
-            'Insurance-General Liability',
-            'Vehicles Insurance',
-            'Interest Expense',
-            'Meals & Entertainment',
-            'Merrill Lynch Investment Account',
-            'Merchant Account Fees',
-            'Office Supplies',
-            'Out of pocket Medical Expenses',
-            'Parking & tolls',
-            'Professional Fees',
-            'Rent Expense',
-            'Telephone - Wireless',
-            'Travel Expense',
-            'Vehicle - Fuel',
-            'Vehicle - Repairs and Maintenance',
-            'Contract Labor',
-            'California FTB Payment',
-            'Georgia Tax Payment',
-            'Home Office Expense',
-            'IRS Payment',
-            'Owner Draw',
-            'Owner Draw - Cleaners',
-            'Owner Draw - Entertainment',
-            'Owner Draw - Groceries',
-            'Owner Draw - Personal Meals',
-            'Owner Draw - Pet',
-            'SBA Loan',
+            'business' => [
+                'Accounting Fees',
+                'Advertising & Promotion',
+                'California FTB Payment',
+                'Computer - Hardware',
+                'Computer - Hosting',
+                'Computer - Software',
+                'Contract Labor',
+                'Dues & Subscriptions',
+                'Education & Training',
+                'Georgia Tax Payment',
+                'Health Care Insurance',
+                'Home Office Expense',
+                'Insurance-General Liability',
+                'Meals & Entertainment',
+                'Merchant Account Fees',
+                'Office Supplies',
+                'Out of pocket Medical Expenses',
+                'Parking & tolls',
+                'Professional Fees',
+                'Rent Expense',
+                'Telephone - Wireless',
+                'Travel Expense',
+                'Vehicle - Fuel',
+                'Vehicle - Repairs and Maintenance',
+                'Vehicles Insurance',
+            ],
+            'personal' => [
+                'Auto Loan Payment',
+                'Bank Service Charges',
+                'Credit Card Payment',
+                'Interest Expense',
+                'IRS Payment',
+                'Merrill Lynch Investment Account',
+                'Owner Draw',
+                'Owner Draw - Cleaners',
+                'Owner Draw - Entertainment',
+                'Owner Draw - Groceries',
+                'Owner Draw - Personal Meals',
+                'Owner Draw - Pet',
+                'SBA Loan',
+            ],
         ];
+    }
+
+    public static function get_category_type( string $category ): string {
+        $grouped = self::get_expense_categories_grouped();
+        return in_array( $category, $grouped['personal'], true ) ? 'personal' : 'business';
     }
 
     public static function get_income_categories(): array {
