@@ -416,6 +416,96 @@
     font-size: 13px;
 }
 
+/* ── Filter Bar ─────────────────────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-filter-bar {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.el-admin-wrap .el-bk-filter-bar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.el-admin-wrap .el-bk-filter-bar-row + .el-bk-filter-bar-row {
+    margin-top: 10px;
+}
+
+.el-admin-wrap .el-bk-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.el-admin-wrap .el-bk-filter-field label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.el-admin-wrap .el-bk-filter-field input[type="text"],
+.el-admin-wrap .el-bk-filter-field input[type="date"],
+.el-admin-wrap .el-bk-filter-field select {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    font-size: 13px;
+    background: #fff;
+}
+
+.el-admin-wrap .el-bk-filter-field input[type="text"] {
+    min-width: 220px;
+}
+
+.el-admin-wrap .el-bk-filter-field select {
+    min-width: 160px;
+}
+
+.el-admin-wrap .el-bk-filter-actions {
+    justify-content: flex-end;
+}
+
+.el-admin-wrap .el-bk-filter-count {
+    font-size: 13px;
+    color: #475569;
+    align-self: flex-end;
+    padding-bottom: 4px;
+}
+
+/* ── Reject Button ──────────────────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-reject-btn {
+    background: none;
+    border: 1px solid #fca5a5;
+    border-radius: 4px;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 3px 7px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.el-admin-wrap .el-bk-reject-btn:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.el-admin-wrap .el-bk-col-actions {
+    width: 50px;
+    text-align: center;
+}
+
 /* ── Income Header Bar ───────────────────────────────────────────────────────── */
 
 .el-admin-wrap .el-bk-income-header-bar {

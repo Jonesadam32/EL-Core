@@ -1141,8 +1141,14 @@ class EL_Bookkeeping_Module {
         }
 
         global $wpdb;
-        $table = $this->table( 'el_bk_transactions' );
-        $wpdb->update( $table, [ $field => $value, 'updated_at' => current_time( 'mysql' ) ], [ 'id' => $id ] );
+        $table   = $this->table( 'el_bk_transactions' );
+        $updates = [ $field => $value, 'updated_at' => current_time( 'mysql' ) ];
+
+        if ( $field === 'category' && $value !== '' ) {
+            $updates['status'] = 'classified';
+        }
+
+        $wpdb->update( $table, $updates, [ 'id' => $id ] );
 
         EL_AJAX_Handler::success( null, __( 'Transaction updated.', 'el-core' ) );
     }
@@ -1186,7 +1192,7 @@ class EL_Bookkeeping_Module {
         $table = $this->table( 'el_bk_transactions' );
 
         $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, merchant, date, category, status FROM {$table} WHERE type = 'expense' AND tax_year = %d",
+            "SELECT id, merchant, date, category, status FROM {$table} WHERE type = 'expense' AND tax_year = %d AND status != 'classified'",
             $tax_year
         ) );
 

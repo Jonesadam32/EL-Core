@@ -55,8 +55,22 @@
             field: $el.data('field'),
             value: $el.val(),
         }, function () {
-            // Visual confirmation — briefly highlight row
-            $el.closest('tr').css('outline', '2px solid #22c55e').delay(800).queue(function () {
+            const $row = $el.closest('tr');
+            if ($el.data('field') === 'category' && $el.val()) {
+                $row.removeClass('el-bk-row--suggested el-bk-row--rejected')
+                    .addClass('el-bk-row--classified');
+                $row.attr('data-status', 'classified')
+                    .attr('data-category', $el.val().toLowerCase());
+                if (!$row.find('.el-bk-lock-badge').length) {
+                    $el.after('<span class="el-bk-lock-badge" title="Locked — won\u2019t change on Re-Classify">🔒</span>');
+                }
+                if (!$row.find('.el-bk-reject-btn').length) {
+                    $row.find('.el-bk-col-actions').html(
+                        '<button class="el-bk-reject-btn" data-id="' + $el.data('id') + '" title="Reject — clear category and mark rejected">✕</button>'
+                    );
+                }
+            }
+            $row.css('outline', '2px solid #22c55e').delay(800).queue(function () {
                 $(this).css('outline', '').dequeue();
             });
         });
@@ -86,7 +100,7 @@
     // ── Re-Classify Expenses ─────────────────────────────────────────────────
 
     $('#el-bk-reclassify-btn').on('click', function () {
-        if (!confirm('Re-run all rules on unclassified expenses for this tax year?')) return;
+        if (!confirm('Re-run rules on unclassified/suggested expenses?\n\nLocked (🔒) transactions will NOT be changed.')) return;
         var $btn = $(this).prop('disabled', true).text('Re-classifying…');
         elBkAjax('bk_reclassify', { tax_year: elBookkeeping.taxYear }, function (data) {
             var d = data.data || data;
@@ -97,6 +111,115 @@
             alert(msg);
             $btn.prop('disabled', false).text('Re-Classify Expenses');
         });
+    });
+
+    // ── Reject Suggestion ─────────────────────────────────────────────────────
+
+    $(document).on('click', '.el-bk-reject-btn', function () {
+        var $btn = $(this);
+        var id = $btn.data('id');
+        var $row = $btn.closest('tr');
+        var merchant = $row.find('td').eq(4).text().trim();
+        if (!confirm('Reject classification for "' + merchant + '"?\n\nThis clears the category and marks it rejected.')) return;
+
+        elBkAjax('bk_update_transaction', { id: id, field: 'category', value: '' }, function () {
+            elBkAjax('bk_update_transaction', { id: id, field: 'status', value: 'rejected' }, function () {
+                $row.removeClass('el-bk-row--classified el-bk-row--suggested')
+                    .addClass('el-bk-row--rejected');
+                $row.attr('data-status', 'rejected').attr('data-category', '');
+                $row.find('.el-bk-inline-select[data-field="category"]').val('');
+                $row.find('.el-bk-lock-badge').remove();
+                $btn.remove();
+                $row.css('outline', '2px solid #ef4444').delay(800).queue(function () {
+                    $(this).css('outline', '').dequeue();
+                });
+            });
+        });
+    });
+
+    // ── Expense Table Filtering ───────────────────────────────────────────────
+
+    function filterExpenseTable() {
+        var search   = ($('#el-bk-exp-search').val() || '').toLowerCase();
+        var cat      = $('#el-bk-exp-cat-filter').val() || '';
+        var bank     = $('#el-bk-exp-bank-filter').val() || '';
+        var status   = $('#el-bk-exp-status-filter').val() || '';
+        var dateFrom = $('#el-bk-exp-from').val() || '';
+        var dateTo   = $('#el-bk-exp-to').val() || '';
+
+        var visible = 0;
+        var total   = 0;
+        var visibleAmount = 0;
+
+        $('.el-bk-transactions-table tbody .el-bk-transaction-row').each(function () {
+            var $row = $(this);
+            total++;
+
+            var rowMerchant = $row.attr('data-merchant') || '';
+            var rowBusiness = $row.attr('data-business') || '';
+            var rowComments = $row.attr('data-comments') || '';
+            var rowCategory = $row.attr('data-category') || '';
+            var rowBank     = $row.attr('data-bank') || '';
+            var rowDate     = $row.attr('data-date') || '';
+            var rowStatus   = $row.attr('data-status') || '';
+
+            var show = true;
+
+            if (search) {
+                var haystack = rowMerchant + ' ' + rowBusiness + ' ' + rowComments + ' ' + rowCategory;
+                if (haystack.indexOf(search) === -1) show = false;
+            }
+
+            if (show && cat) {
+                if (cat === '__unclassified__') {
+                    if (rowCategory !== '') show = false;
+                } else if (rowCategory !== cat.toLowerCase()) {
+                    show = false;
+                }
+            }
+
+            if (show && bank && rowBank !== bank) show = false;
+
+            if (show && status) {
+                var effectiveStatus = rowStatus || 'unclassified';
+                if (effectiveStatus !== status) show = false;
+            }
+
+            if (show && dateFrom && rowDate < dateFrom) show = false;
+            if (show && dateTo && rowDate > dateTo) show = false;
+
+            if (show) {
+                $row.show();
+                visible++;
+                var amountText = $row.find('.el-bk-amount').first().text().replace(/[^0-9.\-]/g, '');
+                visibleAmount += parseFloat(amountText) || 0;
+            } else {
+                $row.hide();
+            }
+        });
+
+        var $count = $('#el-bk-exp-filter-count');
+        var isFiltered = search || cat || bank || status;
+        if (isFiltered) {
+            $count.html('Showing <strong>' + visible + '</strong> of ' + total + ' &mdash; $' + visibleAmount.toFixed(2));
+        } else {
+            $count.html('');
+        }
+    }
+
+    $('#el-bk-exp-search').on('input', filterExpenseTable);
+    $('#el-bk-exp-cat-filter, #el-bk-exp-bank-filter, #el-bk-exp-status-filter').on('change', filterExpenseTable);
+    $('#el-bk-exp-from, #el-bk-exp-to').on('change', filterExpenseTable);
+
+    $('#el-bk-exp-clear-filters').on('click', function () {
+        $('#el-bk-exp-search').val('');
+        $('#el-bk-exp-cat-filter').val('');
+        $('#el-bk-exp-bank-filter').val('');
+        $('#el-bk-exp-status-filter').val('');
+        var year = elBookkeeping.taxYear || new Date().getFullYear();
+        $('#el-bk-exp-from').val(year + '-01-01');
+        $('#el-bk-exp-to').val(year + '-12-31');
+        filterExpenseTable();
     });
 
     // ── Rules: Add/Edit Form Toggle ────────────────────────────────────────────
