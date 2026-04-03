@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.2] — 2026-04-03
+
+### Added
+- New expense categories: Owner Draw - Cleaners, Owner Draw - Entertainment, Owner Draw - Groceries, Owner Draw - Personal Meals, Owner Draw - Pet.
+
+---
+
 ## [1.38.1] — 2026-04-03
 
 ### Fixed

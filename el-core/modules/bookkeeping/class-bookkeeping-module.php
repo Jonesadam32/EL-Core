@@ -337,6 +337,11 @@ class EL_Bookkeeping_Module {
             'Vehicle - Repairs and Maintenance',
             'Contract Labor',
             'Owner Draw',
+            'Owner Draw - Cleaners',
+            'Owner Draw - Entertainment',
+            'Owner Draw - Groceries',
+            'Owner Draw - Personal Meals',
+            'Owner Draw - Pet',
         ];
     }
 
