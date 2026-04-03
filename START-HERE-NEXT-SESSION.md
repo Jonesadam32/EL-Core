@@ -7,6 +7,47 @@
 > **Updated By:** Cursor
 > **Current Plugin Version:** v1.37.1 — Fixed bidirectional rule matching + added Re-Classify Expenses button.
 >
+> **NEXT TASK: Build merchant name cleaner for rule importer (Path 2)**
+>
+> **Problem:** When importing prior-year expense CSVs (from raw bank statements) as rules on the Known Expenses tab, the descriptions are full of bank junk like `CHECKCARD 0103 MICROSOFT*SUBSCRIPTION MSBILL.INFO WA XXXXX9930XXXXXXXXXX3036 RECURRING`. These get saved as rule keywords verbatim, which makes matching unreliable.
+>
+> **What to build:** A `clean_merchant_name( string $raw )` PHP function in `class-bookkeeping-module.php` that strips bank metadata from raw descriptions and extracts just the merchant name. Patterns to handle:
+> - Strip leading `CHECKCARD`, `PURCHASE`, `DEBIT` prefixes
+> - Strip the 4-digit date code after the prefix (e.g., `0103`, `1121`)
+> - Strip `XXXXX` masked card/account numbers (e.g., `XXXXX9930XXXXXXXXXX3036`)
+> - Strip `CKCD XXXX` codes (e.g., `CKCD 5734`)
+> - Strip trailing `XXXXXXXXXX` sequences (e.g., `XXXXXXXXXX247000`, `XXXXXXXXXX632166`)
+> - Strip `RECURRING` keyword
+> - Strip `INTERNATIONAL TRANSACTION FEE` (skip these rows entirely or flag them)
+> - Strip state codes at end (2-letter, e.g., `WA`, `CA`, `NY`) — careful not to strip merchant names
+> - Strip phone numbers (e.g., `757-965-6600`, `XXX-XX35753`)
+> - Strip long numeric sequences (e.g., `24492153325717520805374`)
+> - Handle `*` separators (e.g., `MICROSOFT*SUBSCRIPTION` → `Microsoft Subscription`, `DRI*Hitpaw.net` → `Hitpaw.net`)
+> - Handle `HTTPS` URLs (e.g., `HTTPSACUITYSCNY` → `Acuity Scheduling`, `HTTPSWWW.LOOMCA` → `Loom`)
+> - Handle `WEB*` prefix (e.g., `WEB*Hostgator.com` → `Hostgator.com`)
+> - Title-case the result
+>
+> **Where to integrate:**
+> - Call `clean_merchant_name()` in `handle_import_rules_csv()` before passing keywords to `bulk_save_rules()`
+> - Also call it in `handle_import_ledger()` before creating rules
+> - Do NOT use it during bank statement import (`handle_csv_import`) — those descriptions are already clean (Claude-cleaned CSVs)
+>
+> **Test examples from actual data:**
+> - `CHECKCARD 0103 MICROSOFT*SUBSCRIPTION MSBILL.INFO WA XXXXX9930XXXXXXXXXX3036 RECURRING` → `Microsoft Subscription`
+> - `PURCHASE 0102 ACUITYSCHEDULING.COM HTTPSACUITYSCNY XXXXX1630XXXXXXXXXX5373 RECURRING CKCD 5734 XXXXXXXXXX247000` → `Acuity Scheduling`
+> - `CHECKCARD 0131 WEB*Hostgator.com 713-5285287 MA 24906414030192603044303 RECURRING CKCD 4816 XXXXXXXXXXXX5897` → `Hostgator.com`
+> - `DRI*Hitpaw.net` → `Hitpaw.net`
+> - `CHECKCARD 0821 ADOBE *CREATIVE CLOUD CA XXXXX1532XXXXXXXXXX1822 CKCD 5734 XXXXXXXXXX632166` → `Adobe Creative Cloud`
+> - `PURCHASE 0823 ZAPIER.COM/CHARGE ZAPIER.COM CA XXXXX3432XXXXXXXXXX3999 CKCD 5734 XXXXXXXXXX632166` → `Zapier.com`
+>
+> **Sample raw CSV for testing:** `g:\My Drive\Fred Business\Taxes\2023\Expenses\New CSV\Computer Software-2023.csv`
+>
+> **Also:** User needs to delete all existing messy rules and re-import from the raw CSVs after this feature is built. The bulk delete on Known Expenses tab already supports this.
+>
+> **After that:** User will re-classify expenses on the Expenses tab using the Re-Classify button.
+>
+> **Bump to v1.37.2 when done.**
+>
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 
 ---
