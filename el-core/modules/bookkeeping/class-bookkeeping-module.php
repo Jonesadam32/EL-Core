@@ -52,6 +52,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_import_ledger',       [ $this, 'handle_import_ledger' ] );
         add_action( 'el_core_ajax_bk_update_transaction',  [ $this, 'handle_update_transaction' ] );
         add_action( 'el_core_ajax_bk_bulk_confirm',        [ $this, 'handle_bulk_confirm' ] );
+        add_action( 'el_core_ajax_bk_reclassify',          [ $this, 'handle_reclassify' ] );
         add_action( 'el_core_ajax_bk_export_csv',          [ $this, 'handle_export_csv' ] );
         add_action( 'el_core_ajax_bk_export_pl',           [ $this, 'handle_export_pl' ] );
 
@@ -458,11 +459,11 @@ class EL_Bookkeeping_Module {
         // Step 2 — Known Expense Rules
         $rules = $this->get_rules();
         foreach ( $rules as $rule ) {
-            $keyword = strtolower( $rule->keyword );
+            $keyword  = strtolower( $rule->keyword );
             $haystack = strtolower( $merchant );
             $matched  = match ( $rule->match_type ) {
                 'exact'    => $haystack === $keyword,
-                default    => str_contains( $haystack, $keyword ),
+                default    => str_contains( $haystack, $keyword ) || str_contains( $keyword, $haystack ),
             };
             if ( $matched ) {
                 return [
@@ -984,6 +985,45 @@ class EL_Bookkeeping_Module {
         }
 
         EL_AJAX_Handler::success( null, __( 'Suggestions confirmed.', 'el-core' ) );
+    }
+
+    public function handle_reclassify( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $tax_year = absint( $data['tax_year'] ?? $this->get_tax_year() );
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, merchant, date FROM {$table} WHERE type = 'expense' AND (status = 'unclassified' OR status = 'suggested') AND tax_year = %d",
+            $tax_year
+        ) );
+
+        $reclassified = 0;
+        foreach ( $rows as $row ) {
+            $classification = $this->auto_classify( $row->merchant, $row->date );
+            if ( ! empty( $classification['category'] ) ) {
+                $wpdb->update( $table, [
+                    'category'         => $classification['category'],
+                    'status'           => 'suggested',
+                    'travel_period_id' => $classification['travel_period_id'],
+                ], [ 'id' => $row->id ] );
+                $reclassified++;
+            }
+        }
+
+        EL_AJAX_Handler::success( [
+            'reclassified' => $reclassified,
+            'total'        => count( $rows ),
+        ], sprintf(
+            __( 'Re-classified %1$d of %2$d unclassified expense transactions.', 'el-core' ),
+            $reclassified,
+            count( $rows )
+        ) );
     }
 
     public function handle_export_csv( array $data ): void {

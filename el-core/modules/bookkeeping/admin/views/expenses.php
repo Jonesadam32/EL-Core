@@ -62,6 +62,9 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
 <?php endif; ?>
 
 <div class="el-bk-action-row">
+    <button class="el-btn el-btn-primary" id="el-bk-reclassify-btn">
+        <?php esc_html_e( 'Re-Classify Expenses', 'el-core' ); ?>
+    </button>
     <button class="el-btn el-btn-outline el-bk-confirm-all-btn" data-scope="all">
         <?php esc_html_e( 'Confirm All Suggestions', 'el-core' ); ?>
     </button>

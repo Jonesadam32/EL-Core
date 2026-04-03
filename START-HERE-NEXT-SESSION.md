@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.37.0 — Unified Bank Statement Import. Upload all monthly CSVs on Income & Deposits tab; system auto-sorts income vs expenses, applies rules and travel dates. Expenses tab is review-only.
+> **Current Plugin Version:** v1.37.1 — Fixed bidirectional rule matching + added Re-Classify Expenses button.
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 

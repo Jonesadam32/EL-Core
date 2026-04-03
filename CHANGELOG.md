@@ -6,6 +6,16 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.1] — 2026-04-03
+
+### Fixed
+- **Rule matching now works both ways**: Previously, `str_contains` only checked if the transaction description contained the rule keyword. If the rule keyword was longer than the description (e.g., rule: `CHECKCARD 0131 WEB*Hostgator.com 713-5285287 MA`, description: `Hostgator`), it would never match. Now it checks both directions — if the keyword contains the description OR the description contains the keyword, it matches.
+
+### Added
+- **Re-Classify Expenses button**: New button on the Expenses tab that re-runs all known expense rules and travel dates against unclassified transactions. Useful after fixing rules, adding new rules, or when the initial import didn't classify everything. No need to delete and re-import transactions.
+
+---
+
 ## [1.37.0] — 2026-04-02
 
 ### Changed

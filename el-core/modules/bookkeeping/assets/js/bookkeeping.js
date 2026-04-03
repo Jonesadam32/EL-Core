@@ -83,6 +83,22 @@
         });
     });
 
+    // ── Re-Classify Expenses ─────────────────────────────────────────────────
+
+    $('#el-bk-reclassify-btn').on('click', function () {
+        if (!confirm('Re-run all rules on unclassified expenses for this tax year?')) return;
+        var $btn = $(this).prop('disabled', true).text('Re-classifying…');
+        elBkAjax('bk_reclassify', { tax_year: elBookkeeping.taxYear }, function (data) {
+            var d = data.data || data;
+            alert(d.message || 'Done.');
+            $btn.prop('disabled', false).text('Re-Classify Expenses');
+            if (d.reclassified > 0) location.reload();
+        }, function (msg) {
+            alert(msg);
+            $btn.prop('disabled', false).text('Re-Classify Expenses');
+        });
+    });
+
     // ── Rules: Add/Edit Form Toggle ────────────────────────────────────────────
 
     $('#el-bk-add-rule-btn').on('click', function () {
