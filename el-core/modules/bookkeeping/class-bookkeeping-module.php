@@ -325,6 +325,7 @@ class EL_Bookkeeping_Module {
             'Vehicles Insurance',
             'Interest Expense',
             'Meals & Entertainment',
+            'Merrill Lynch Investment Account',
             'Merchant Account Fees',
             'Office Supplies',
             'Out of pocket Medical Expenses',
