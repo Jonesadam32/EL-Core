@@ -316,6 +316,7 @@ class EL_Bookkeeping_Module {
             'Advertising & Promotion',
             'Auto Loan Payment',
             'Bank Service Charges',
+            'Credit Card Payment',
             'Computer - Hardware',
             'Computer - Hosting',
             'Computer - Software',
