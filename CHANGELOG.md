@@ -6,6 +6,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.9] — 2026-04-03
+
+### Fixed
+- **Merchant cleaner now strips transaction reference codes**: Mixed alphanumeric tokens like `Hdtrltd9Vkw9`, `6Mrf8Sylx476`, `B14H` (common in Dropbox, PayPal, and similar merchants) are now stripped. Also strips `Inc.`/`LLC`/`Corp.` suffixes, standalone short numeric codes, lone punctuation, and duplicate domains (e.g. `Dropbox Dropbox.com` → `Dropbox`). This reduces 14+ separate Dropbox rules down to a single `Dropbox Ca` rule.
+- Also handles `FRANCISCOCA` → `Francisco Ca` (city jammed with state code).
+
+### Added
+- **Owner Draw** expense category for non-business personal expenses (e.g. hometown meals, personal purchases).
+
+---
+
 ## [1.37.8] — 2026-04-03
 
 ### Fixed

@@ -329,6 +329,7 @@ class EL_Bookkeeping_Module {
             'Vehicle - Fuel',
             'Vehicle - Repairs and Maintenance',
             'Contract Labor',
+            'Owner Draw',
         ];
     }
 
@@ -481,11 +482,33 @@ class EL_Bookkeeping_Module {
         $s = preg_replace( '#/(?:CHARGE|PAY|BILL|PAYMENT)\b#i', '', $s );
         $s = preg_replace( '/\bMSBILL\.INFO\b/i', '', $s );
 
+        // Strip mixed alphanumeric reference codes (4+ chars with both letters and digits)
+        $s = preg_replace( '/\b(?=[A-Za-z]*\d)(?=\d*[A-Za-z])[A-Za-z\d]{4,}\b/', '', $s );
+
+        // Strip standalone short numeric codes (1-5 digits)
+        $s = preg_replace( '/(?<![.\w])\b\d{1,5}\b(?![.\w])/', '', $s );
+
+        // Strip "Inc.", "LLC", "Corp." suffixes
+        $s = preg_replace( '/\b(?:Inc\.?|LLC|Corp\.?)\b/i', '', $s );
+
+        // Strip standalone punctuation left behind
+        $s = preg_replace( '/(?<!\w)[#.]+(?!\w)/', '', $s );
+
+        // Strip duplicate domain: if "Merchant" and "Merchant.com" both appear, drop the domain
+        if ( preg_match( '/\b(\w+)\.(?:com|net|org|io|co)\b/i', $s, $dm ) ) {
+            $domain_full = $dm[0];
+            $domain_name = $dm[1];
+            if ( preg_match( '/\b' . preg_quote( $domain_name, '/' ) . '\b/i', str_replace( $domain_full, '', $s ) ) ) {
+                $s = str_ireplace( $domain_full, '', $s );
+            }
+        }
+
         // Known URL-mangled merchant names — run all patterns (no early exit)
         $url_merchants = [
             'ACUITYSCHEDULING\.COM' => 'Acuity Scheduling',
             'ACUITYSC\w*'           => 'Acuity Scheduling',
             'LOOMCA\b'              => 'Loom',
+            'FRANCISCOCA\b'         => 'Francisco Ca',
         ];
         foreach ( $url_merchants as $regex => $name ) {
             $s = preg_replace( '/' . $regex . '/i', $name, $s );
