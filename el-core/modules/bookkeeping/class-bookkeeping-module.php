@@ -315,7 +315,7 @@ class EL_Bookkeeping_Module {
             'Education & Training',
             'Health Care Insurance',
             'Insurance-General Liability',
-            'Vehicles',
+            'Vehicles Insurance',
             'Interest Expense',
             'Meals & Entertainment',
             'Merchant Account Fees',

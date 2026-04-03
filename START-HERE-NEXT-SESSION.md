@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 3, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.37.5 — Added "All Words" match type for location-based rules (e.g. "Chick-Fil-A Ga").
+> **Current Plugin Version:** v1.37.6 — Renamed "Vehicles" category to "Vehicles Insurance".
 >
 > **COMPLETED IN THIS SESSION:**
 > - Built `clean_merchant_name()` static method in `class-bookkeeping-module.php`
@@ -118,7 +118,8 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.37.2 | **Merchant name cleaner for rule imports** | Built |
 | v1.37.3 | **Preserve state codes in cleaner for location-based rules** | Built |
 | v1.37.4 | **Rule matching cleans merchant names before comparing** | Built |
-| v1.37.5 | **"All Words" match type for location-based rules** | **CURRENT — deployed** |
+| v1.37.5 | **"All Words" match type for location-based rules** | Built |
+| v1.37.6 | **Rename "Vehicles" category to "Vehicles Insurance"** | **CURRENT — deployed** |
 
 ---
 

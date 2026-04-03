@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.6] — 2026-04-03
+
+### Fixed
+- Renamed expense category "Vehicles" to "Vehicles Insurance" to match actual accounting books.
+
+---
+
 ## [1.37.5] — 2026-04-03
 
 ### Added
