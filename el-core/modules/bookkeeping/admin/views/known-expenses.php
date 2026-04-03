@@ -170,6 +170,7 @@ $rules = $module->get_rules();
         <label><?php esc_html_e( 'Match Type', 'el-core' ); ?>
             <select id="el-bk-rule-match-type" class="el-select">
                 <option value="contains"><?php esc_html_e( 'Contains', 'el-core' ); ?></option>
+                <option value="all_words"><?php esc_html_e( 'All Words', 'el-core' ); ?></option>
                 <option value="exact"><?php esc_html_e( 'Exact', 'el-core' ); ?></option>
             </select>
         </label>

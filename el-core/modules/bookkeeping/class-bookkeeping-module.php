@@ -545,19 +545,21 @@ class EL_Bookkeeping_Module {
 
         // Step 2 — Known Expense Rules
         // Clean the merchant so raw bank descriptions match cleaned rule keywords
-        $cleaned  = self::clean_merchant_name( $merchant );
-        $haystack = strtolower( $cleaned ?: $merchant );
+        $cleaned   = self::clean_merchant_name( $merchant );
+        $haystack  = strtolower( $cleaned ?: $merchant );
         $raw_lower = strtolower( $merchant );
 
         $rules = $this->get_rules();
         foreach ( $rules as $rule ) {
             $keyword = strtolower( $rule->keyword );
             $matched = match ( $rule->match_type ) {
-                'exact'    => $haystack === $keyword,
-                default    => str_contains( $haystack, $keyword )
-                           || str_contains( $keyword, $haystack )
-                           || str_contains( $raw_lower, $keyword )
-                           || str_contains( $keyword, $raw_lower ),
+                'exact'      => $haystack === $keyword,
+                'all_words'  => self::match_all_words( $keyword, $haystack )
+                             || self::match_all_words( $keyword, $raw_lower ),
+                default      => str_contains( $haystack, $keyword )
+                             || str_contains( $keyword, $haystack )
+                             || str_contains( $raw_lower, $keyword )
+                             || str_contains( $keyword, $raw_lower ),
             };
             if ( $matched ) {
                 return [
@@ -569,6 +571,26 @@ class EL_Bookkeeping_Module {
         }
 
         return [ 'category' => '', 'source' => '', 'travel_period_id' => 0 ];
+    }
+
+    /**
+     * Check if ALL words in $keyword appear somewhere in $haystack.
+     * Both strings should already be lowercased.
+     */
+    private static function match_all_words( string $keyword, string $haystack ): bool {
+        $words = preg_split( '/\s+/', trim( $keyword ) );
+        if ( empty( $words ) ) {
+            return false;
+        }
+        foreach ( $words as $word ) {
+            if ( $word === '' ) {
+                continue;
+            }
+            if ( ! str_contains( $haystack, $word ) ) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function match_travel_period( string $date ): ?object {
@@ -1010,7 +1032,7 @@ class EL_Bookkeeping_Module {
         // Bulk-create rules from unique cleaned merchants
         $rules_data = [];
         foreach ( $merchants as $m ) {
-            $rules_data[] = [ 'keyword' => $m, 'category' => $category, 'match_type' => 'contains' ];
+            $rules_data[] = [ 'keyword' => $m, 'category' => $category, 'match_type' => 'all_words' ];
         }
         $rules_saved = $this->bulk_save_rules( $rules_data );
 
@@ -1242,7 +1264,7 @@ class EL_Bookkeeping_Module {
             if ( ! in_array( $category, $valid_categories, true ) ) {
                 continue;
             }
-            if ( ! in_array( $type, [ 'contains', 'exact' ], true ) ) {
+            if ( ! in_array( $type, [ 'contains', 'all_words', 'exact' ], true ) ) {
                 $type = 'contains';
             }
 
@@ -1300,6 +1322,10 @@ class EL_Bookkeeping_Module {
         $type     = sanitize_key( $data['match_type'] ?? 'contains' );
         $category = sanitize_text_field( $data['category'] ?? '' );
         $priority = absint( $data['priority'] ?? 0 );
+
+        if ( ! in_array( $type, [ 'contains', 'all_words', 'exact' ], true ) ) {
+            $type = 'contains';
+        }
 
         if ( ! $keyword || ! $category ) {
             EL_AJAX_Handler::error( __( 'Keyword and category are required.', 'el-core' ) );
@@ -1511,7 +1537,7 @@ class EL_Bookkeeping_Module {
         // Build rules from unique cleaned merchants, all with the single category
         $rules_data = [];
         foreach ( $merchants as $m ) {
-            $rules_data[] = [ 'keyword' => $m, 'category' => $single_category, 'match_type' => 'contains' ];
+            $rules_data[] = [ 'keyword' => $m, 'category' => $single_category, 'match_type' => 'all_words' ];
         }
 
         $saved = $this->bulk_save_rules( $rules_data );

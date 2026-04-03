@@ -6,6 +6,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.5] — 2026-04-03
+
+### Added
+- **"All Words" match type for rules**: New match option that splits the rule keyword into individual words and requires ALL of them to appear somewhere in the merchant description. This enables location-based rules like "Chick-Fil-A Ga" to match `CHECKCARD 0315 CHICK-FIL-A #12345 ATLANTA GA XXXXX1234...` even though the words aren't adjacent. Available in the Known Expenses rule editor dropdown alongside Contains and Exact.
+- CSV-imported rules now default to "All Words" match type (instead of "Contains") so location-based keywords with state codes work correctly out of the box.
+
+---
+
 ## [1.37.4] — 2026-04-03
 
 ### Fixed
