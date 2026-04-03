@@ -3,50 +3,22 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** April 2, 2026
+> **Last Updated:** April 3, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.37.1 — Fixed bidirectional rule matching + added Re-Classify Expenses button.
+> **Current Plugin Version:** v1.37.2 — Added merchant name cleaner for rule imports.
 >
-> **NEXT TASK: Build merchant name cleaner for rule importer (Path 2)**
+> **COMPLETED IN THIS SESSION:**
+> - Built `clean_merchant_name()` static method in `class-bookkeeping-module.php`
+> - Integrated into `handle_import_rules_csv()` and `handle_import_ledger()`
+> - All 6 spec test cases pass, plus edge cases (empty string, international fee rows)
+> - NOT applied to `handle_csv_import()` (bank statement import) — those CSVs are already Claude-cleaned
 >
-> **Problem:** When importing prior-year expense CSVs (from raw bank statements) as rules on the Known Expenses tab, the descriptions are full of bank junk like `CHECKCARD 0103 MICROSOFT*SUBSCRIPTION MSBILL.INFO WA XXXXX9930XXXXXXXXXX3036 RECURRING`. These get saved as rule keywords verbatim, which makes matching unreliable.
->
-> **What to build:** A `clean_merchant_name( string $raw )` PHP function in `class-bookkeeping-module.php` that strips bank metadata from raw descriptions and extracts just the merchant name. Patterns to handle:
-> - Strip leading `CHECKCARD`, `PURCHASE`, `DEBIT` prefixes
-> - Strip the 4-digit date code after the prefix (e.g., `0103`, `1121`)
-> - Strip `XXXXX` masked card/account numbers (e.g., `XXXXX9930XXXXXXXXXX3036`)
-> - Strip `CKCD XXXX` codes (e.g., `CKCD 5734`)
-> - Strip trailing `XXXXXXXXXX` sequences (e.g., `XXXXXXXXXX247000`, `XXXXXXXXXX632166`)
-> - Strip `RECURRING` keyword
-> - Strip `INTERNATIONAL TRANSACTION FEE` (skip these rows entirely or flag them)
-> - Strip state codes at end (2-letter, e.g., `WA`, `CA`, `NY`) — careful not to strip merchant names
-> - Strip phone numbers (e.g., `757-965-6600`, `XXX-XX35753`)
-> - Strip long numeric sequences (e.g., `24492153325717520805374`)
-> - Handle `*` separators (e.g., `MICROSOFT*SUBSCRIPTION` → `Microsoft Subscription`, `DRI*Hitpaw.net` → `Hitpaw.net`)
-> - Handle `HTTPS` URLs (e.g., `HTTPSACUITYSCNY` → `Acuity Scheduling`, `HTTPSWWW.LOOMCA` → `Loom`)
-> - Handle `WEB*` prefix (e.g., `WEB*Hostgator.com` → `Hostgator.com`)
-> - Title-case the result
->
-> **Where to integrate:**
-> - Call `clean_merchant_name()` in `handle_import_rules_csv()` before passing keywords to `bulk_save_rules()`
-> - Also call it in `handle_import_ledger()` before creating rules
-> - Do NOT use it during bank statement import (`handle_csv_import`) — those descriptions are already clean (Claude-cleaned CSVs)
->
-> **Test examples from actual data:**
-> - `CHECKCARD 0103 MICROSOFT*SUBSCRIPTION MSBILL.INFO WA XXXXX9930XXXXXXXXXX3036 RECURRING` → `Microsoft Subscription`
-> - `PURCHASE 0102 ACUITYSCHEDULING.COM HTTPSACUITYSCNY XXXXX1630XXXXXXXXXX5373 RECURRING CKCD 5734 XXXXXXXXXX247000` → `Acuity Scheduling`
-> - `CHECKCARD 0131 WEB*Hostgator.com 713-5285287 MA 24906414030192603044303 RECURRING CKCD 4816 XXXXXXXXXXXX5897` → `Hostgator.com`
-> - `DRI*Hitpaw.net` → `Hitpaw.net`
-> - `CHECKCARD 0821 ADOBE *CREATIVE CLOUD CA XXXXX1532XXXXXXXXXX1822 CKCD 5734 XXXXXXXXXX632166` → `Adobe Creative Cloud`
-> - `PURCHASE 0823 ZAPIER.COM/CHARGE ZAPIER.COM CA XXXXX3432XXXXXXXXXX3999 CKCD 5734 XXXXXXXXXX632166` → `Zapier.com`
+> **NEXT TASK: Delete all existing messy rules and re-import from raw CSVs**
+> 1. Go to Known Expenses tab → use bulk delete to remove all existing rules
+> 2. Re-import from the raw prior-year CSVs (the merchant cleaner will now produce clean keywords)
+> 3. Go to Expenses tab → use Re-Classify button to re-run rules against existing transactions
 >
 > **Sample raw CSV for testing:** `g:\My Drive\Fred Business\Taxes\2023\Expenses\New CSV\Computer Software-2023.csv`
->
-> **Also:** User needs to delete all existing messy rules and re-import from the raw CSVs after this feature is built. The bulk delete on Known Expenses tab already supports this.
->
-> **After that:** User will re-classify expenses on the Expenses tab using the Re-Classify button.
->
-> **Bump to v1.37.2 when done.**
 >
 > **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
 
@@ -142,7 +114,8 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.35.3 | **Fix `EL_Admin_UI::notice()` wrong call signature in all 7 view files** | Built |
 | v1.35.4 | **AI Rule Builder + CSV rule import on Known Expenses tab** | Built |
 | v1.35.5 | **Update expense categories to match actual accounting books** | Built |
-| v1.35.6 | **CSV Transaction Import + Category mapping for rule import** | **CURRENT — deployed** |
+| v1.35.6 | **CSV Transaction Import + Category mapping for rule import** | Built |
+| v1.37.2 | **Merchant name cleaner for rule imports** | **CURRENT — deployed** |
 
 ---
 

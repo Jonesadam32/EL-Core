@@ -437,6 +437,90 @@ class EL_Bookkeeping_Module {
     }
 
     // ─────────────────────────────────────────────────────────────
+    // MERCHANT NAME CLEANER
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Clean a raw bank-statement merchant description into a human-readable name.
+     *
+     * Strips CHECKCARD/PURCHASE/DEBIT prefixes, date codes, masked card numbers,
+     * CKCD codes, RECURRING flags, phone numbers, long numeric sequences, trailing
+     * state codes, and URLs — then title-cases the result.
+     *
+     * @param string $raw  Raw description from a bank CSV.
+     * @return string      Cleaned merchant name, or empty string for fee rows.
+     */
+    public static function clean_merchant_name( string $raw ): string {
+        $s = trim( $raw );
+        if ( $s === '' ) {
+            return '';
+        }
+
+        if ( stripos( $s, 'INTERNATIONAL TRANSACTION FEE' ) !== false ) {
+            return '';
+        }
+
+        $s = preg_replace( '/^(?:CHECKCARD|PURCHASE|DEBIT)\s+\d{4}\s+/i', '', $s );
+        $s = preg_replace( '/^(?:CHECKCARD|PURCHASE|DEBIT)\s+/i', '', $s );
+        $s = preg_replace( '/\bRECURRING\b/i', '', $s );
+        $s = preg_replace( '/\bCKCD\s+\d{4}\b/i', '', $s );
+        $s = preg_replace( '/X{5,}\d*/', '', $s );
+        $s = preg_replace( '/[X\d]{3}[-.]?[X\d]{2,4}[-.]?[X\d]{4,7}/', '', $s );
+        $s = preg_replace( '/\b\d{10,}\b/', '', $s );
+
+        $us_states = 'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC';
+        $s = preg_replace( '/\s+(?:' . $us_states . ')\s*$/i', '', $s );
+
+        $s = preg_replace( '/HTTPS?(?:WWW\.)?/i', '', $s );
+        $s = preg_replace( '/^WEB\*/i', '', $s );
+        $s = preg_replace( '/^DRI\*/i', '', $s );
+        $s = preg_replace( '/\s*\*\s*/', ' ', $s );
+        $s = preg_replace( '#/(?:CHARGE|PAY|BILL|PAYMENT)\b#i', '', $s );
+        $s = preg_replace( '/\bMSBILL\.INFO\b/i', '', $s );
+
+        // Known URL-mangled merchant names — run all patterns (no early exit)
+        $url_merchants = [
+            'ACUITYSCHEDULING\.COM' => 'Acuity Scheduling',
+            'ACUITYSC\w*'           => 'Acuity Scheduling',
+            'LOOMCA\b'              => 'Loom',
+        ];
+        foreach ( $url_merchants as $regex => $name ) {
+            $s = preg_replace( '/' . $regex . '/i', $name, $s );
+        }
+
+        $s = preg_replace( '/\s+/', ' ', $s );
+        $s = trim( $s );
+
+        // Deduplicate repeated tokens (case-insensitive)
+        $tokens = explode( ' ', $s );
+        $seen   = [];
+        $unique = [];
+        foreach ( $tokens as $t ) {
+            $key = strtolower( $t );
+            if ( ! isset( $seen[ $key ] ) ) {
+                $seen[ $key ] = true;
+                $unique[]     = $t;
+            }
+        }
+        $s = implode( ' ', $unique );
+
+        if ( $s === '' ) {
+            return '';
+        }
+
+        // Domain-like result (e.g. Hostgator.com) — title-case name, lowercase extension
+        if ( preg_match( '/\.\w{2,3}$/', $s ) ) {
+            $parts = explode( '.', $s );
+            $ext   = array_pop( $parts );
+            $name  = implode( '.', $parts );
+            $name  = mb_convert_case( $name, MB_CASE_TITLE, 'UTF-8' );
+            return $name . '.' . strtolower( $ext );
+        }
+
+        return mb_convert_case( strtolower( $s ), MB_CASE_TITLE, 'UTF-8' );
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // AUTO-CLASSIFICATION
     // ─────────────────────────────────────────────────────────────
 
@@ -901,16 +985,19 @@ class EL_Bookkeeping_Module {
 
             $imported++;
 
-            // Collect unique merchants for rule creation
-            $merch_key = strtolower( $merchant );
-            if ( ! isset( $merchants[ $merch_key ] ) ) {
-                $merchants[ $merch_key ] = $merchant;
+            // Collect unique cleaned merchants for rule creation
+            $cleaned = self::clean_merchant_name( $merchant );
+            if ( ! empty( $cleaned ) ) {
+                $merch_key = strtolower( $cleaned );
+                if ( ! isset( $merchants[ $merch_key ] ) ) {
+                    $merchants[ $merch_key ] = $cleaned;
+                }
             }
         }
 
         fclose( $handle );
 
-        // Bulk-create rules from unique merchants
+        // Bulk-create rules from unique cleaned merchants
         $rules_data = [];
         foreach ( $merchants as $m ) {
             $rules_data[] = [ 'keyword' => $m, 'category' => $category, 'match_type' => 'contains' ];
@@ -1380,19 +1467,28 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        // Read all rows and collect unique merchants
+        // Read all rows, clean merchant names, and collect unique ones
         $merchants = [];
+        $skipped_fees = 0;
         while ( ( $row = fgetcsv( $handle ) ) !== false ) {
-            $merchant = trim( $row[ $merchant_idx ] ?? '' );
-            if ( empty( $merchant ) ) {
+            $raw_merchant = trim( $row[ $merchant_idx ] ?? '' );
+            if ( empty( $raw_merchant ) ) {
                 continue;
             }
-            $merchant_lower = strtolower( $merchant );
+            $merchant_lower = strtolower( $raw_merchant );
             if ( str_contains( $merchant_lower, 'total' ) || str_contains( $merchant_lower, 'balance' ) || str_contains( $merchant_lower, 'starting' ) ) {
                 continue;
             }
-            if ( ! isset( $merchants[ $merchant_lower ] ) ) {
-                $merchants[ $merchant_lower ] = $merchant;
+
+            $merchant = self::clean_merchant_name( $raw_merchant );
+            if ( empty( $merchant ) ) {
+                $skipped_fees++;
+                continue;
+            }
+
+            $key = strtolower( $merchant );
+            if ( ! isset( $merchants[ $key ] ) ) {
+                $merchants[ $key ] = $merchant;
             }
         }
         fclose( $handle );
@@ -1402,7 +1498,7 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        // Build rules from unique merchants, all with the single category
+        // Build rules from unique cleaned merchants, all with the single category
         $rules_data = [];
         foreach ( $merchants as $m ) {
             $rules_data[] = [ 'keyword' => $m, 'category' => $single_category, 'match_type' => 'contains' ];

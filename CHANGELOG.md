@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.2] — 2026-04-03
+
+### Added
+- **Merchant name cleaner** (`clean_merchant_name()`): Strips bank metadata from raw CSV descriptions before saving them as rule keywords. Handles CHECKCARD/PURCHASE/DEBIT prefixes, date codes, masked card numbers, CKCD codes, RECURRING flags, phone numbers, long numeric sequences, trailing state codes, HTTPS URL fragments, vendor `*` separators, and billing domains. Title-cases the result. Skips international transaction fee rows entirely.
+- Integrated into `handle_import_rules_csv()` and `handle_import_ledger()` so that imported rules contain clean merchant names (e.g., `Microsoft Subscription` instead of `CHECKCARD 0103 MICROSOFT*SUBSCRIPTION MSBILL.INFO WA XXXXX9930XXXXXXXXXX3036 RECURRING`).
+- Bank statement import (`handle_csv_import`) is intentionally NOT affected — those descriptions are already Claude-cleaned.
+
+---
+
 ## [1.37.1] — 2026-04-03
 
 ### Fixed
