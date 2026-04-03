@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 3, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.37.9 — Improved cleaner strips reference codes; added Owner Draw category.
+> **Current Plugin Version:** v1.38.0 — Fixed JS tax year to use URL year, not stored default.
 >
 > **COMPLETED IN THIS SESSION:**
 > - Built `clean_merchant_name()` static method in `class-bookkeeping-module.php`
@@ -122,7 +122,8 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.37.6 | **Rename "Vehicles" category to "Vehicles Insurance"** | Built |
 | v1.37.7 | **Re-Classify processes all expenses, not just unclassified** | Built |
 | v1.37.8 | **All Words rules: bidirectional contains + all-words matching** | Built |
-| v1.37.9 | **Cleaner strips ref codes + Owner Draw category** | **CURRENT — deployed** |
+| v1.37.9 | **Cleaner strips ref codes + Owner Draw category** | Built |
+| v1.38.0 | **Fix JS tax year to use URL year selector, not stored default** | **CURRENT — deployed** |
 
 ---
 

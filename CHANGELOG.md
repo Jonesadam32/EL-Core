@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.0] — 2026-04-03
+
+### Fixed
+- **Re-Classify and all AJAX actions now use the selected tax year from the URL**, not the stored default. Previously, `elBookkeeping.taxYear` was always set from the settings default (typically the current year, 2026), so clicking Re-Classify while viewing 2024 expenses would query 2026 transactions — finding nothing. Now the JS tax year matches the year dropdown in the URL (`?year=2024`), so all actions (reclassify, bulk confirm, import, etc.) operate on the year you're actually looking at.
+
+---
+
 ## [1.37.9] — 2026-04-03
 
 ### Fixed

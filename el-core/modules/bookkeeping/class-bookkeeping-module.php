@@ -121,10 +121,17 @@ class EL_Bookkeeping_Module {
             true
         );
 
+        $current_year     = (int) gmdate( 'Y' );
+        $default_tax_year = $this->get_setting( 'tax_year', $current_year );
+        $js_tax_year      = isset( $_GET['year'] ) ? absint( $_GET['year'] ) : (int) $default_tax_year;
+        if ( $js_tax_year < 2000 || $js_tax_year > $current_year + 1 ) {
+            $js_tax_year = (int) $default_tax_year;
+        }
+
         wp_localize_script( 'el-bookkeeping', 'elBookkeeping', [
             'ajaxUrl' => admin_url( 'admin-ajax.php' ),
             'nonce'   => wp_create_nonce( 'el_core_nonce' ),
-            'taxYear' => $this->get_setting( 'tax_year', (int) gmdate( 'Y' ) ),
+            'taxYear' => $js_tax_year,
         ] );
     }
 
