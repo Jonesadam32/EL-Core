@@ -3,196 +3,113 @@
 > **PURPOSE:** This is the shared handoff document between Claude and Cursor.
 > Read this FIRST every session. Update it LAST before finishing.
 >
-> **Last Updated:** April 3, 2026
+> **Last Updated:** April 2, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.38.3 — Added tax/loan/home office categories.
->
-> **COMPLETED IN THIS SESSION:**
-> - Built `clean_merchant_name()` static method in `class-bookkeeping-module.php`
-> - Integrated into `handle_import_rules_csv()` and `handle_import_ledger()`
-> - All 6 spec test cases pass, plus edge cases (empty string, international fee rows)
-> - NOT applied to `handle_csv_import()` (bank statement import) — those CSVs are already Claude-cleaned
->
-> **NEXT TASK: Delete all existing messy rules and re-import from raw CSVs**
-> 1. Go to Known Expenses tab → use bulk delete to remove all existing rules
-> 2. Re-import from the raw prior-year CSVs (the merchant cleaner will now produce clean keywords)
-> 3. Go to Expenses tab → use Re-Classify button to re-run rules against existing transactions
->
-> **Sample raw CSV for testing:** `g:\My Drive\Fred Business\Taxes\2023\Expenses\New CSV\Computer Software-2023.csv`
->
-> **SWITCHING COMPUTERS:** Repo backed up to GitHub. On the other machine: `git pull origin main`
+> **Current Plugin Version:** v1.38.8
+> **Git Status:** All committed and pushed to GitHub. Clean working tree.
+> **Backup:** Full repo backed up to `C:\EL-Core-Backup` as of v1.38.8.
 
 ---
 
-## 🚨 IMMEDIATE PRIORITY — BOOKKEEPING TAB CRITICAL ERROR
+## WHAT WAS DONE THIS SESSION (April 2, 2026)
 
-**The Dashboard tab works great. Every other tab (Income, Expenses, Contractors, P&L, Travel Dates, Known Expenses, Receipts, Settings) crashes with "There has been a critical error on this website."**
+### v1.38.5 — Auto Loan Payment category
+### v1.38.6 — Credit Card Payment category
+### v1.38.7 — Major UI improvements
+- **Lock/unlock classifications**: Manually selecting a category now auto-sets status to `classified` (locked). Re-Classify skips locked transactions — manual picks are protected.
+- **Reject button**: Red ✕ button on each suggested/classified row to reject a classification (clears category, marks `rejected` with red row styling).
+- **Full search/filter bar**: Instant client-side filtering by keyword (merchant/business/comments), category dropdown, bank account dropdown, status filter (classified/suggested/unclassified/rejected), and date range. Shows count + filtered total.
+- **Removed** "Confirm Travel Suggestions" button (wasn't working, caused confusion).
 
-### ROOT CAUSE — IDENTIFIED, NOT YET FIXED
-
-`EL_Admin_UI::notice()` signature changed at some point to take an **array** argument:
-
-```php
-// CURRENT signature (class-admin-ui.php line 262):
-public static function notice( array $args ): string {
-    $message = $args['message'] ?? '';
-    $type    = $args['type']    ?? 'info';
-    ...
-}
-```
-
-But every single bookkeeping view is calling it the OLD way with positional string arguments:
-
-```php
-// WRONG — causes PHP 8 TypeError fatal:
-EL_Admin_UI::notice( __( 'Some message', 'el-core' ), 'info' )
-
-// CORRECT:
-EL_Admin_UI::notice( [ 'message' => __( 'Some message', 'el-core' ), 'type' => 'info' ] )
-```
-
-This causes a `TypeError: EL_Admin_UI::notice(): Argument #1 ($args) must be of type array, string given` on PHP 8, which fatals inside the `ob_start` buffer and produces the critical error message.
-
-### ALL AFFECTED CALLS (fix all of these):
-
-| File | Line(s) | Current (wrong) | Fix to |
-|------|---------|-----------------|--------|
-| `admin/views/income.php` | 38, 42, 71 | `notice( string, string )` | `notice( ['message'=>..., 'type'=>...] )` |
-| `admin/views/expenses.php` | 99 | same | same |
-| `admin/views/contractors.php` | 158 | same | same |
-| `admin/views/travel-dates.php` | 58 | same | same |
-| `admin/views/settings.php` | 11, 31 | same | same |
-| `admin/views/receipts.php` | 21, 67 | same | same |
-| `admin/views/known-expenses.php` | 46 | same | same |
-
-### THE FIX
-
-Do a global search-and-replace across all files in `el-core/modules/bookkeeping/admin/views/`. The pattern is:
-
-```
-EL_Admin_UI::notice( __( 'MESSAGE', 'el-core' ), 'TYPE' )
-```
-
-Replace with:
-
-```
-EL_Admin_UI::notice( [ 'message' => __( 'MESSAGE', 'el-core' ), 'type' => 'TYPE' ] )
-```
-
-For multi-line calls like in `receipts.php` and `income.php`, read the file carefully and convert each one.
-
-After fixing, bump to **v1.35.3**, build ZIP, push.
+### v1.38.8 — Business vs Personal expense classification
+- **Categories split into Business (25) and Personal (13)**:
+  - **Business**: Accounting Fees, Advertising & Promotion, California FTB Payment, Computer (Hardware/Hosting/Software), Contract Labor, Dues & Subscriptions, Education & Training, Georgia Tax Payment, Health Care Insurance, Home Office Expense, Insurance-General Liability, Meals & Entertainment, Merchant Account Fees, Office Supplies, Out of pocket Medical Expenses, Parking & tolls, Professional Fees, Rent Expense, Telephone - Wireless, Travel Expense, Vehicle - Fuel, Vehicle - Repairs and Maintenance, Vehicles Insurance
+  - **Personal**: Auto Loan Payment, Bank Service Charges, Credit Card Payment, Interest Expense, IRS Payment, Merrill Lynch Investment Account, Owner Draw, Owner Draw - Cleaners, Owner Draw - Entertainment, Owner Draw - Groceries, Owner Draw - Personal Meals, Owner Draw - Pet, SBA Loan
+- **Summary bar** shows separate Business / Personal / Total amounts, each category has a blue B or pink P badge
+- **Category dropdowns** everywhere (expenses table, known expenses) grouped into Business / Personal optgroups
+- **Expense Type filter** in filter bar to show only Business or Personal transactions
+- New PHP methods: `get_expense_categories_grouped()`, `get_category_type()`
 
 ---
 
-## CURRENT STATE — BOOKKEEPING MODULE
+## KEY FILES CHANGED THIS SESSION
 
-### What's Working ✅
-- Plugin CSS now loads correctly (was broken before v1.35.2 — wrong `el-admin` handle, now `el-core-admin`)
-- Tab navigation: pill-style buttons render correctly, active state highlighted
-- **Dashboard tab**: fully functional — stat cards (4 metrics), quick-access card grid (8 module links), year selector
-- Year selector: dropdown above tabs, persists year across tab switches
-- DB pre-fetch pattern: data fetched before `ob_start()` so fatals surface cleanly (instead of mid-page critical error)
-- All view files redesigned per reference site
-- **All tabs render without critical error** — `EL_Admin_UI::notice()` calls fixed in v1.35.3
+| File | What Changed |
+|------|-------------|
+| `class-bookkeeping-module.php` | `get_expense_categories_grouped()`, `get_category_type()`, handle_update_transaction auto-locks, handle_reclassify skips classified, new categories |
+| `admin/views/expenses.php` | Filter bar, reject button, grouped dropdowns, B/P badges, data attributes on rows, summary bar split |
+| `admin/views/known-expenses.php` | Grouped category dropdowns |
+| `assets/js/bookkeeping.js` | Full expense filter logic, reject handler, lock-on-classify, expense type filter |
+| `assets/css/bookkeeping.css` | Filter bar styles, reject button styles, B/P badge styles |
+| `el-core.php` | Version bump to 1.38.8 |
 
-### What Was Fixed in v1.35.3 ✅
-- All 11 `EL_Admin_UI::notice()` calls across 7 view files converted from positional args to array syntax
-- Files fixed: income.php, expenses.php, contractors.php, travel-dates.php, settings.php, receipts.php, known-expenses.php
+---
 
-### Remaining CSS Issue
-- Tabs still visually render as plain links (CSS specificity issue — scoped under `.el-admin-wrap` but WP admin still wins on `<a>` tags in some themes)
+## WHAT'S WORKING ✅
 
-### Version History for This Work
+- **Dashboard tab**: Stat cards, quick-access grid, year selector
+- **Income & Deposits tab**: CSV bank statement upload (multi-file), auto-sort income/expense
+- **Expenses tab**: Full transaction table with:
+  - Inline category editing (grouped Business/Personal dropdowns)
+  - Lock mechanism (🔒) — manual picks protected from Re-Classify
+  - Reject button (✕) — reject suggestions, mark as rejected
+  - Re-Classify button (only affects unclassified/suggested, skips locked)
+  - Confirm All Suggestions button
+  - Full search/filter bar (keyword, category, bank account, status, expense type, date range)
+  - Summary bar with Business / Personal / Total breakdown
+  - Color-coded rows (green=classified, yellow=suggested, red=rejected)
+- **Known Expenses tab**: AI chat rule builder, CSV rule import, manual add/edit/delete, bulk delete, "All Words" match type
+- **Merchant name cleaner**: Strips bank junk, preserves state codes for location-based rules
+- **Auto-classification**: Runs on import and on Re-Classify, uses normalized punctuation matching
+- **Travel Dates tab**: CRUD works (travel suggestion confirm button removed from expenses)
+- **Contractors, Receipts, Settings, P&L tabs**: Scaffolded, basic CRUD working
+
+---
+
+## VERSION HISTORY (Recent)
+
 | Version | What | Status |
 |---------|------|--------|
-| v1.34.8 | Bookkeeping module Phase 1 foundation | Built |
-| v1.34.9 | Fix `$wpdb->prepare()` fatal + add year selector | Built |
-| v1.35.0 | Full UI redesign: Dashboard, tab pills, all views | Built |
-| v1.35.1 | CSS specificity fix (scope under .el-admin-wrap) | Built |
-| v1.35.2 | **Fix CSS never loading (wrong handle `el-admin` → `el-core-admin`)** | Built |
-| v1.35.3 | **Fix `EL_Admin_UI::notice()` wrong call signature in all 7 view files** | Built |
-| v1.35.4 | **AI Rule Builder + CSV rule import on Known Expenses tab** | Built |
-| v1.35.5 | **Update expense categories to match actual accounting books** | Built |
-| v1.35.6 | **CSV Transaction Import + Category mapping for rule import** | Built |
-| v1.37.2 | **Merchant name cleaner for rule imports** | Built |
-| v1.37.3 | **Preserve state codes in cleaner for location-based rules** | Built |
-| v1.37.4 | **Rule matching cleans merchant names before comparing** | Built |
-| v1.37.5 | **"All Words" match type for location-based rules** | Built |
-| v1.37.6 | **Rename "Vehicles" category to "Vehicles Insurance"** | Built |
-| v1.37.7 | **Re-Classify processes all expenses, not just unclassified** | Built |
-| v1.37.8 | **All Words rules: bidirectional contains + all-words matching** | Built |
-| v1.37.9 | **Cleaner strips ref codes + Owner Draw category** | Built |
-| v1.38.0 | **Fix JS tax year to use URL year selector, not stored default** | Built |
-| v1.38.1 | **Normalize punctuation in matching + cleaner fixes** | Built |
-| v1.38.2 | **Owner Draw sub-categories** | Built |
-| v1.38.3 | **Tax/loan/home office categories** | **CURRENT — deployed** |
+| v1.37.2 | Merchant name cleaner for rule imports | Built |
+| v1.37.3–v1.37.6 | State codes, rule matching, All Words match, rename Vehicles | Built |
+| v1.37.7–v1.37.9 | Re-Classify fix, matching fixes, Owner Draw category | Built |
+| v1.38.0 | Fix JS tax year to use URL year selector | Built |
+| v1.38.1 | Normalize punctuation in matching | Built |
+| v1.38.2 | Owner Draw sub-categories | Built |
+| v1.38.3 | Tax/loan/home office categories | Built |
+| v1.38.4 | Merrill Lynch Investment Account category | Built |
+| v1.38.5 | Auto Loan Payment category | Built |
+| v1.38.6 | Credit Card Payment category | Built |
+| v1.38.7 | Lock/reject, search/filter bar, remove travel confirm | Built |
+| v1.38.8 | **Business vs Personal expense classification** | **CURRENT — deployed** |
 
 ---
 
-## BOOKKEEPING MODULE — WHAT WAS BUILT (Phase 1)
+## NEXT STEPS (Not Started Yet)
 
-### Files
-- `el-core/modules/bookkeeping/class-bookkeeping-module.php` — main class
-- `el-core/modules/bookkeeping/module.json` — DB schema (6 tables), capabilities, settings
-- `el-core/modules/bookkeeping/admin/views/dashboard.php` — stat cards + quick-access grid
-- `el-core/modules/bookkeeping/admin/views/expenses.php` — Schedule C summary bar + transaction table
-- `el-core/modules/bookkeeping/admin/views/income.php` — info banners + business total card
-- `el-core/modules/bookkeeping/admin/views/profit-loss.php` — P&L text report
-- `el-core/modules/bookkeeping/admin/views/contractors.php` — two-panel summary + assignment table
-- `el-core/modules/bookkeeping/admin/views/known-expenses.php` — AI chat + rules table
-- `el-core/modules/bookkeeping/admin/views/travel-dates.php` — travel period CRUD
-- `el-core/modules/bookkeeping/admin/views/receipts.php` — upload zone + receipt grid
-- `el-core/modules/bookkeeping/admin/views/settings.php` — business info + Schedule C settings
-- `el-core/modules/bookkeeping/assets/css/bookkeeping.css` — all styles (scoped under .el-admin-wrap)
-- `el-core/modules/bookkeeping/assets/js/bookkeeping.js` — JS stubs
-
-### Database Tables (in module.json)
-- `el_bk_transactions` — all expense and income transactions
-- `el_bk_rules` — AI auto-classification rules (Known Expenses)
-- `el_bk_travel_periods` — travel date ranges for auto-categorization
-- `el_bk_receipts` — uploaded receipts
-- `el_bk_contractors` — contractor records
-- `el_bk_contractor_assignments` — transaction-to-contractor links
-
-### Capabilities
-- `view_bookkeeping` — view the bookkeeping admin page
-- `manage_bookkeeping` — full access
-- `manage_bookkeeping_settings` — access to Settings tab
-
-### Key Architecture Decisions
-- Default tab is Dashboard (not Expenses)
-- Year selector (`?year=YYYY`) persists across tab switches
-- All DB calls happen BEFORE `ob_start()` to prevent swallowed fatals
-- Pre-fetched data available to views as `$prefetch_expenses`, `$prefetch_income`, `$prefetch_contractors`, `$prefetch_receipts`, `$prefetch_contract_labor`
-- `$tax_year` available to all views as a direct variable
-- CSS scoped under `.el-admin-wrap` to beat WP admin specificity
+1. **Test the full filter bar and reject flow** — user hasn't tested v1.38.7/v1.38.8 yet
+2. **Print/export** — user wants to print business expenses separately from personal expenses
+3. **P&L Report** — Phase 7, generate profit & loss report
+4. **Receipts upload** — Phase 4, attach receipts to transactions
+5. **CSV Export** — Export button exists but handler returns "not yet implemented"
 
 ---
 
-## AFTER FIXING THE NOTICE CALLS — NEXT STEPS
-
-1. **Test all tabs** — each should render without critical error
-2. **Upload CSV** — Phase 2 will implement actual CSV parsing and import
-3. **Known Expenses AI tab** — wire up `EL_AI_Client` for the chat interface (Phase 3)
-4. **Travel Dates** — CRUD already scaffolded, verify it works end-to-end
-5. **Receipts upload** — Phase 4
-
----
-
-## CRITICAL LESSONS LEARNED THIS SESSION
-
-- **`EL_Admin_UI::notice()` takes an array** — `notice( ['message' => '...', 'type' => 'info'] )` NOT `notice( '...', 'info' )`
-- **`wp_enqueue_style` dependency handle matters** — the handle must EXACTLY match what was registered. `el-admin` was never registered; the correct handle is `el-core-admin`. A wrong dependency silently prevents the stylesheet from loading at all.
-- **WordPress admin CSS overrides everything with high specificity** — all module CSS must be scoped under `.el-admin-wrap` AND use `!important` on key properties (color, border, background, text-decoration) for `<a>` tags that WordPress aggressively overrides.
-- **`$wpdb->prepare()` requires variadic args** — use `...$values` spread, NOT `array_merge($values, ...)` as second argument.
-
----
-
-## ARCHITECTURE NOTES (unchanged from before)
+## ARCHITECTURE NOTES
 
 - Read `el-core-cursor-handoff.md` for full module architecture
 - Read `SPEC-BOOKKEEPING-MODULE.md` for full feature spec
-- Read `CURSOR-TODO.md` for complete build checklist
 - **Expand Site** module is working (fixed in v1.34.7) — do not disturb
 - All other modules unaffected by this work
+
+---
+
+## CRITICAL LESSONS LEARNED
+
+- **`EL_Admin_UI::notice()` takes an array** — `notice( ['message' => '...', 'type' => 'info'] )` NOT `notice( '...', 'info' )`
+- **PowerShell `Compress-Archive` breaks ZIP paths** — ALWAYS use .NET `ZipFile` API (see `.cursor/rules/zip-building.mdc`)
+- **PowerShell doesn't support `&&`** — use separate commands or `;`
+- **`wp_enqueue_style` dependency handle must exactly match** — `el-core-admin` not `el-admin`
+- **JS `elBookkeeping.taxYear` must come from URL `$_GET['year']`** not stored default (caused Re-Classify to target wrong year)
+- **Rule matching needs punctuation normalization** — `normalize_for_match()` strips punctuation before `str_contains`
+- **Merchant cleaner must NOT strip state codes** — needed for location-based rules (e.g., "Chick-Fil-A GA")
