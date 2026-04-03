@@ -444,8 +444,11 @@ class EL_Bookkeeping_Module {
      * Clean a raw bank-statement merchant description into a human-readable name.
      *
      * Strips CHECKCARD/PURCHASE/DEBIT prefixes, date codes, masked card numbers,
-     * CKCD codes, RECURRING flags, phone numbers, long numeric sequences, trailing
-     * state codes, and URLs — then title-cases the result.
+     * CKCD codes, RECURRING flags, phone numbers, long numeric sequences, and
+     * URLs — then title-cases the result.
+     *
+     * State codes are PRESERVED (e.g. "GA", "NY") so rules can distinguish
+     * location-based categories (hometown meals = owner draw vs. travel meals).
      *
      * @param string $raw  Raw description from a bank CSV.
      * @return string      Cleaned merchant name, or empty string for fee rows.
@@ -468,8 +471,8 @@ class EL_Bookkeeping_Module {
         $s = preg_replace( '/[X\d]{3}[-.]?[X\d]{2,4}[-.]?[X\d]{4,7}/', '', $s );
         $s = preg_replace( '/\b\d{10,}\b/', '', $s );
 
-        $us_states = 'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC';
-        $s = preg_replace( '/\s+(?:' . $us_states . ')\s*$/i', '', $s );
+        // State codes are intentionally NOT stripped — they carry location info
+        // needed for rules like "Chick-fil-A GA = Owner Draw" vs "Chick-fil-A NY = Meals"
 
         $s = preg_replace( '/HTTPS?(?:WWW\.)?/i', '', $s );
         $s = preg_replace( '/^WEB\*/i', '', $s );

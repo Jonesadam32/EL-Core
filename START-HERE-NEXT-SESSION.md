@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 3, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.37.2 — Added merchant name cleaner for rule imports.
+> **Current Plugin Version:** v1.37.3 — Merchant name cleaner preserves state codes for location-based rules.
 >
 > **COMPLETED IN THIS SESSION:**
 > - Built `clean_merchant_name()` static method in `class-bookkeeping-module.php`
@@ -115,7 +115,8 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.35.4 | **AI Rule Builder + CSV rule import on Known Expenses tab** | Built |
 | v1.35.5 | **Update expense categories to match actual accounting books** | Built |
 | v1.35.6 | **CSV Transaction Import + Category mapping for rule import** | Built |
-| v1.37.2 | **Merchant name cleaner for rule imports** | **CURRENT — deployed** |
+| v1.37.2 | **Merchant name cleaner for rule imports** | Built |
+| v1.37.3 | **Preserve state codes in cleaner for location-based rules** | **CURRENT — deployed** |
 
 ---
 

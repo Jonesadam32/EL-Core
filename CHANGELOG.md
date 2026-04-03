@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.3] — 2026-04-03
+
+### Changed
+- **Merchant name cleaner now preserves state codes**: The 2-letter US state code at the end of bank descriptions (e.g. `GA`, `NY`, `WA`) is no longer stripped. This allows rules to distinguish location-based categories — for example, "Chick-fil-A Ga" can be marked as Owner Draw (hometown) while "Chick-fil-A Ny" stays as a business Meals expense.
+
+---
+
 ## [1.37.2] — 2026-04-03
 
 ### Added
