@@ -314,6 +314,7 @@ class EL_Bookkeeping_Module {
         return [
             'Accounting Fees',
             'Advertising & Promotion',
+            'Auto Loan Payment',
             'Bank Service Charges',
             'Computer - Hardware',
             'Computer - Hosting',
