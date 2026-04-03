@@ -5,7 +5,7 @@
 >
 > **Last Updated:** April 3, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.38.2 — Added Owner Draw sub-categories.
+> **Current Plugin Version:** v1.38.3 — Added tax/loan/home office categories.
 >
 > **COMPLETED IN THIS SESSION:**
 > - Built `clean_merchant_name()` static method in `class-bookkeeping-module.php`
@@ -125,7 +125,8 @@ After fixing, bump to **v1.35.3**, build ZIP, push.
 | v1.37.9 | **Cleaner strips ref codes + Owner Draw category** | Built |
 | v1.38.0 | **Fix JS tax year to use URL year selector, not stored default** | Built |
 | v1.38.1 | **Normalize punctuation in matching + cleaner fixes** | Built |
-| v1.38.2 | **Owner Draw sub-categories** | **CURRENT — deployed** |
+| v1.38.2 | **Owner Draw sub-categories** | Built |
+| v1.38.3 | **Tax/loan/home office categories** | **CURRENT — deployed** |
 
 ---
 

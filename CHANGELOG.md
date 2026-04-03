@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.3] — 2026-04-03
+
+### Added
+- New expense categories: California FTB Payment, Georgia Tax Payment, Home Office Expense, IRS Payment, SBA Loan.
+
+---
+
 ## [1.38.2] — 2026-04-03
 
 ### Added

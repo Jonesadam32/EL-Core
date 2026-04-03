@@ -336,12 +336,17 @@ class EL_Bookkeeping_Module {
             'Vehicle - Fuel',
             'Vehicle - Repairs and Maintenance',
             'Contract Labor',
+            'California FTB Payment',
+            'Georgia Tax Payment',
+            'Home Office Expense',
+            'IRS Payment',
             'Owner Draw',
             'Owner Draw - Cleaners',
             'Owner Draw - Entertainment',
             'Owner Draw - Groceries',
             'Owner Draw - Personal Meals',
             'Owner Draw - Pet',
+            'SBA Loan',
         ];
     }
 
