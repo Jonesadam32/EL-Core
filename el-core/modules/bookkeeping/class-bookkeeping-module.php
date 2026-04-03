@@ -510,12 +510,18 @@ class EL_Bookkeeping_Module {
             }
         }
 
+        // Split jammed state code at the END of string (URL artifact: UDEMCA → UDEM CA)
+        $us_states = 'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC';
+        $s = preg_replace( '/([A-Za-z]{3,})(' . $us_states . ')\s*$/i', '$1 $2', $s );
+
+        // Strip colons and semicolons (e.g. "Udemy:" → "Udemy")
+        $s = str_replace( [ ':', ';' ], '', $s );
+
         // Known URL-mangled merchant names — run all patterns (no early exit)
         $url_merchants = [
             'ACUITYSCHEDULING\.COM' => 'Acuity Scheduling',
             'ACUITYSC\w*'           => 'Acuity Scheduling',
-            'LOOMCA\b'              => 'Loom',
-            'FRANCISCOCA\b'         => 'Francisco Ca',
+            'LOOM\b'                => 'Loom',
         ];
         foreach ( $url_merchants as $regex => $name ) {
             $s = preg_replace( '/' . $regex . '/i', $name, $s );
@@ -579,21 +585,25 @@ class EL_Bookkeeping_Module {
         $haystack  = strtolower( $cleaned ?: $merchant );
         $raw_lower = strtolower( $merchant );
 
+        // Normalize: strip punctuation for comparison so "Udemy:" matches "Udemy"
+        $norm_haystack = self::normalize_for_match( $haystack );
+        $norm_raw      = self::normalize_for_match( $raw_lower );
+
         $rules = $this->get_rules();
         foreach ( $rules as $rule ) {
-            $keyword = strtolower( $rule->keyword );
+            $keyword      = strtolower( $rule->keyword );
+            $norm_keyword = self::normalize_for_match( $keyword );
 
-            // Bidirectional contains — works for simple keywords
-            $contains_match = str_contains( $haystack, $keyword )
-                           || str_contains( $keyword, $haystack )
-                           || str_contains( $raw_lower, $keyword )
-                           || str_contains( $keyword, $raw_lower );
+            $contains_match = str_contains( $norm_haystack, $norm_keyword )
+                           || str_contains( $norm_keyword, $norm_haystack )
+                           || str_contains( $norm_raw, $norm_keyword )
+                           || str_contains( $norm_keyword, $norm_raw );
 
             $matched = match ( $rule->match_type ) {
-                'exact'      => $haystack === $keyword,
+                'exact'      => $norm_haystack === $norm_keyword,
                 'all_words'  => $contains_match
-                             || self::match_all_words( $keyword, $haystack )
-                             || self::match_all_words( $keyword, $raw_lower ),
+                             || self::match_all_words( $norm_keyword, $norm_haystack )
+                             || self::match_all_words( $norm_keyword, $norm_raw ),
                 default      => $contains_match,
             };
             if ( $matched ) {
@@ -610,7 +620,7 @@ class EL_Bookkeeping_Module {
 
     /**
      * Check if ALL words in $keyword appear somewhere in $haystack.
-     * Both strings should already be lowercased.
+     * Both strings should already be lowercased and normalized.
      */
     private static function match_all_words( string $keyword, string $haystack ): bool {
         $words = preg_split( '/\s+/', trim( $keyword ) );
@@ -626,6 +636,16 @@ class EL_Bookkeeping_Module {
             }
         }
         return true;
+    }
+
+    /**
+     * Strip punctuation and collapse whitespace for fuzzy comparison.
+     * Turns "Udemy: Online Courses" into "udemy online courses".
+     */
+    private static function normalize_for_match( string $s ): string {
+        $s = preg_replace( '/[^\w\s]/u', ' ', $s );
+        $s = preg_replace( '/\s+/', ' ', $s );
+        return trim( $s );
     }
 
     private function match_travel_period( string $date ): ?object {

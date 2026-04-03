@@ -6,6 +6,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.1] — 2026-04-03
+
+### Fixed
+- **Rule matching now normalizes punctuation before comparing**: Colons, hyphens, and other punctuation in rule keywords (e.g. `Udemy: Online Courses`) no longer prevent matching against clean transaction names (e.g. `Udemy Online Courses`). Both sides are stripped of punctuation before comparison.
+- **Cleaner strips colons/semicolons** and splits jammed URL state codes at end of string (e.g. `UDEMCA` → `Udem Ca`, `FRANCISCOCA` → `Francisco Ca`) without breaking normal words like `ONLINE`.
+- **All Words matching verified working** for multi-word location rules (e.g. `Chick-Fil-A Ga` matches raw bank descriptions with other data between the words).
+
+---
+
 ## [1.38.0] — 2026-04-03
 
 ### Fixed
