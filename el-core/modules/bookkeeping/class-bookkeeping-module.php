@@ -544,13 +544,20 @@ class EL_Bookkeeping_Module {
         }
 
         // Step 2 — Known Expense Rules
+        // Clean the merchant so raw bank descriptions match cleaned rule keywords
+        $cleaned  = self::clean_merchant_name( $merchant );
+        $haystack = strtolower( $cleaned ?: $merchant );
+        $raw_lower = strtolower( $merchant );
+
         $rules = $this->get_rules();
         foreach ( $rules as $rule ) {
-            $keyword  = strtolower( $rule->keyword );
-            $haystack = strtolower( $merchant );
-            $matched  = match ( $rule->match_type ) {
+            $keyword = strtolower( $rule->keyword );
+            $matched = match ( $rule->match_type ) {
                 'exact'    => $haystack === $keyword,
-                default    => str_contains( $haystack, $keyword ) || str_contains( $keyword, $haystack ),
+                default    => str_contains( $haystack, $keyword )
+                           || str_contains( $keyword, $haystack )
+                           || str_contains( $raw_lower, $keyword )
+                           || str_contains( $keyword, $raw_lower ),
             };
             if ( $matched ) {
                 return [

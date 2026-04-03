@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.4] — 2026-04-03
+
+### Fixed
+- **Rule matching now uses cleaned merchant names**: `auto_classify()` now runs `clean_merchant_name()` on the raw transaction description before matching against rules. This ensures location-based rules like "Chick-Fil-A Ga" correctly match raw bank descriptions like `CHECKCARD 0315 CHICK-FIL-A #12345 ATLANTA GA XXXXX1234...`. Both the cleaned and raw versions are checked against rules for maximum match coverage.
+
+---
+
 ## [1.37.3] — 2026-04-03
 
 ### Changed
