@@ -6,6 +6,20 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.37.8] — 2026-04-03
+
+### Fixed
+- **All Words rules now also use bidirectional contains matching**: Rules with match type "All Words" previously only checked if every word in the keyword appeared in the merchant description. This missed cases where the transaction merchant was already clean (e.g. `Microsoft Subscription`) and the rule keyword was longer (e.g. `Microsoft Subscription Wa`). Now `all_words` rules first try bidirectional substring matching (either side contains the other), then fall back to the all-words check. This ensures rules match both clean transaction descriptions AND raw bank descriptions with extra data in between keywords.
+
+---
+
+## [1.37.7] — 2026-04-03
+
+### Fixed
+- **Re-Classify now processes ALL expenses**, not just unclassified/suggested ones. Previously, transactions with status "classified" were skipped entirely, so updating rules and re-classifying had no effect on already-classified transactions. Now it re-evaluates every expense for the selected tax year and updates any whose category would change (setting them to "suggested" for review). Transactions already matching the correct category are left untouched.
+
+---
+
 ## [1.37.6] — 2026-04-03
 
 ### Fixed

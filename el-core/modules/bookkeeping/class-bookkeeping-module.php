@@ -552,14 +552,19 @@ class EL_Bookkeeping_Module {
         $rules = $this->get_rules();
         foreach ( $rules as $rule ) {
             $keyword = strtolower( $rule->keyword );
+
+            // Bidirectional contains — works for simple keywords
+            $contains_match = str_contains( $haystack, $keyword )
+                           || str_contains( $keyword, $haystack )
+                           || str_contains( $raw_lower, $keyword )
+                           || str_contains( $keyword, $raw_lower );
+
             $matched = match ( $rule->match_type ) {
                 'exact'      => $haystack === $keyword,
-                'all_words'  => self::match_all_words( $keyword, $haystack )
+                'all_words'  => $contains_match
+                             || self::match_all_words( $keyword, $haystack )
                              || self::match_all_words( $keyword, $raw_lower ),
-                default      => str_contains( $haystack, $keyword )
-                             || str_contains( $keyword, $haystack )
-                             || str_contains( $raw_lower, $keyword )
-                             || str_contains( $keyword, $raw_lower ),
+                default      => $contains_match,
             };
             if ( $matched ) {
                 return [
@@ -1118,14 +1123,14 @@ class EL_Bookkeeping_Module {
         $table = $this->table( 'el_bk_transactions' );
 
         $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, merchant, date FROM {$table} WHERE type = 'expense' AND (status = 'unclassified' OR status = 'suggested') AND tax_year = %d",
+            "SELECT id, merchant, date, category, status FROM {$table} WHERE type = 'expense' AND tax_year = %d",
             $tax_year
         ) );
 
         $reclassified = 0;
         foreach ( $rows as $row ) {
             $classification = $this->auto_classify( $row->merchant, $row->date );
-            if ( ! empty( $classification['category'] ) ) {
+            if ( ! empty( $classification['category'] ) && $classification['category'] !== $row->category ) {
                 $wpdb->update( $table, [
                     'category'         => $classification['category'],
                     'status'           => 'suggested',
@@ -1139,7 +1144,7 @@ class EL_Bookkeeping_Module {
             'reclassified' => $reclassified,
             'total'        => count( $rows ),
         ], sprintf(
-            __( 'Re-classified %1$d of %2$d unclassified expense transactions.', 'el-core' ),
+            __( 'Re-classified %1$d of %2$d expense transactions.', 'el-core' ),
             $reclassified,
             count( $rows )
         ) );
