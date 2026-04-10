@@ -31,7 +31,7 @@ $income_rows  = array_filter( $all_rows, fn( $t ) => $t->type === 'income' );
 $expense_rows = array_filter( $all_rows, fn( $t ) => $t->type === 'expense' );
 
 // Excluded income categories.
-$income_excluded = [ 'Other', 'Bank Transfer', 'Ignore', 'Distributions', 'Shareholder Loan' ];
+$income_excluded = [ 'Other', 'Bank Transfer', 'Ignore', 'Distributions', 'Shareholder Loan', 'Refund', 'Travel Credit' ];
 $taxable_income  = array_filter( $income_rows, fn( $t ) => ! in_array( $t->category, $income_excluded, true ) );
 $distributions   = array_filter( $income_rows, fn( $t ) => $t->category === 'Distributions' );
 

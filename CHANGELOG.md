@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.10] — 2026-03-10
+
+### Fixed
+- **Refund and Travel Credit excluded from business income total**: These categories represent money returned from prior spending — not new taxable income. They now behave like "Other" and "Bank Transfer" (visible in the table for tracking, but excluded from declared business income on both the Income tab and the P&L report). Interest Earned remains taxable income as it is genuinely reportable.
+
+---
+
 ## [1.38.9] — 2026-03-10
 
 ### Added

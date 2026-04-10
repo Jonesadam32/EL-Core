@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 $transactions = $prefetch_income;
 $categories   = EL_Bookkeeping_Module::get_income_categories();
 
-$excluded      = [ 'Other', 'Bank Transfer', 'Ignore' ];
+$excluded      = [ 'Other', 'Bank Transfer', 'Ignore', 'Refund', 'Travel Credit' ];
 $taxable       = array_filter( $transactions, fn( $t ) => ! in_array( $t->category, $excluded, true ) );
 $total_all     = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions ) );
 $total_taxable = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable ) );
