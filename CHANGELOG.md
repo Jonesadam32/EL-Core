@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.9] — 2026-03-10
+
+### Added
+- **Three new income categories**: Travel Credit, Interest Earned, and Refund are now available in the Income & Deposits category dropdown. All three count as taxable income (not excluded from business totals or P&L).
+
+---
+
 ## [1.38.3] — 2026-04-03
 
 ### Added
