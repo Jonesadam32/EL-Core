@@ -529,6 +529,9 @@
         if (data.category) {
             fields += '<div class="el-bk-review-field"><span>Category</span><strong>' + $('<span>').text(data.category).html() + '</strong></div>';
         }
+        if (data.location) {
+            fields += '<div class="el-bk-review-field"><span>Location</span><strong>' + $('<span>').text(data.location).html() + '</strong></div>';
+        }
 
         if (!fields) {
             fields = '<div class="el-bk-review-field-empty">No data extracted</div>';
@@ -663,6 +666,20 @@
         var id = $(this).data('receiptId') || $(this).data('receipt-id');
         elBkAjax('bk_delete_receipt', { receipt_id: id }, function () {
             location.reload();
+        });
+    });
+
+    // Inline receipt field edit (e.g. location)
+    $(document).on('blur', '.el-bk-receipt-inline-input', function () {
+        var $el = $(this);
+        elBkAjax('bk_update_receipt', {
+            id:    $el.data('receiptId') || $el.data('receipt-id'),
+            field: $el.data('field'),
+            value: $el.val(),
+        }, function () {
+            $el.closest('td').css('outline', '2px solid #22c55e').delay(600).queue(function () {
+                $(this).css('outline', '').dequeue();
+            });
         });
     });
 
@@ -1094,6 +1111,7 @@
         $('#el-bk-manual-vendor').val('');
         $('#el-bk-manual-amount').val('');
         $('#el-bk-manual-category').val('');
+        $('#el-bk-manual-location').val('');
         $('#el-bk-manual-notes').val('');
         $('#el-bk-manual-image').val('');
     }
@@ -1112,6 +1130,7 @@
         fd.append('vendor',   $('#el-bk-manual-vendor').val());
         fd.append('amount',   $('#el-bk-manual-amount').val());
         fd.append('category', $('#el-bk-manual-category').val());
+        fd.append('location', $('#el-bk-manual-location').val());
         fd.append('notes',    $('#el-bk-manual-notes').val());
 
         var imageFile = $('#el-bk-manual-image')[0].files[0];

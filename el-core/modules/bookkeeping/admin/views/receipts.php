@@ -64,6 +64,11 @@ $all       = $module->get_receipts( '', $tax_year );
         </div>
 
         <div class="el-bk-form-row">
+            <label for="el-bk-manual-location"><?php esc_html_e( 'Location', 'el-core' ); ?> <span class="el-bk-hint"><?php esc_html_e( '(City, State)', 'el-core' ); ?></span></label>
+            <input type="text" id="el-bk-manual-location" class="el-input" placeholder="<?php esc_attr_e( 'e.g. Atlanta, GA', 'el-core' ); ?>">
+        </div>
+
+        <div class="el-bk-form-row">
             <label for="el-bk-manual-category"><?php esc_html_e( 'Category', 'el-core' ); ?></label>
             <select id="el-bk-manual-category" class="el-select">
                 <option value=""><?php esc_html_e( '— Select category —', 'el-core' ); ?></option>
@@ -145,6 +150,7 @@ $all       = $module->get_receipts( '', $tax_year );
                 <th><?php esc_html_e( 'Date', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Amount', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Category', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Location', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Status', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Attached To', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Actions', 'el-core' ); ?></th>
@@ -168,6 +174,14 @@ $all       = $module->get_receipts( '', $tax_year );
                 <td><?php echo esc_html( $r->ai_extracted_date ?: '—' ); ?></td>
                 <td class="el-bk-amount"><?php echo $r->ai_extracted_amount ? esc_html( '$' . number_format( (float) $r->ai_extracted_amount, 2 ) ) : '—'; // phpcs:ignore ?></td>
                 <td><?php echo esc_html( $r->ai_extracted_category ?: '—' ); ?></td>
+                <td>
+                    <input type="text"
+                           class="el-bk-receipt-inline-input el-input"
+                           data-receipt-id="<?php echo esc_attr( $r->id ); ?>"
+                           data-field="location"
+                           value="<?php echo esc_attr( $r->location ?? '' ); ?>"
+                           placeholder="<?php esc_attr_e( 'City, ST', 'el-core' ); ?>">
+                </td>
                 <td>
                     <?php if ( $r->status === 'matched' ) : ?>
                         <span class="el-bk-status-badge el-bk-status-badge--matched"><?php esc_html_e( 'Matched', 'el-core' ); ?></span>

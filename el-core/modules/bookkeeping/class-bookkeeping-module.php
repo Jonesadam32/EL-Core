@@ -73,6 +73,7 @@ class EL_Bookkeeping_Module {
         // ── Receipts ──────────────────────────────────────────────
         add_action( 'el_core_ajax_bk_upload_receipt',       [ $this, 'handle_upload_receipt' ] );
         add_action( 'el_core_ajax_bk_save_receipt_manual',  [ $this, 'handle_save_receipt_manual' ] );
+        add_action( 'el_core_ajax_bk_update_receipt',       [ $this, 'handle_update_receipt' ] );
         add_action( 'el_core_ajax_bk_attach_receipt',       [ $this, 'handle_attach_receipt' ] );
         add_action( 'el_core_ajax_bk_detach_receipt',       [ $this, 'handle_detach_receipt' ] );
         add_action( 'el_core_ajax_bk_delete_receipt',       [ $this, 'handle_delete_receipt' ] );
@@ -1850,6 +1851,7 @@ class EL_Bookkeeping_Module {
         $ai_date     = null;
         $ai_amount   = null;
         $ai_category = '';
+        $ai_location = '';
         $ai_raw      = '';
 
         if ( $is_image && $this->core && $this->core->ai && $this->core->ai->is_configured() ) {
@@ -1859,10 +1861,11 @@ class EL_Bookkeeping_Module {
 
             $result = $this->core->ai->complete_with_image( [
                 'system'       => "You are a receipt data extraction assistant. Analyze receipt images and extract key information.\n"
-                                . "Return ONLY a valid JSON object with exactly these four keys:\n"
+                                . "Return ONLY a valid JSON object with exactly these five keys:\n"
                                 . "  \"merchant\": string (the business or vendor name, or null)\n"
                                 . "  \"date\": string (transaction date in YYYY-MM-DD format, or null)\n"
                                 . "  \"amount\": number (total amount charged as a positive number, or null)\n"
+                                . "  \"location\": string (city and state or region where the receipt is from, e.g. \"Atlanta, GA\" or \"New York, NY\", or null if not visible)\n"
                                 . "  \"category\": string (choose the single closest match from this list, or null if unsure):\n"
                                 . "    {$categories}\n"
                                 . "Return ONLY the JSON object — no explanation, no markdown.",
@@ -1879,6 +1882,7 @@ class EL_Bookkeeping_Module {
                 $ai_date     = $parsed['date']     ?? null;
                 $ai_amount   = $parsed['amount']   ?? null;
                 $ai_category = $parsed['category'] ?? '';
+                $ai_location = $parsed['location'] ?? '';
             }
         }
 
@@ -1893,6 +1897,7 @@ class EL_Bookkeeping_Module {
             'ai_extracted_date'     => $ai_date,
             'ai_extracted_amount'   => $ai_amount,
             'ai_extracted_category' => $ai_category,
+            'location'              => $ai_location,
             'ai_raw_response'       => $ai_raw,
             'status'                => 'unmatched',
         ] );
@@ -1908,6 +1913,7 @@ class EL_Bookkeeping_Module {
             'date'         => $ai_date,
             'amount'       => $ai_amount !== null ? number_format( (float) $ai_amount, 2 ) : null,
             'category'     => $ai_category,
+            'location'     => $ai_location,
             'ai_extracted' => ! empty( $ai_raw ),
         ], __( 'Receipt uploaded and processed.', 'el-core' ) );
     }
@@ -1923,6 +1929,7 @@ class EL_Bookkeeping_Module {
         $vendor   = sanitize_text_field( $data['vendor']   ?? '' );
         $amount   = sanitize_text_field( $data['amount']   ?? '' );
         $category = sanitize_text_field( $data['category'] ?? '' );
+        $location = sanitize_text_field( $data['location'] ?? '' );
 
         // Use title as merchant fallback when vendor is blank
         $merchant = $vendor ?: $title;
@@ -2001,6 +2008,7 @@ class EL_Bookkeeping_Module {
             'ai_extracted_date'     => $date ?: null,
             'ai_extracted_amount'   => $amount_float,
             'ai_extracted_category' => $category,
+            'location'              => $location,
             'ai_raw_response'       => 'manual_entry',
             'status'                => 'unmatched',
         ] );
@@ -2017,6 +2025,7 @@ class EL_Bookkeeping_Module {
             'date'      => $date ?: null,
             'amount'    => $amount_float !== null ? number_format( $amount_float, 2 ) : null,
             'category'  => $category,
+            'location'  => $location,
         ], __( 'Receipt saved.', 'el-core' ) );
     }
 
@@ -2060,7 +2069,35 @@ class EL_Bookkeeping_Module {
             'date'     => $date,
             'amount'   => $amount,
             'category' => $category,
+            'location' => sanitize_text_field( $decoded['location'] ?? '' ),
         ];
+    }
+
+    public function handle_update_receipt( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id    = absint( $data['id'] ?? 0 );
+        $field = sanitize_key( $data['field'] ?? '' );
+        $value = sanitize_text_field( $data['value'] ?? '' );
+
+        if ( ! $id || ! $field ) {
+            EL_AJAX_Handler::error( __( 'Invalid request.', 'el-core' ) );
+            return;
+        }
+
+        $allowed = [ 'location', 'ai_extracted_merchant', 'ai_extracted_category' ];
+        if ( ! in_array( $field, $allowed, true ) ) {
+            EL_AJAX_Handler::error( __( 'Field not allowed.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->update( $this->table( 'el_bk_receipts' ), [ $field => $value ], [ 'id' => $id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Receipt updated.', 'el-core' ) );
     }
 
     public function handle_attach_receipt( array $data ): void {

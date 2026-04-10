@@ -23,8 +23,91 @@
     },
 
     "database": {
-        "version": 1,
+        "version": 2,
         "tables": {
+            "el_bk_transactions": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "type": "varchar(20) NOT NULL DEFAULT 'expense'",
+                "date": "date NOT NULL",
+                "merchant": "varchar(500) NOT NULL DEFAULT ''",
+                "amount": "decimal(10,2) NOT NULL DEFAULT 0.00",
+                "category": "varchar(255) NOT NULL DEFAULT ''",
+                "bank_account": "varchar(255) NOT NULL DEFAULT ''",
+                "business": "varchar(255) NOT NULL DEFAULT 'Expanded Learning Solutions'",
+                "status": "varchar(20) NOT NULL DEFAULT 'unclassified'",
+                "comments": "text NOT NULL DEFAULT ''",
+                "source_file": "varchar(255) NOT NULL DEFAULT ''",
+                "tax_year": "year NOT NULL",
+                "travel_period_id": "bigint(20) NOT NULL DEFAULT 0",
+                "receipt_id": "bigint(20) NOT NULL DEFAULT 0",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "KEY idx_type_year": "(type, tax_year)",
+                "KEY idx_status": "(status)",
+                "KEY idx_category": "(category)",
+                "KEY idx_date": "(date)"
+            },
+            "el_bk_rules": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "keyword": "varchar(255) NOT NULL",
+                "match_type": "varchar(10) NOT NULL DEFAULT 'contains'",
+                "category": "varchar(255) NOT NULL",
+                "priority": "int(11) NOT NULL DEFAULT 0",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "KEY idx_priority": "(priority)"
+            },
+            "el_bk_travel_periods": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "label": "varchar(255) NOT NULL DEFAULT ''",
+                "start_date": "date NOT NULL",
+                "end_date": "date NOT NULL",
+                "purpose": "varchar(500) NOT NULL DEFAULT ''",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "KEY idx_dates": "(start_date, end_date)"
+            },
+            "el_bk_receipts": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "transaction_id": "bigint(20) NOT NULL DEFAULT 0",
+                "file_path": "varchar(500) NOT NULL DEFAULT ''",
+                "file_url": "varchar(500) NOT NULL DEFAULT ''",
+                "file_type": "varchar(20) NOT NULL DEFAULT ''",
+                "ai_extracted_merchant": "varchar(255) NOT NULL DEFAULT ''",
+                "ai_extracted_date": "date DEFAULT NULL",
+                "ai_extracted_amount": "decimal(10,2) DEFAULT NULL",
+                "ai_extracted_category": "varchar(255) NOT NULL DEFAULT ''",
+                "location": "varchar(255) NOT NULL DEFAULT ''",
+                "ai_raw_response": "text NOT NULL DEFAULT ''",
+                "status": "varchar(20) NOT NULL DEFAULT 'unmatched'",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "KEY idx_transaction": "(transaction_id)",
+                "KEY idx_status": "(status)"
+            },
+            "el_bk_contractors": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "name": "varchar(255) NOT NULL",
+                "email": "varchar(255) NOT NULL DEFAULT ''",
+                "address": "text NOT NULL DEFAULT ''",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)"
+            },
+            "el_bk_contractor_assignments": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "transaction_id": "bigint(20) NOT NULL",
+                "contractor_id": "bigint(20) NOT NULL",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "KEY idx_transaction": "(transaction_id)",
+                "KEY idx_contractor": "(contractor_id)"
+            }
+        },
+        "migrations": {
+            "2": "ALTER TABLE el_bk_receipts ADD COLUMN location varchar(255) NOT NULL DEFAULT ''"
+        }
+    },
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
                 "type": "varchar(20) NOT NULL DEFAULT 'expense'",
