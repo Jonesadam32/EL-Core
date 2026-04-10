@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 $transactions = $prefetch_income;
 $categories   = EL_Bookkeeping_Module::get_income_categories();
+$bank_accounts = EL_Bookkeeping_Module::get_bank_accounts();
 
 $excluded      = [ 'Other', 'Bank Transfer', 'Ignore', 'Refund', 'Travel Credit' ];
 $taxable       = array_filter( $transactions, fn( $t ) => ! in_array( $t->category, $excluded, true ) );
@@ -101,7 +102,16 @@ $business_name = $module->get_business_name();
                 <td class="el-bk-amount">$<?php echo esc_html( number_format( (float) $t->amount, 2 ) ); ?></td>
                 <td><?php echo esc_html( $t->merchant ); ?></td>
                 <td><?php echo esc_html( $t->date ); ?></td>
-                <td><?php echo esc_html( $t->bank_account ); ?></td>
+                <td>
+                    <select class="el-bk-inline-select" data-field="bank_account" data-id="<?php echo esc_attr( $t->id ); ?>">
+                        <option value=""><?php esc_html_e( '— Select —', 'el-core' ); ?></option>
+                        <?php foreach ( $bank_accounts as $acct ) : ?>
+                            <option value="<?php echo esc_attr( $acct ); ?>" <?php selected( $t->bank_account, $acct ); ?>>
+                                <?php echo esc_html( $acct ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </td>
                 <td>
                     <input type="text" class="el-bk-inline-input" data-field="comments" data-id="<?php echo esc_attr( $t->id ); ?>"
                         value="<?php echo esc_attr( $t->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">

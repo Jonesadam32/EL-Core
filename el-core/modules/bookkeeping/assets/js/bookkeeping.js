@@ -684,11 +684,6 @@
                     var d = res.data.data;
                     var cols = d.columns;
 
-                    var $list = $('#el-bk-csv-bank-list').empty();
-                    (d.accounts || []).forEach(function (a) {
-                        $list.append($('<option>').val(a));
-                    });
-
                     var $date = $('#el-bk-csv-date-col').empty();
                     var $amt = $('#el-bk-csv-amount-col').empty();
                     var $merch = $('#el-bk-csv-merchant-txn-col').empty();

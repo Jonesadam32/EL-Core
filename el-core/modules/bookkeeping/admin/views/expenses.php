@@ -12,7 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 $transactions  = $prefetch_expenses;
 $categories    = EL_Bookkeeping_Module::get_expense_categories();
 $cat_grouped   = EL_Bookkeeping_Module::get_expense_categories_grouped();
-$bank_accounts = array_unique( array_filter( array_map( fn( $t ) => $t->bank_account ?? '', $transactions ) ) );
+$predefined_accounts = EL_Bookkeeping_Module::get_bank_accounts();
+$db_accounts   = array_unique( array_filter( array_map( fn( $t ) => $t->bank_account ?? '', $transactions ) ) );
+$bank_accounts = array_unique( array_merge( $predefined_accounts, $db_accounts ) );
 sort( $bank_accounts );
 
 // ── Build category totals for summary bar ────────────────────────────────────
@@ -235,8 +237,16 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
                 <td class="el-bk-amount">$<?php echo esc_html( number_format( (float) $t->amount, 2 ) ); ?></td>
                 <td><?php echo esc_html( $t->merchant ); ?></td>
                 <td><?php echo esc_html( $t->date ); ?></td>
-                <td><?php echo esc_html( $t->bank_account ); ?></td>
-                <td><?php echo esc_html( $receipt_badge ?: '—' ); ?></td>
+                <td>
+                    <select class="el-bk-inline-select" data-field="bank_account" data-id="<?php echo esc_attr( $t->id ); ?>">
+                        <option value=""><?php esc_html_e( '— Select —', 'el-core' ); ?></option>
+                        <?php foreach ( $predefined_accounts as $acct ) : ?>
+                            <option value="<?php echo esc_attr( $acct ); ?>" <?php selected( $t->bank_account, $acct ); ?>>
+                                <?php echo esc_html( $acct ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </td>
                 <td>
                     <input type="text" class="el-bk-inline-input" data-field="comments" data-id="<?php echo esc_attr( $t->id ); ?>"
                         value="<?php echo esc_attr( $t->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">

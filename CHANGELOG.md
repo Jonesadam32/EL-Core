@@ -6,6 +6,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.11] — 2026-03-10
+
+### Added
+- **Bank account dropdown — predefined accounts**: The free-text bank account field has been replaced with a dropdown in three places:
+  - **CSV upload modal** (Income tab) — select your account before uploading instead of typing it
+  - **Income & Deposits table** — inline dropdown on every row to assign/correct the account
+  - **Expenses table** — inline dropdown on every row to assign/correct the account
+- **Predefined accounts**: B of A Business 8856, B of A Personal Checking 1666, B of A Credit Card 1084, IRA Edge 6469, B of A Savings 9368.
+- The Expenses filter bar's Bank Account filter now always includes all predefined accounts (plus any others already in the database).
+
+---
+
 ## [1.38.10] — 2026-03-10
 
 ### Fixed

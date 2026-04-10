@@ -250,8 +250,12 @@ class EL_Bookkeeping_Module {
         echo '<div id="el-bk-csv-step1">';
         echo '<div class="el-bk-form-row">';
         echo '<label>' . esc_html__( 'Bank Account:', 'el-core' ) . '<br>';
-        echo '<input type="text" id="el-bk-csv-bank-input" class="el-input" list="el-bk-csv-bank-list" placeholder="' . esc_attr__( 'e.g. Chase Business, Wells Fargo Personal', 'el-core' ) . '" style="width:100%;max-width:320px;">';
-        echo '<datalist id="el-bk-csv-bank-list"></datalist>';
+        echo '<select id="el-bk-csv-bank-input" class="el-select" style="width:100%;max-width:320px;">';
+        echo '<option value="">' . esc_html__( '— Select account —', 'el-core' ) . '</option>';
+        foreach ( self::get_bank_accounts() as $acct ) {
+            echo '<option value="' . esc_attr( $acct ) . '">' . esc_html( $acct ) . '</option>';
+        }
+        echo '</select>';
         echo '</label></div>';
         echo '<div class="el-bk-form-row" style="margin-top:8px;">';
         echo '<label>' . esc_html__( 'CSV Files (select one or more):', 'el-core' ) . ' <input type="file" id="el-bk-csv-txn-file" accept=".csv" multiple></label>';
@@ -382,6 +386,16 @@ class EL_Bookkeeping_Module {
             'Other',
             'Bank Transfer',
             'Ignore',
+        ];
+    }
+
+    public static function get_bank_accounts(): array {
+        return [
+            'B of A Business 8856',
+            'B of A Personal Checking 1666',
+            'B of A Credit Card 1084',
+            'IRA Edge 6469',
+            'B of A Savings 9368',
         ];
     }
 
