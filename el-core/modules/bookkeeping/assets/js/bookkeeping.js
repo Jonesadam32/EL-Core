@@ -908,11 +908,12 @@
 
                 candidates.forEach(function (c) {
                     var stars = '';
-                    var maxScore = 6;
-                    for (var i = 0; i < Math.min(c.score, maxScore); i++) stars += '★';
-                    var empty = maxScore - Math.min(c.score, maxScore);
-                    for (var j = 0; j < empty; j++) stars += '☆';
-
+                    var maxScore = 12;
+                    var filled  = Math.min(c.score, maxScore);
+                    // Display as 6 visual stars (each star = 2 pts) so the column stays narrow
+                    var starsFilled = Math.round(filled / 2);
+                    for (var i = 0; i < starsFilled; i++) stars += '★';
+                    for (var j = starsFilled; j < 6; j++) stars += '☆';
                     $table.find('tbody').append(
                         $('<tr>').append(
                             $('<td>').text(c.merchant || '—'),
