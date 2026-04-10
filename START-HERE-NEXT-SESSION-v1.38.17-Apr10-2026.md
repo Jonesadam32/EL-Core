@@ -5,9 +5,9 @@
 >
 > **Last Updated:** April 10, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.38.18
+> **Current Plugin Version:** v1.38.19
 > **Git Status:** All committed. Clean working tree.
-> **ZIP in Downloads:** `el-core-v1.38.18.zip` — ready to upload.
+> **ZIP in Downloads:** `el-core-v1.38.19.zip` — ready to upload.
 
 ---
 
@@ -68,6 +68,18 @@ Tabs already correctly filtered: Expenses, Income, P&L, Contractors (contract la
 - **Review queue cards** — location shown if extracted/entered
 - **CSS** — `el-bk-receipt-inline-input` styles for the table input
 
+### v1.38.19 — Feature E: Receipt Auto-Match Engine
+- **`module.json`** bumped to DB version 4 — migration adds `match_source varchar(20) NOT NULL DEFAULT ''` to `wp_el_bk_receipts`
+- New AJAX handler `handle_suggest_receipt_matches()`:
+  - Fetches the receipt's amount + date + merchant
+  - Queries `wp_el_bk_transactions` WHERE type='expense', receipt_id=0, ABS(amount - receipt_amount) < $1.00, ABS(DATEDIFF(date, receipt_date)) <= 3 days
+  - Scores each candidate: exact amount (within $0.01) = +3, exact date = +2, merchant keyword overlap (words ≥ 3 chars) = +1
+  - Returns top 3 sorted by score descending
+- **"Find Match" button** added to every unmatched row in the All Receipts table (Actions column)
+- Clicking Find Match expands a match panel below the row showing up to 3 candidates in a table: Merchant, Date, Amount, Category, Match score (★☆ stars)
+- **Attach** button on each candidate calls the existing `bk_attach_receipt` handler (unchanged) → page reloads as matched
+- Opening Find Match closes any open Edit row (and vice versa); only one panel open at a time per table
+
 ### v1.38.18 — Full Receipt Editing
 - Added **Edit button** to every row in the All Receipts table (in the Actions column)
 - Clicking Edit expands an inline edit row below that receipt with all editable fields:
@@ -99,7 +111,8 @@ Tabs already correctly filtered: Expenses, Income, P&L, Contractors (contract la
 | **v1.38.14** | Fix: Receipts tab year filter | ✅ Built |
 | **v1.38.15** | Fix: All tabs respect year selector; fix dashboard receipt count | ✅ Built |
 | **v1.38.16** | Feat: Location field on receipts (AI + manual + inline edit) | ✅ Built |
-| **v1.38.18** | Feat: Full receipt editing — inline edit row, all fields, notes column | ✅ **CURRENT** |
+| **v1.38.19** | Feature E: Receipt Auto-Match Engine | ✅ **CURRENT** |
+| **v1.38.18** | Feat: Full receipt editing — inline edit row, all fields, notes column | ✅ Built |
 | **v1.38.17** | Fix: Repair broken module.json (invalid JSON) | ✅ Built |
 
 ---
@@ -115,6 +128,7 @@ Tabs already correctly filtered: Expenses, Income, P&L, Contractors (contract la
 - **Year filter** — shows only receipts for the selected tax year (null-date receipts always shown)
 - **Inline location edit** — click location cell, type, blur → saves via `bk_update_receipt`
 - **Full receipt edit** — Edit button expands edit row with all fields: merchant, date, amount, category (dropdown), location, notes → saves via `bk_save_receipt_edits`
+- **Auto-Match** — Find Match button (unmatched rows only) searches for candidate transactions by amount/date/merchant, shows scored results, Attach links to `bk_attach_receipt`
 
 ### All Other Tabs
 - **Dashboard** — stat cards (expenses, income, net profit, unmatched receipts) all year-filtered and correct
@@ -130,19 +144,16 @@ Tabs already correctly filtered: Expenses, Income, P&L, Contractors (contract la
 
 ## WHAT'S NEXT (Priority Order from SPEC)
 
-From `SPEC-EL-Core-Bookkeeping-Delta-v2_2.md` Section 8:
+From `SPEC-EL-Core-Bookkeeping-Delta-v2_3.md` Section 8:
 
 1. ✅ ~~Phase 6 — Receipt Upload + AI Extraction~~ (v1.38.12)
 2. ✅ ~~Feature B — Manual Receipt Entry Form~~ (v1.38.13)
-3. **Feature E — Receipt Auto-Match Engine** ← NEXT
-   - `handle_suggest_receipt_matches()` — match by amount (±$1), date (±3 days), merchant keyword overlap
-   - Score: exact amount +3, exact date +2, keyword overlap +1; return top 3 candidates
-   - Add `match_source varchar(20)` column to `wp_el_bk_receipts` via migration (version 3)
-   - "Find Match" button on each unmatched row → shows candidate dropdown → calls existing `bk_attach_receipt`
-4. **Feature A — 1099-NEC Client Income Tracking**
-   - New tables: `el_bk_clients`, `el_bk_1099_nec`
+3. ✅ ~~Feature E — Receipt Auto-Match Engine~~ (v1.38.19)
+4. **Feature A — 1099-NEC Client Income Tracking** ← NEXT
+   - New tables: `el_bk_clients`, `el_bk_1099_nec` — module.json DB version 5
    - Add `client_id` to `wp_el_bk_transactions`
    - Client CRUD, 1099 entry, reconciliation table in income.php
+   - `el_bk_clients` = who pays Fred; `el_bk_contractors` = who Fred pays — NEVER mix
 5. **Phase 7 — P&L Report Generation + Export**
    - `handle_export_pl()` — Schedule C style, CSV download + printable HTML
 6. **Feature C — Receipt CSV Bulk Import**
@@ -150,24 +161,24 @@ From `SPEC-EL-Core-Bookkeeping-Delta-v2_2.md` Section 8:
 
 ---
 
-## KICKOFF PROMPT FOR FEATURE E
+## KICKOFF PROMPT FOR FEATURE A (1099-NEC Client Income Tracking)
 
 ```
-Read SPEC-EL-Core-Bookkeeping-Delta-v2_2.md in the project root first. Then read:
+Read SPEC-EL-Core-Bookkeeping-Delta-v2_3.md in the project root first. Then read:
 - modules/bookkeeping/class-bookkeeping-module.php
-- modules/bookkeeping/admin/views/receipts.php
-- modules/bookkeeping/assets/js/bookkeeping.js
 - modules/bookkeeping/module.json
+- modules/bookkeeping/admin/views/income.php
 
-handle_attach_receipt() and handle_detach_receipt() already exist and work. Do NOT rewrite them.
+Implement Feature A — 1099-NEC Client Income Tracking:
+1. Add el_bk_clients and el_bk_1099_nec tables to module.json. Bump database version to 5.
+2. Add client_id bigint(20) NOT NULL DEFAULT 0 to wp_el_bk_transactions via ALTER TABLE migration.
+3. Add get_clients() and get_1099s( int $tax_year ) public methods to EL_Bookkeeping_Module.
+4. Register and implement: bk_save_client, bk_delete_client, bk_save_1099, bk_delete_1099, bk_match_client_deposits, bk_assign_deposit_to_client.
+5. Add a Clients / 1099-NEC section to income.php with client CRUD form, 1099 entry form per client per year, and a reconciliation table (1099 Amount vs Matched Deposits vs Difference with status badge).
 
-Add the auto-suggest layer:
-1. Add handle_suggest_receipt_matches() AJAX handler. Match logic: amount within $1.00, date within 3 days, merchant keyword overlap. Score: exact amount +3, exact date +2, keyword overlap +1. Return top 3 candidates.
-2. Bump module.json database version to 3. Add match_source column to wp_el_bk_receipts via migration. Values: 'manual' | 'auto_suggested' | 'ai_email' | ''.
-3. In receipts.php, add a Find Match button to each unmatched row in the All Receipts table. On click: call bk_suggest_receipt_matches, show a candidate dropdown under that row. Selecting a candidate calls the existing el_core_ajax_bk_attach_receipt handler.
-
-Follow the AJAX pattern from handle_save_contractor(). Use el_bk_ prefix throughout.
-IMPORTANT: module.json is currently at version 3. The migration key must be "4".
+IMPORTANT: el_bk_clients = entities that PAY Fred. el_bk_contractors (already exists) = people Fred PAYS. These are completely separate — never mix them.
+IMPORTANT: module.json is currently at version 4. The migration key must be "5".
+Follow handle_save_contractor() for CRUD pattern. All forms voice-friendly — no required validation, no input masks.
 ```
 
 ---
@@ -178,7 +189,7 @@ IMPORTANT: module.json is currently at version 3. The migration key must be "4".
 |------|---------|
 | `el-core/el-core.php` | Main plugin file — version number (TWO places: header + constant) |
 | `el-core/modules/bookkeeping/class-bookkeeping-module.php` | All PHP logic (~2300 lines) |
-| `el-core/modules/bookkeeping/module.json` | DB schema + migrations (currently v2) |
+| `el-core/modules/bookkeeping/module.json` | DB schema + migrations (currently v4) |
 | `el-core/modules/bookkeeping/admin/views/receipts.php` | Receipts tab view |
 | `el-core/modules/bookkeeping/admin/views/expenses.php` | Expenses tab view |
 | `el-core/modules/bookkeeping/admin/views/income.php` | Income tab view |
@@ -186,7 +197,7 @@ IMPORTANT: module.json is currently at version 3. The migration key must be "4".
 | `el-core/modules/bookkeeping/assets/js/bookkeeping.js` | All JS (~1170 lines) |
 | `el-core/modules/bookkeeping/assets/css/bookkeeping.css` | All CSS (~1200 lines) |
 | `build-zip.ps1` | Build script — update `$version` here too |
-| `SPEC-EL-Core-Bookkeeping-Delta-v2_2.md` | **Authoritative feature spec** |
+| `SPEC-EL-Core-Bookkeeping-Delta-v2_3.md` | **Authoritative feature spec** |
 
 ---
 
@@ -200,7 +211,8 @@ IMPORTANT: module.json is currently at version 3. The migration key must be "4".
 - **Receipt status values** are `'unmatched'` and `'matched'` — NOT `'unreviewed'`. Dashboard prefetch uses `'unmatched'`.
 - **`get_receipts()` signature**: `get_receipts( string $status = '', int $tax_year = 0 )`
 - **`notes` column**: added in DB migration v3 to `wp_el_bk_receipts`; editable via both manual form and the Edit row
-- **Feature E migration key must now be "4"** (v3 was used for the notes column)
+- **`match_source` column**: added in DB migration v4 to `wp_el_bk_receipts`; currently unused (defaults `''`); Feature D (email agent) will populate `'ai_email'`; auto-match flow will populate `'auto_suggested'` in a future pass
+- **Feature A migration key must be "5"** (v4 was used for match_source)
 - **`get_travel_periods()` signature**: `get_travel_periods( int $tax_year = 0 )`
 - **Voice input (Wispr)**: NO `required` HTML5 attributes, NO input masks anywhere in the bookkeeping module.
 - **`EL_Admin_UI::notice()` takes an array**: `notice( ['message' => '...', 'type' => 'info'] )` NOT `notice('...', 'info')`.
