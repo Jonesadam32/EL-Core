@@ -182,7 +182,7 @@ class EL_Bookkeeping_Module {
                                     ? $this->get_contractors()
                                     : [];
         $prefetch_receipts    = in_array( $active_tab, [ 'dashboard', 'receipts' ], true )
-                                    ? $this->get_receipts( 'unreviewed' )
+                                    ? $this->get_receipts( 'unreviewed', $tax_year )
                                     : [];
         $prefetch_contract_labor = ( $active_tab === 'contractors' )
                                     ? $this->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year, 'category' => 'Contract Labor' ] )
@@ -473,16 +473,36 @@ class EL_Bookkeeping_Module {
         return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY start_date ASC" ) ?: [];
     }
 
-    public function get_receipts( string $status = '' ): array {
+    public function get_receipts( string $status = '', int $tax_year = 0 ): array {
         global $wpdb;
-        $table = $this->table( 'el_bk_receipts' );
+        $table  = $this->table( 'el_bk_receipts' );
+        $where  = [ '1=1' ];
+        $values = [];
+
         if ( $status ) {
+            $where[]  = 'status = %s';
+            $values[] = $status;
+        }
+
+        if ( $tax_year ) {
+            // Include receipts whose date falls in the selected year,
+            // plus any receipt with no date (so nothing gets silently hidden).
+            $where[]  = '( YEAR(ai_extracted_date) = %d OR ai_extracted_date IS NULL OR ai_extracted_date = \'\' )';
+            $values[] = $tax_year;
+        }
+
+        $where_sql = implode( ' AND ', $where );
+
+        if ( $values ) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             return $wpdb->get_results( $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE status = %s ORDER BY created_at DESC",
-                $status
+                "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY created_at DESC",
+                ...$values
             ) ) ?: [];
         }
-        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY created_at DESC" ) ?: [];
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        return $wpdb->get_results( "SELECT * FROM {$table} WHERE {$where_sql} ORDER BY created_at DESC" ) ?: [];
     }
 
     public function get_contractors(): array {

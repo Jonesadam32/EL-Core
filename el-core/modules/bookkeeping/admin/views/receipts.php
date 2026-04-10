@@ -7,14 +7,14 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-$unmatched = $module->get_receipts( 'unmatched' );
-$all       = $module->get_receipts();
+$unmatched = $module->get_receipts( 'unmatched', $tax_year );
+$all       = $module->get_receipts( '', $tax_year );
 ?>
 
 <div class="el-bk-tab-header">
     <div class="el-bk-tab-header-left">
         <h2><?php esc_html_e( 'Receipts', 'el-core' ); ?></h2>
-        <p class="el-bk-tab-desc"><?php esc_html_e( 'Drag and drop receipt photos or PDFs. AI extracts merchant, date, amount, and category automatically.', 'el-core' ); ?></p>
+        <p class="el-bk-tab-desc"><?php echo esc_html( sprintf( __( 'Showing receipts for %d. Receipts with no date are always included.', 'el-core' ), $tax_year ) ); ?></p>
     </div>
 </div>
 
