@@ -182,7 +182,7 @@ class EL_Bookkeeping_Module {
                                     ? $this->get_contractors()
                                     : [];
         $prefetch_receipts    = in_array( $active_tab, [ 'dashboard', 'receipts' ], true )
-                                    ? $this->get_receipts( 'unreviewed', $tax_year )
+                                    ? $this->get_receipts( 'unmatched', $tax_year )
                                     : [];
         $prefetch_contract_labor = ( $active_tab === 'contractors' )
                                     ? $this->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year, 'category' => 'Contract Labor' ] )
@@ -467,9 +467,17 @@ class EL_Bookkeeping_Module {
         return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY priority ASC" ) ?: [];
     }
 
-    public function get_travel_periods(): array {
+    public function get_travel_periods( int $tax_year = 0 ): array {
         global $wpdb;
         $table = $this->table( 'el_bk_travel_periods' );
+        if ( $tax_year ) {
+            // Periods that overlap with any part of the selected year.
+            return $wpdb->get_results( $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE start_date <= %s AND end_date >= %s ORDER BY start_date ASC",
+                $tax_year . '-12-31',
+                $tax_year . '-01-01'
+            ) ) ?: [];
+        }
         return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY start_date ASC" ) ?: [];
     }
 

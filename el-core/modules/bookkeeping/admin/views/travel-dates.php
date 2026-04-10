@@ -7,13 +7,13 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-$periods  = $module->get_travel_periods();
 $tax_year = $tax_year ?? $module->get_tax_year();
+$periods  = $module->get_travel_periods( $tax_year );
 ?>
 
 <div class="el-bk-tab-header">
     <div class="el-bk-tab-header-left">
-        <h2><?php esc_html_e( 'Travel Dates', 'el-core' ); ?></h2>
+        <h2><?php echo esc_html( sprintf( __( 'Travel Dates — %d', 'el-core' ), $tax_year ) ); ?></h2>
         <p class="el-bk-tab-desc"><?php esc_html_e( 'Any expense transaction during a travel period is automatically tagged as a business travel expense.', 'el-core' ); ?></p>
     </div>
     <div class="el-bk-tab-header-right">
@@ -55,7 +55,7 @@ $tax_year = $tax_year ?? $module->get_tax_year();
 
 <!-- Travel Periods Table -->
 <?php if ( empty( $periods ) ) : ?>
-    <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No travel periods defined. Add a period to start auto-tagging travel transactions.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => sprintf( __( 'No travel periods found for %d. Add a period to start auto-tagging travel transactions.', 'el-core' ), $tax_year ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 <table class="el-bk-travel-table widefat">
     <thead>
