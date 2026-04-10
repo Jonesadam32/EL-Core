@@ -1201,3 +1201,62 @@
     border-color: var(--el-admin-primary, #1d6fa4);
     box-shadow: 0 0 0 2px rgba(29, 111, 164, 0.15);
 }
+
+/* ── Receipt inline edit row ──────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-receipt-edit-row > td {
+    padding: 0 !important;
+    background: #f8f9fb;
+    border-top: none !important;
+}
+
+.el-admin-wrap .el-bk-receipt-edit-form {
+    padding: 14px 16px 16px;
+    border-left: 3px solid var(--el-admin-primary, #1d6fa4);
+}
+
+.el-admin-wrap .el-bk-receipt-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px 16px;
+    margin-bottom: 10px;
+}
+
+.el-admin-wrap .el-bk-receipt-edit-grid .el-bk-form-row,
+.el-admin-wrap .el-bk-receipt-edit-cat-row,
+.el-admin-wrap .el-bk-receipt-edit-form > .el-bk-form-row {
+    margin-bottom: 0;
+}
+
+.el-admin-wrap .el-bk-receipt-edit-form label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.el-admin-wrap .el-bk-receipt-edit-cat-row {
+    margin: 10px 0;
+}
+
+.el-admin-wrap .el-bk-receipt-edit-cat-row .el-select,
+.el-admin-wrap .el-bk-receipt-edit-cat-row select {
+    width: 100%;
+    max-width: 340px;
+}
+
+.el-admin-wrap .el-bk-receipt-edit-form .el-textarea {
+    width: 100%;
+    max-width: 560px;
+    box-sizing: border-box;
+    font-size: 13px;
+}
+
+.el-admin-wrap .el-bk-receipt-edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}

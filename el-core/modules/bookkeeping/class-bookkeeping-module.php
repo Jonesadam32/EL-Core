@@ -73,6 +73,7 @@ class EL_Bookkeeping_Module {
         // ── Receipts ──────────────────────────────────────────────
         add_action( 'el_core_ajax_bk_upload_receipt',       [ $this, 'handle_upload_receipt' ] );
         add_action( 'el_core_ajax_bk_save_receipt_manual',  [ $this, 'handle_save_receipt_manual' ] );
+        add_action( 'el_core_ajax_bk_save_receipt_edits',   [ $this, 'handle_save_receipt_edits' ] );
         add_action( 'el_core_ajax_bk_update_receipt',       [ $this, 'handle_update_receipt' ] );
         add_action( 'el_core_ajax_bk_attach_receipt',       [ $this, 'handle_attach_receipt' ] );
         add_action( 'el_core_ajax_bk_detach_receipt',       [ $this, 'handle_detach_receipt' ] );
@@ -1930,6 +1931,7 @@ class EL_Bookkeeping_Module {
         $amount   = sanitize_text_field( $data['amount']   ?? '' );
         $category = sanitize_text_field( $data['category'] ?? '' );
         $location = sanitize_text_field( $data['location'] ?? '' );
+        $notes    = sanitize_textarea_field( $data['notes'] ?? '' );
 
         // Use title as merchant fallback when vendor is blank
         $merchant = $vendor ?: $title;
@@ -2009,6 +2011,7 @@ class EL_Bookkeeping_Module {
             'ai_extracted_amount'   => $amount_float,
             'ai_extracted_category' => $category,
             'location'              => $location,
+            'notes'                 => $notes,
             'ai_raw_response'       => 'manual_entry',
             'status'                => 'unmatched',
         ] );
@@ -2027,6 +2030,61 @@ class EL_Bookkeeping_Module {
             'category'  => $category,
             'location'  => $location,
         ], __( 'Receipt saved.', 'el-core' ) );
+    }
+
+    /**
+     * Save all editable fields on an existing receipt (from the inline edit row).
+     */
+    public function handle_save_receipt_edits( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid receipt ID.', 'el-core' ) );
+            return;
+        }
+
+        $merchant = sanitize_text_field( $data['merchant'] ?? '' );
+        $location = sanitize_text_field( $data['location'] ?? '' );
+        $notes    = sanitize_textarea_field( $data['notes'] ?? '' );
+        $category = sanitize_text_field( $data['category'] ?? '' );
+
+        if ( $category && ! in_array( $category, self::get_expense_categories(), true ) ) {
+            $category = '';
+        }
+
+        // Amount: strip $ and commas, must be positive numeric
+        $amount_raw   = sanitize_text_field( $data['amount'] ?? '' );
+        $amount_clean = str_replace( [ '$', ',', ' ' ], '', $amount_raw );
+        $amount_float = ( $amount_clean !== '' && is_numeric( $amount_clean ) )
+            ? round( abs( (float) $amount_clean ), 2 )
+            : null;
+
+        // Date: normalise to Y-m-d
+        $date_raw = sanitize_text_field( $data['date'] ?? '' );
+        if ( $date_raw && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_raw ) ) {
+            $ts       = strtotime( $date_raw );
+            $date_raw = $ts ? gmdate( 'Y-m-d', $ts ) : '';
+        }
+
+        global $wpdb;
+        $wpdb->update(
+            $this->table( 'el_bk_receipts' ),
+            [
+                'ai_extracted_merchant'  => $merchant,
+                'ai_extracted_date'      => $date_raw ?: null,
+                'ai_extracted_amount'    => $amount_float,
+                'ai_extracted_category'  => $category,
+                'location'               => $location,
+                'notes'                  => $notes,
+            ],
+            [ 'id' => $id ]
+        );
+
+        EL_AJAX_Handler::success( null, __( 'Receipt updated.', 'el-core' ) );
     }
 
     /**
@@ -2088,7 +2146,7 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $allowed = [ 'location', 'ai_extracted_merchant', 'ai_extracted_category' ];
+        $allowed = [ 'location', 'ai_extracted_merchant', 'ai_extracted_category', 'ai_extracted_date', 'ai_extracted_amount', 'notes' ];
         if ( ! in_array( $field, $allowed, true ) ) {
             EL_AJAX_Handler::error( __( 'Field not allowed.', 'el-core' ) );
             return;

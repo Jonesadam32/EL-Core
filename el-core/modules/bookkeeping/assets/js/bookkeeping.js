@@ -683,6 +683,137 @@
         });
     });
 
+    // Receipt Edit row — toggle
+    $(document).on('click', '.el-bk-edit-receipt-btn', function () {
+        var $btn = $(this);
+        var $row = $btn.closest('tr.el-bk-receipt-row');
+        var $existing = $row.next('tr.el-bk-receipt-edit-row');
+
+        if ($existing.length) {
+            $existing.remove();
+            $btn.text('Edit');
+            return;
+        }
+
+        // Close any other open edit rows
+        $('.el-bk-receipt-edit-row').remove();
+        $('.el-bk-edit-receipt-btn').text('Edit');
+
+        var id       = $row.data('receiptId') || $row.data('receipt-id');
+        var merchant = $row.data('merchant') || '';
+        var date     = $row.data('date')     || '';
+        var amount   = $row.data('amount')   || '';
+        var category = $row.data('category') || '';
+        var location = $row.data('location') || '';
+        var notes    = $row.data('notes')    || '';
+
+        var colspan  = $row.find('td').length;
+
+        // Clone the hidden category select and set its value
+        var $catSelect = $('#el-bk-receipt-category-template').clone()
+            .removeAttr('id')
+            .removeAttr('style')
+            .addClass('el-select el-bk-edit-receipt-category');
+        $catSelect.val(category);
+
+        var $editRow = $('<tr class="el-bk-receipt-edit-row"><td colspan="' + colspan + '"></td></tr>');
+        var $inner   = $('<div class="el-bk-receipt-edit-form"></div>');
+
+        $inner.append(
+            '<div class="el-bk-receipt-edit-grid">' +
+                '<div class="el-bk-form-row">' +
+                    '<label>Merchant</label>' +
+                    '<input type="text" class="el-input el-bk-edit-receipt-merchant" value="' + $('<span>').text(merchant).html() + '" placeholder="Merchant name">' +
+                '</div>' +
+                '<div class="el-bk-form-row">' +
+                    '<label>Date</label>' +
+                    '<input type="date" class="el-input el-bk-edit-receipt-date" value="' + $('<span>').text(date).html() + '">' +
+                '</div>' +
+                '<div class="el-bk-form-row">' +
+                    '<label>Amount</label>' +
+                    '<input type="text" class="el-input el-bk-edit-receipt-amount" value="' + $('<span>').text(amount).html() + '" placeholder="0.00">' +
+                '</div>' +
+                '<div class="el-bk-form-row">' +
+                    '<label>Location</label>' +
+                    '<input type="text" class="el-input el-bk-edit-receipt-location" value="' + $('<span>').text(location).html() + '" placeholder="City, ST">' +
+                '</div>' +
+            '</div>'
+        );
+
+        // Category row (full width)
+        var $catRow = $('<div class="el-bk-form-row el-bk-receipt-edit-cat-row"><label>Category</label></div>');
+        $catRow.append($catSelect);
+        $inner.append($catRow);
+
+        // Notes row (full width)
+        $inner.append(
+            '<div class="el-bk-form-row">' +
+                '<label>Notes</label>' +
+                '<textarea class="el-textarea el-bk-edit-receipt-notes" rows="2" placeholder="Optional notes">' + $('<span>').text(notes).html() + '</textarea>' +
+            '</div>'
+        );
+
+        // Action buttons
+        var $actions = $(
+            '<div class="el-bk-receipt-edit-actions">' +
+                '<button class="el-btn el-btn-primary el-btn-sm el-bk-edit-receipt-save-btn">Save Changes</button>' +
+                '<button class="el-btn el-btn-outline el-btn-sm el-bk-edit-receipt-cancel-btn">Cancel</button>' +
+            '</div>'
+        );
+        $inner.append($actions);
+
+        $editRow.find('td').append($inner);
+        $row.after($editRow);
+        $btn.text('Close');
+    });
+
+    // Receipt Edit row — cancel
+    $(document).on('click', '.el-bk-edit-receipt-cancel-btn', function () {
+        var $editRow = $(this).closest('tr.el-bk-receipt-edit-row');
+        var $dataRow = $editRow.prev('tr.el-bk-receipt-row');
+        $dataRow.find('.el-bk-edit-receipt-btn').text('Edit');
+        $editRow.remove();
+    });
+
+    // Receipt Edit row — save
+    $(document).on('click', '.el-bk-edit-receipt-save-btn', function () {
+        var $btn     = $(this).prop('disabled', true).text('Saving…');
+        var $editRow = $btn.closest('tr.el-bk-receipt-edit-row');
+        var $dataRow = $editRow.prev('tr.el-bk-receipt-row');
+        var id       = $dataRow.data('receiptId') || $dataRow.data('receipt-id');
+
+        var merchant = $editRow.find('.el-bk-edit-receipt-merchant').val();
+        var date     = $editRow.find('.el-bk-edit-receipt-date').val();
+        var amount   = $editRow.find('.el-bk-edit-receipt-amount').val();
+        var category = $editRow.find('.el-bk-edit-receipt-category').val();
+        var location = $editRow.find('.el-bk-edit-receipt-location').val();
+        var notes    = $editRow.find('.el-bk-edit-receipt-notes').val();
+
+        elBkAjax('bk_save_receipt_edits', {
+            id: id, merchant: merchant, date: date, amount: amount,
+            category: category, location: location, notes: notes
+        }, function () {
+            // Update data attributes so re-opening edit shows fresh values
+            $dataRow.data('merchant', merchant).data('date', date)
+                    .data('amount', amount).data('category', category)
+                    .data('location', location).data('notes', notes);
+
+            // Update visible cells
+            $dataRow.find('.el-bk-receipt-cell-merchant').text(merchant || '—');
+            $dataRow.find('.el-bk-receipt-cell-date').text(date || '—');
+            var amtClean = parseFloat(String(amount).replace(/[$,\s]/g, ''));
+            $dataRow.find('.el-bk-receipt-cell-amount').text(isNaN(amtClean) ? '—' : '$' + amtClean.toFixed(2));
+            $dataRow.find('.el-bk-receipt-cell-category').text(category || '—');
+            $dataRow.find('.el-bk-receipt-inline-input[data-field="location"]').val(location);
+
+            $dataRow.find('.el-bk-edit-receipt-btn').text('Edit');
+            $editRow.remove();
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Save Changes');
+            alert('Error: ' + msg);
+        });
+    });
+
     // ── AI Chat (Known Expenses) ───────────────────────────────────────────────
 
     $('#el-bk-chat-send-btn').on('click', function () {

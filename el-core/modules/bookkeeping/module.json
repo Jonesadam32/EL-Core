@@ -23,7 +23,7 @@
     },
 
     "database": {
-        "version": 2,
+        "version": 3,
         "tables": {
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -79,6 +79,7 @@
                 "ai_extracted_amount": "decimal(10,2) DEFAULT NULL",
                 "ai_extracted_category": "varchar(255) NOT NULL DEFAULT ''",
                 "location": "varchar(255) NOT NULL DEFAULT ''",
+                "notes": "text NOT NULL DEFAULT ''",
                 "ai_raw_response": "text NOT NULL DEFAULT ''",
                 "status": "varchar(20) NOT NULL DEFAULT 'unmatched'",
                 "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -105,7 +106,8 @@
             }
         },
         "migrations": {
-            "2": "ALTER TABLE el_bk_receipts ADD COLUMN location varchar(255) NOT NULL DEFAULT ''"
+            "2": "ALTER TABLE el_bk_receipts ADD COLUMN location varchar(255) NOT NULL DEFAULT ''",
+            "3": "ALTER TABLE el_bk_receipts ADD COLUMN notes text NOT NULL DEFAULT ''"
         }
     },
 

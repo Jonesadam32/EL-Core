@@ -157,8 +157,15 @@ $all       = $module->get_receipts( '', $tax_year );
             </tr>
         </thead>
         <tbody>
-            <?php foreach ( $all as $r ) : ?>
-            <tr>
+        <?php foreach ( $all as $r ) : ?>
+            <tr class="el-bk-receipt-row"
+                data-receipt-id="<?php echo esc_attr( $r->id ); ?>"
+                data-merchant="<?php echo esc_attr( $r->ai_extracted_merchant ?? '' ); ?>"
+                data-date="<?php echo esc_attr( $r->ai_extracted_date ?? '' ); ?>"
+                data-amount="<?php echo esc_attr( $r->ai_extracted_amount ?? '' ); ?>"
+                data-category="<?php echo esc_attr( $r->ai_extracted_category ?? '' ); ?>"
+                data-location="<?php echo esc_attr( $r->location ?? '' ); ?>"
+                data-notes="<?php echo esc_attr( $r->notes ?? '' ); ?>">
                 <td>
                     <?php if ( $r->file_url && in_array( $r->file_type, [ 'jpg', 'jpeg', 'png' ], true ) ) : ?>
                         <a href="<?php echo esc_url( $r->file_url ); ?>" target="_blank" rel="noopener">
@@ -170,10 +177,10 @@ $all       = $module->get_receipts( '', $tax_year );
                         <span title="<?php esc_attr_e( 'No file', 'el-core' ); ?>">📄</span>
                     <?php endif; ?>
                 </td>
-                <td><?php echo esc_html( $r->ai_extracted_merchant ?: '—' ); ?></td>
-                <td><?php echo esc_html( $r->ai_extracted_date ?: '—' ); ?></td>
-                <td class="el-bk-amount"><?php echo $r->ai_extracted_amount ? esc_html( '$' . number_format( (float) $r->ai_extracted_amount, 2 ) ) : '—'; // phpcs:ignore ?></td>
-                <td><?php echo esc_html( $r->ai_extracted_category ?: '—' ); ?></td>
+                <td class="el-bk-receipt-cell-merchant"><?php echo esc_html( $r->ai_extracted_merchant ?: '—' ); ?></td>
+                <td class="el-bk-receipt-cell-date"><?php echo esc_html( $r->ai_extracted_date ?: '—' ); ?></td>
+                <td class="el-bk-amount el-bk-receipt-cell-amount"><?php echo $r->ai_extracted_amount ? esc_html( '$' . number_format( (float) $r->ai_extracted_amount, 2 ) ) : '—'; // phpcs:ignore ?></td>
+                <td class="el-bk-receipt-cell-category"><?php echo esc_html( $r->ai_extracted_category ?: '—' ); ?></td>
                 <td>
                     <input type="text"
                            class="el-bk-receipt-inline-input el-input"
@@ -199,6 +206,10 @@ $all       = $module->get_receipts( '', $tax_year );
                     <?php endif; ?>
                 </td>
                 <td class="el-bk-receipt-actions-cell">
+                    <button class="el-btn el-btn-outline el-btn-sm el-bk-edit-receipt-btn"
+                            data-receipt-id="<?php echo esc_attr( $r->id ); ?>">
+                        <?php esc_html_e( 'Edit', 'el-core' ); ?>
+                    </button>
                     <?php if ( $r->transaction_id ) : ?>
                         <button class="el-btn el-btn-outline el-btn-sm el-bk-detach-receipt-btn"
                                 data-receipt-id="<?php echo esc_attr( $r->id ); ?>">
@@ -211,8 +222,24 @@ $all       = $module->get_receipts( '', $tax_year );
                     </button>
                 </td>
             </tr>
-            <?php endforeach; ?>
+        <?php endforeach; ?>
         </tbody>
     </table>
 </div>
 <?php endif; ?>
+
+<!-- Hidden category select template — cloned by JS for the receipt edit row -->
+<select id="el-bk-receipt-category-template" style="display:none;">
+    <option value=""><?php esc_html_e( '— Select category —', 'el-core' ); ?></option>
+    <?php $grouped_tpl = EL_Bookkeeping_Module::get_expense_categories_grouped(); ?>
+    <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+        <?php foreach ( $grouped_tpl['business'] as $cat ) : ?>
+            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+        <?php endforeach; ?>
+    </optgroup>
+    <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+        <?php foreach ( $grouped_tpl['personal'] as $cat ) : ?>
+            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+        <?php endforeach; ?>
+    </optgroup>
+</select>
