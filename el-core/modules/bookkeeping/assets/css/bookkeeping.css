@@ -1125,3 +1125,59 @@
     overflow-y: auto;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
+
+/* ── Manual Receipt Entry Form ─────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-manual-receipt-card .el-bk-tab-desc {
+    margin: 2px 0 16px;
+    font-size: 13px;
+    color: var(--el-admin-text-muted, #666);
+}
+
+.el-admin-wrap .el-bk-manual-receipt-form .el-bk-form-row {
+    margin-bottom: 14px;
+}
+
+.el-admin-wrap .el-bk-manual-receipt-form label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--el-admin-text-muted, #555);
+    margin-bottom: 4px;
+}
+
+.el-admin-wrap .el-bk-manual-receipt-form label .el-bk-hint {
+    font-weight: 400;
+    color: #999;
+    font-size: 12px;
+}
+
+.el-admin-wrap .el-bk-manual-receipt-form .el-input,
+.el-admin-wrap .el-bk-manual-receipt-form .el-select,
+.el-admin-wrap .el-bk-manual-receipt-form .el-textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.el-admin-wrap .el-bk-manual-receipt-form .el-textarea {
+    resize: vertical;
+    min-height: 64px;
+}
+
+.el-admin-wrap .el-bk-form-row-inline {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.el-admin-wrap .el-bk-form-row-inline .el-bk-form-row {
+    flex: 1;
+    min-width: 180px;
+}
+
+.el-admin-wrap .el-bk-manual-receipt-status {
+    margin-top: 8px;
+    font-size: 13px;
+    min-height: 18px;
+}

@@ -1086,4 +1086,77 @@
         alert('P&L report generation will be available in Phase 7.');
     });
 
+    // ── Manual Receipt Entry Form ──────────────────────────────────────────────
+
+    function clearManualReceiptForm() {
+        $('#el-bk-manual-title').val('');
+        $('#el-bk-manual-date').val(new Date().toISOString().slice(0, 10));
+        $('#el-bk-manual-vendor').val('');
+        $('#el-bk-manual-amount').val('');
+        $('#el-bk-manual-category').val('');
+        $('#el-bk-manual-notes').val('');
+        $('#el-bk-manual-image').val('');
+    }
+
+    function submitManualReceipt(clearAfter) {
+        var $saveBtn     = $('#el-bk-manual-receipt-save-btn');
+        var $addAnother  = $('#el-bk-manual-receipt-add-another-btn');
+        var $status      = $('#el-bk-manual-receipt-status');
+
+        var fd = new FormData();
+        fd.append('action',   'el_core_action');
+        fd.append('el_action', 'bk_save_receipt_manual');
+        fd.append('nonce',    nonce);
+        fd.append('title',    $('#el-bk-manual-title').val());
+        fd.append('date',     $('#el-bk-manual-date').val());
+        fd.append('vendor',   $('#el-bk-manual-vendor').val());
+        fd.append('amount',   $('#el-bk-manual-amount').val());
+        fd.append('category', $('#el-bk-manual-category').val());
+        fd.append('notes',    $('#el-bk-manual-notes').val());
+
+        var imageFile = $('#el-bk-manual-image')[0].files[0];
+        if (imageFile) {
+            fd.append('receipt_image', imageFile);
+        }
+
+        $saveBtn.prop('disabled', true).text('Saving…');
+        $addAnother.prop('disabled', true);
+        $status.text('');
+
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                $saveBtn.prop('disabled', false).text('Save Receipt');
+                $addAnother.prop('disabled', false);
+
+                if (res && res.success) {
+                    var d = res.data.data || {};
+                    var filename = $('#el-bk-manual-vendor').val() || $('#el-bk-manual-title').val() || 'Manual entry';
+                    addToReviewQueue(Object.assign({ ai_extracted: false }, d), filename);
+                    $status.html('<span style="color:#16a34a;font-weight:600;">✓ Receipt saved.</span>');
+                    if (clearAfter) {
+                        clearManualReceiptForm();
+                        $status.text('');
+                    }
+                } else {
+                    var msg = (res && res.data && res.data.message) ? res.data.message : 'Save failed.';
+                    $status.html('<span style="color:#dc2626;">' + $('<span>').text(msg).html() + '</span>');
+                }
+            },
+            error: function () {
+                $saveBtn.prop('disabled', false).text('Save Receipt');
+                $addAnother.prop('disabled', false);
+                $status.html('<span style="color:#dc2626;">Request failed. Please try again.</span>');
+            }
+        });
+    }
+
+    $('#el-bk-manual-receipt-save-btn').on('click', function () {
+        submitManualReceipt(false);
+    });
+
+    $('#el-bk-manual-receipt-add-another-btn').on('click', function () {
+        submitManualReceipt(true);
+    });
+
 }(jQuery));

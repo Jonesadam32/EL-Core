@@ -71,10 +71,11 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_reapply_travel_rules', [ $this, 'handle_reapply_travel_rules' ] );
 
         // ── Receipts ──────────────────────────────────────────────
-        add_action( 'el_core_ajax_bk_upload_receipt',      [ $this, 'handle_upload_receipt' ] );
-        add_action( 'el_core_ajax_bk_attach_receipt',      [ $this, 'handle_attach_receipt' ] );
-        add_action( 'el_core_ajax_bk_detach_receipt',      [ $this, 'handle_detach_receipt' ] );
-        add_action( 'el_core_ajax_bk_delete_receipt',      [ $this, 'handle_delete_receipt' ] );
+        add_action( 'el_core_ajax_bk_upload_receipt',       [ $this, 'handle_upload_receipt' ] );
+        add_action( 'el_core_ajax_bk_save_receipt_manual',  [ $this, 'handle_save_receipt_manual' ] );
+        add_action( 'el_core_ajax_bk_attach_receipt',       [ $this, 'handle_attach_receipt' ] );
+        add_action( 'el_core_ajax_bk_detach_receipt',       [ $this, 'handle_detach_receipt' ] );
+        add_action( 'el_core_ajax_bk_delete_receipt',       [ $this, 'handle_delete_receipt' ] );
 
         // ── Contractors ───────────────────────────────────────────
         add_action( 'el_core_ajax_bk_save_contractor',     [ $this, 'handle_save_contractor' ] );
@@ -1881,6 +1882,114 @@ class EL_Bookkeeping_Module {
             'category'     => $ai_category,
             'ai_extracted' => ! empty( $ai_raw ),
         ], __( 'Receipt uploaded and processed.', 'el-core' ) );
+    }
+
+    public function handle_save_receipt_manual( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $title    = sanitize_text_field( $data['title']    ?? '' );
+        $date     = sanitize_text_field( $data['date']     ?? '' );
+        $vendor   = sanitize_text_field( $data['vendor']   ?? '' );
+        $amount   = sanitize_text_field( $data['amount']   ?? '' );
+        $category = sanitize_text_field( $data['category'] ?? '' );
+
+        // Use title as merchant fallback when vendor is blank
+        $merchant = $vendor ?: $title;
+
+        // Validate category
+        if ( $category && ! in_array( $category, self::get_expense_categories(), true ) ) {
+            $category = '';
+        }
+
+        // Parse amount to positive float
+        $amount_float = null;
+        if ( $amount !== '' ) {
+            $amount_clean = str_replace( [ '$', ',', ' ' ], '', $amount );
+            if ( is_numeric( $amount_clean ) ) {
+                $amount_float = round( abs( (float) $amount_clean ), 2 );
+            }
+        }
+
+        // Normalise date to Y-m-d if needed
+        if ( $date && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
+            $ts   = strtotime( $date );
+            $date = $ts ? date( 'Y-m-d', $ts ) : '';
+        }
+
+        // ── Optional image upload ──────────────────────────────────────────────
+        $file_path = '';
+        $file_url  = '';
+        $file_type = '';
+
+        $file_data = $_FILES['receipt_image'] ?? null;
+
+        if ( $file_data && $file_data['error'] !== UPLOAD_ERR_NO_FILE ) {
+            if ( $file_data['error'] === UPLOAD_ERR_INI_SIZE || $file_data['error'] === UPLOAD_ERR_FORM_SIZE ) {
+                EL_AJAX_Handler::error( __( 'File exceeds the maximum allowed upload size.', 'el-core' ) );
+                return;
+            }
+            if ( $file_data['error'] !== UPLOAD_ERR_OK ) {
+                EL_AJAX_Handler::error( __( 'File upload error. Please try again.', 'el-core' ) );
+                return;
+            }
+
+            $ext = strtolower( pathinfo( $file_data['name'], PATHINFO_EXTENSION ) );
+            if ( ! in_array( $ext, [ 'jpg', 'jpeg', 'png', 'pdf' ], true ) ) {
+                EL_AJAX_Handler::error( __( 'Only JPG, PNG, and PDF files are accepted.', 'el-core' ) );
+                return;
+            }
+            if ( $file_data['size'] > 10 * 1024 * 1024 ) {
+                EL_AJAX_Handler::error( __( 'File exceeds the 10 MB limit.', 'el-core' ) );
+                return;
+            }
+
+            $upload_dir   = wp_upload_dir();
+            $receipts_dir = $upload_dir['basedir'] . '/el-bk-receipts/';
+            wp_mkdir_p( $receipts_dir );
+
+            $rand      = substr( md5( uniqid( '', true ) ), 0, 8 );
+            $filename  = 'receipt_' . time() . '_' . $rand . '.' . $ext;
+            $file_path = $receipts_dir . $filename;
+            $file_url  = $upload_dir['baseurl'] . '/el-bk-receipts/' . $filename;
+            $file_type = $ext;
+
+            if ( ! move_uploaded_file( $file_data['tmp_name'], $file_path ) ) {
+                EL_AJAX_Handler::error( __( 'Could not save the uploaded file. Check directory permissions.', 'el-core' ) );
+                return;
+            }
+        }
+
+        // ── Insert DB row ──────────────────────────────────────────────────────
+        global $wpdb;
+        $wpdb->insert( $this->table( 'el_bk_receipts' ), [
+            'transaction_id'        => 0,
+            'file_path'             => $file_path,
+            'file_url'              => $file_url,
+            'file_type'             => $file_type,
+            'ai_extracted_merchant' => $merchant,
+            'ai_extracted_date'     => $date ?: null,
+            'ai_extracted_amount'   => $amount_float,
+            'ai_extracted_category' => $category,
+            'ai_raw_response'       => 'manual_entry',
+            'status'                => 'unmatched',
+        ] );
+
+        $receipt_id = (int) $wpdb->insert_id;
+        $is_image   = in_array( $file_type, [ 'jpg', 'jpeg', 'png' ], true );
+
+        EL_AJAX_Handler::success( [
+            'id'        => $receipt_id,
+            'file_url'  => $file_url,
+            'file_type' => $file_type,
+            'is_image'  => $is_image,
+            'merchant'  => $merchant,
+            'date'      => $date ?: null,
+            'amount'    => $amount_float !== null ? number_format( $amount_float, 2 ) : null,
+            'category'  => $category,
+        ], __( 'Receipt saved.', 'el-core' ) );
     }
 
     /**

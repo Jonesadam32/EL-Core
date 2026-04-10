@@ -33,6 +33,77 @@ $all       = $module->get_receipts();
 <!-- Review Queue — populated by JS after each successful upload -->
 <div id="el-bk-receipt-review-queue" class="el-bk-receipt-review-queue"></div>
 
+<!-- Manual Receipt Entry Form -->
+<div class="el-bk-card el-bk-manual-receipt-card">
+    <div class="el-bk-card-header">
+        <h3><?php esc_html_e( 'Manual Receipt Entry', 'el-core' ); ?></h3>
+        <p class="el-bk-tab-desc"><?php esc_html_e( 'For old, faded, or handwritten receipts the AI cannot read.', 'el-core' ); ?></p>
+    </div>
+    <div class="el-bk-manual-receipt-form">
+
+        <div class="el-bk-form-row-inline">
+            <div class="el-bk-form-row">
+                <label for="el-bk-manual-title"><?php esc_html_e( 'Title', 'el-core' ); ?></label>
+                <input type="text" id="el-bk-manual-title" class="el-input" placeholder="<?php esc_attr_e( 'e.g. Home Depot receipt', 'el-core' ); ?>">
+            </div>
+            <div class="el-bk-form-row">
+                <label for="el-bk-manual-date"><?php esc_html_e( 'Date', 'el-core' ); ?></label>
+                <input type="date" id="el-bk-manual-date" class="el-input" value="<?php echo esc_attr( gmdate( 'Y-m-d' ) ); ?>">
+            </div>
+        </div>
+
+        <div class="el-bk-form-row-inline">
+            <div class="el-bk-form-row">
+                <label for="el-bk-manual-vendor"><?php esc_html_e( 'Vendor', 'el-core' ); ?></label>
+                <input type="text" id="el-bk-manual-vendor" class="el-input" placeholder="<?php esc_attr_e( 'Merchant or store name', 'el-core' ); ?>">
+            </div>
+            <div class="el-bk-form-row">
+                <label for="el-bk-manual-amount"><?php esc_html_e( 'Amount', 'el-core' ); ?></label>
+                <input type="text" id="el-bk-manual-amount" class="el-input" placeholder="0.00">
+            </div>
+        </div>
+
+        <div class="el-bk-form-row">
+            <label for="el-bk-manual-category"><?php esc_html_e( 'Category', 'el-core' ); ?></label>
+            <select id="el-bk-manual-category" class="el-select">
+                <option value=""><?php esc_html_e( '— Select category —', 'el-core' ); ?></option>
+                <?php $grouped = EL_Bookkeeping_Module::get_expense_categories_grouped(); ?>
+                <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                    <?php foreach ( $grouped['business'] as $cat ) : ?>
+                        <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                    <?php endforeach; ?>
+                </optgroup>
+                <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                    <?php foreach ( $grouped['personal'] as $cat ) : ?>
+                        <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                    <?php endforeach; ?>
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="el-bk-form-row">
+            <label for="el-bk-manual-notes"><?php esc_html_e( 'Notes', 'el-core' ); ?></label>
+            <textarea id="el-bk-manual-notes" class="el-textarea" rows="2" placeholder="<?php esc_attr_e( 'Optional notes about this receipt', 'el-core' ); ?>"></textarea>
+        </div>
+
+        <div class="el-bk-form-row">
+            <label for="el-bk-manual-image"><?php esc_html_e( 'Image', 'el-core' ); ?> <span class="el-bk-hint"><?php esc_html_e( '(optional — JPG, PNG, PDF, max 10 MB)', 'el-core' ); ?></span></label>
+            <input type="file" id="el-bk-manual-image" class="el-input" accept=".jpg,.jpeg,.png,.pdf">
+        </div>
+
+        <div class="el-bk-form-actions">
+            <button class="el-btn el-btn-primary" id="el-bk-manual-receipt-save-btn">
+                <?php esc_html_e( 'Save Receipt', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline" id="el-bk-manual-receipt-add-another-btn">
+                <?php esc_html_e( 'Save &amp; Add Another', 'el-core' ); ?>
+            </button>
+        </div>
+
+        <div id="el-bk-manual-receipt-status" class="el-bk-manual-receipt-status"></div>
+    </div>
+</div>
+
 <!-- Unmatched Receipts Panel -->
 <?php if ( ! empty( $unmatched ) ) : ?>
 <div class="el-bk-card">
