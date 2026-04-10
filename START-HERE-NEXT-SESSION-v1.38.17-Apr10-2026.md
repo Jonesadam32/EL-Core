@@ -5,9 +5,9 @@
 >
 > **Last Updated:** April 10, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.38.17
+> **Current Plugin Version:** v1.38.18
 > **Git Status:** All committed. Clean working tree.
-> **ZIP in Downloads:** `el-core-v1.38.17.zip` — ready to upload.
+> **ZIP in Downloads:** `el-core-v1.38.18.zip` — ready to upload.
 
 ---
 
@@ -68,6 +68,19 @@ Tabs already correctly filtered: Expenses, Income, P&L, Contractors (contract la
 - **Review queue cards** — location shown if extracted/entered
 - **CSS** — `el-bk-receipt-inline-input` styles for the table input
 
+### v1.38.18 — Full Receipt Editing
+- Added **Edit button** to every row in the All Receipts table (in the Actions column)
+- Clicking Edit expands an inline edit row below that receipt with all editable fields:
+  - **Merchant**, **Date** (date picker), **Amount**, **Location** — text inputs
+  - **Category** — full dropdown with Business/Personal optgroups (same as manual entry form)
+  - **Notes** — textarea
+- Save updates the DB and updates the table row cells in-place (no page reload)
+- Cancel closes the edit row without saving
+- New PHP handler `handle_save_receipt_edits()` — validates all fields (category checked against known list, amount parsed as positive float, date normalised to Y-m-d)
+- `module.json` bumped to DB version 3 — migration adds `notes text NOT NULL DEFAULT ''` column to `wp_el_bk_receipts`
+- `handle_save_receipt_manual()` now saves the notes field (was silently dropped before)
+- `handle_update_receipt()` allowed-fields expanded to include `ai_extracted_date`, `ai_extracted_amount`, `notes`
+
 ### v1.38.17 — Fix broken module.json
 - `module.json` had duplicate table definitions from a bad StrReplace (new + original block both present)
 - This made `json_decode()` return null, so the module loader couldn't find the bookkeeping module at all
@@ -86,7 +99,8 @@ Tabs already correctly filtered: Expenses, Income, P&L, Contractors (contract la
 | **v1.38.14** | Fix: Receipts tab year filter | ✅ Built |
 | **v1.38.15** | Fix: All tabs respect year selector; fix dashboard receipt count | ✅ Built |
 | **v1.38.16** | Feat: Location field on receipts (AI + manual + inline edit) | ✅ Built |
-| **v1.38.17** | Fix: Repair broken module.json (invalid JSON) | ✅ **CURRENT** |
+| **v1.38.18** | Feat: Full receipt editing — inline edit row, all fields, notes column | ✅ **CURRENT** |
+| **v1.38.17** | Fix: Repair broken module.json (invalid JSON) | ✅ Built |
 
 ---
 
@@ -100,6 +114,7 @@ Tabs already correctly filtered: Expenses, Income, P&L, Contractors (contract la
 - **All Receipts table** — thumbnail, merchant, date, amount, category, location (inline editable), status badge, attached transaction, detach/delete
 - **Year filter** — shows only receipts for the selected tax year (null-date receipts always shown)
 - **Inline location edit** — click location cell, type, blur → saves via `bk_update_receipt`
+- **Full receipt edit** — Edit button expands edit row with all fields: merchant, date, amount, category (dropdown), location, notes → saves via `bk_save_receipt_edits`
 
 ### All Other Tabs
 - **Dashboard** — stat cards (expenses, income, net profit, unmatched receipts) all year-filtered and correct
@@ -152,7 +167,7 @@ Add the auto-suggest layer:
 3. In receipts.php, add a Find Match button to each unmatched row in the All Receipts table. On click: call bk_suggest_receipt_matches, show a candidate dropdown under that row. Selecting a candidate calls the existing el_core_ajax_bk_attach_receipt handler.
 
 Follow the AJAX pattern from handle_save_contractor(). Use el_bk_ prefix throughout.
-IMPORTANT: module.json is currently at version 2. The migration key must be "3".
+IMPORTANT: module.json is currently at version 3. The migration key must be "4".
 ```
 
 ---
@@ -184,6 +199,8 @@ IMPORTANT: module.json is currently at version 2. The migration key must be "3".
 - **PowerShell doesn't support `&&`** — use separate commands or `;`.
 - **Receipt status values** are `'unmatched'` and `'matched'` — NOT `'unreviewed'`. Dashboard prefetch uses `'unmatched'`.
 - **`get_receipts()` signature**: `get_receipts( string $status = '', int $tax_year = 0 )`
+- **`notes` column**: added in DB migration v3 to `wp_el_bk_receipts`; editable via both manual form and the Edit row
+- **Feature E migration key must now be "4"** (v3 was used for the notes column)
 - **`get_travel_periods()` signature**: `get_travel_periods( int $tax_year = 0 )`
 - **Voice input (Wispr)**: NO `required` HTML5 attributes, NO input masks anywhere in the bookkeeping module.
 - **`EL_Admin_UI::notice()` takes an array**: `notice( ['message' => '...', 'type' => 'info'] )` NOT `notice('...', 'info')`.
