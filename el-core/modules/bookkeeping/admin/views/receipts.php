@@ -210,6 +210,12 @@ $all       = $module->get_receipts( '', $tax_year );
                             data-receipt-id="<?php echo esc_attr( $r->id ); ?>">
                         <?php esc_html_e( 'Edit', 'el-core' ); ?>
                     </button>
+                    <?php if ( $r->status === 'unmatched' ) : ?>
+                        <button class="el-btn el-btn-outline el-btn-sm el-bk-find-match-btn"
+                                data-receipt-id="<?php echo esc_attr( $r->id ); ?>">
+                            <?php esc_html_e( 'Find Match', 'el-core' ); ?>
+                        </button>
+                    <?php endif; ?>
                     <?php if ( $r->transaction_id ) : ?>
                         <button class="el-btn el-btn-outline el-btn-sm el-bk-detach-receipt-btn"
                                 data-receipt-id="<?php echo esc_attr( $r->id ); ?>">

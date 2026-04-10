@@ -814,6 +814,110 @@
         });
     });
 
+    // ── Receipt Auto-Match (Feature E) ────────────────────────────────────────
+
+    // Find Match — toggle match candidate panel
+    $(document).on('click', '.el-bk-find-match-btn', function () {
+        var $btn     = $(this);
+        var $row     = $btn.closest('tr.el-bk-receipt-row');
+        var $existing = $row.next('tr.el-bk-receipt-match-row');
+
+        if ($existing.length) {
+            $existing.remove();
+            $btn.text('Find Match');
+            return;
+        }
+
+        // Close any open edit rows and other match rows
+        $('.el-bk-receipt-edit-row').remove();
+        $('.el-bk-edit-receipt-btn').text('Edit');
+        $('.el-bk-receipt-match-row').remove();
+        $('.el-bk-find-match-btn').text('Find Match');
+
+        var id      = $row.data('receiptId') || $row.data('receipt-id');
+        var colspan = $row.find('td').length;
+
+        $btn.prop('disabled', true).text('Searching…');
+
+        elBkAjax('bk_suggest_receipt_matches', { receipt_id: id }, function (candidates) {
+            $btn.prop('disabled', false).text('Close');
+
+            var $matchRow = $('<tr class="el-bk-receipt-match-row"><td colspan="' + colspan + '"></td></tr>');
+            var $inner    = $('<div class="el-bk-receipt-match-panel"></div>');
+
+            if (!candidates || candidates.length === 0) {
+                $inner.append(
+                    '<p class="el-bk-receipt-match-empty">No matching transactions found for this receipt. ' +
+                    'Check that the receipt has an amount and date, then verify the transaction exists in the Expenses tab.</p>'
+                );
+            } else {
+                var $table = $(
+                    '<table class="el-bk-receipt-match-table widefat">' +
+                        '<thead><tr>' +
+                            '<th>Merchant</th>' +
+                            '<th>Date</th>' +
+                            '<th>Amount</th>' +
+                            '<th>Category</th>' +
+                            '<th>Match</th>' +
+                            '<th></th>' +
+                        '</tr></thead>' +
+                        '<tbody></tbody>' +
+                    '</table>'
+                );
+
+                candidates.forEach(function (c) {
+                    var stars = '';
+                    var maxScore = 6;
+                    for (var i = 0; i < Math.min(c.score, maxScore); i++) stars += '★';
+                    var empty = maxScore - Math.min(c.score, maxScore);
+                    for (var j = 0; j < empty; j++) stars += '☆';
+
+                    $table.find('tbody').append(
+                        $('<tr>').append(
+                            $('<td>').text(c.merchant || '—'),
+                            $('<td>').text(c.date || '—'),
+                            $('<td>').text('$' + c.amount),
+                            $('<td>').text(c.category || '—'),
+                            $('<td class="el-bk-match-score">').html(stars),
+                            $('<td>').append(
+                                $('<button class="el-btn el-btn-primary el-btn-sm el-bk-attach-match-btn">')
+                                    .text('Attach')
+                                    .attr('data-receipt-id', id)
+                                    .attr('data-transaction-id', c.id)
+                            )
+                        )
+                    );
+                });
+
+                $inner.append($table);
+            }
+
+            $matchRow.find('td').append($inner);
+            $row.after($matchRow);
+
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Find Match');
+            alert('Error: ' + msg);
+        });
+    });
+
+    // Attach Match — user selects a candidate
+    $(document).on('click', '.el-bk-attach-match-btn', function () {
+        var $btn           = $(this).prop('disabled', true).text('Attaching…');
+        var receiptId      = $btn.data('receiptId')     || $btn.data('receipt-id');
+        var transactionId  = $btn.data('transactionId') || $btn.data('transaction-id');
+
+        elBkAjax('bk_attach_receipt', {
+            receipt_id:     receiptId,
+            transaction_id: transactionId,
+        }, function () {
+            location.reload();
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Attach');
+            alert('Error: ' + msg);
+        });
+    });
+
     // ── AI Chat (Known Expenses) ───────────────────────────────────────────────
 
     $('#el-bk-chat-send-btn').on('click', function () {

@@ -1260,3 +1260,57 @@
     gap: 8px;
     margin-top: 12px;
 }
+
+/* ── Receipt auto-match candidate panel (Feature E) ──────────────────────── */
+
+.el-admin-wrap .el-bk-receipt-match-row > td {
+    padding: 0 !important;
+    background: #f0f8f2;
+    border-top: none !important;
+}
+
+.el-admin-wrap .el-bk-receipt-match-panel {
+    padding: 14px 16px 16px;
+    border-left: 3px solid #22c55e;
+}
+
+.el-admin-wrap .el-bk-receipt-match-empty {
+    margin: 0;
+    font-size: 13px;
+    color: #555;
+    font-style: italic;
+}
+
+.el-admin-wrap .el-bk-receipt-match-table {
+    margin: 0;
+    font-size: 13px;
+    border: none;
+    box-shadow: none;
+}
+
+.el-admin-wrap .el-bk-receipt-match-table th,
+.el-admin-wrap .el-bk-receipt-match-table td {
+    padding: 6px 10px !important;
+    vertical-align: middle !important;
+    background: transparent !important;
+}
+
+.el-admin-wrap .el-bk-receipt-match-table thead th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #555;
+    border-bottom: 1px solid #cde8d2 !important;
+}
+
+.el-admin-wrap .el-bk-receipt-match-table tbody tr:hover td {
+    background: #e8f8ed !important;
+}
+
+.el-admin-wrap .el-bk-match-score {
+    color: #22c55e;
+    font-size: 13px;
+    letter-spacing: 2px;
+    white-space: nowrap;
+}

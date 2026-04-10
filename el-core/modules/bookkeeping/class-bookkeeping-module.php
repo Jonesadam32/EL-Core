@@ -71,13 +71,14 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_reapply_travel_rules', [ $this, 'handle_reapply_travel_rules' ] );
 
         // ── Receipts ──────────────────────────────────────────────
-        add_action( 'el_core_ajax_bk_upload_receipt',       [ $this, 'handle_upload_receipt' ] );
-        add_action( 'el_core_ajax_bk_save_receipt_manual',  [ $this, 'handle_save_receipt_manual' ] );
-        add_action( 'el_core_ajax_bk_save_receipt_edits',   [ $this, 'handle_save_receipt_edits' ] );
-        add_action( 'el_core_ajax_bk_update_receipt',       [ $this, 'handle_update_receipt' ] );
-        add_action( 'el_core_ajax_bk_attach_receipt',       [ $this, 'handle_attach_receipt' ] );
-        add_action( 'el_core_ajax_bk_detach_receipt',       [ $this, 'handle_detach_receipt' ] );
-        add_action( 'el_core_ajax_bk_delete_receipt',       [ $this, 'handle_delete_receipt' ] );
+        add_action( 'el_core_ajax_bk_upload_receipt',           [ $this, 'handle_upload_receipt' ] );
+        add_action( 'el_core_ajax_bk_save_receipt_manual',      [ $this, 'handle_save_receipt_manual' ] );
+        add_action( 'el_core_ajax_bk_save_receipt_edits',       [ $this, 'handle_save_receipt_edits' ] );
+        add_action( 'el_core_ajax_bk_update_receipt',           [ $this, 'handle_update_receipt' ] );
+        add_action( 'el_core_ajax_bk_suggest_receipt_matches',  [ $this, 'handle_suggest_receipt_matches' ] );
+        add_action( 'el_core_ajax_bk_attach_receipt',           [ $this, 'handle_attach_receipt' ] );
+        add_action( 'el_core_ajax_bk_detach_receipt',           [ $this, 'handle_detach_receipt' ] );
+        add_action( 'el_core_ajax_bk_delete_receipt',           [ $this, 'handle_delete_receipt' ] );
 
         // ── Contractors ───────────────────────────────────────────
         add_action( 'el_core_ajax_bk_save_contractor',     [ $this, 'handle_save_contractor' ] );
@@ -2156,6 +2157,114 @@ class EL_Bookkeeping_Module {
         $wpdb->update( $this->table( 'el_bk_receipts' ), [ $field => $value ], [ 'id' => $id ] );
 
         EL_AJAX_Handler::success( null, __( 'Receipt updated.', 'el-core' ) );
+    }
+
+    /**
+     * Auto-match: suggest up to 3 unattached expense transactions for an unmatched receipt.
+     *
+     * Scoring: exact amount (within $0.01) +3 pts, exact date +2 pts, merchant keyword overlap +1 pt.
+     * Candidates must be within $1.00 and 3 days of the receipt values.
+     */
+    public function handle_suggest_receipt_matches( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $receipt_id = absint( $data['receipt_id'] ?? 0 );
+        if ( ! $receipt_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid receipt ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+
+        $receipt = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->table('el_bk_receipts')} WHERE id = %d",
+            $receipt_id
+        ) );
+
+        if ( ! $receipt ) {
+            EL_AJAX_Handler::error( __( 'Receipt not found.', 'el-core' ) );
+            return;
+        }
+
+        $amount = isset( $receipt->ai_extracted_amount ) ? (float) $receipt->ai_extracted_amount : null;
+        $date   = $receipt->ai_extracted_date ?: null;
+
+        if ( ! $amount && ! $date ) {
+            EL_AJAX_Handler::success( [], __( 'Receipt has no amount or date to match against.', 'el-core' ) );
+            return;
+        }
+
+        $where  = [ 'type = %s', 'receipt_id = 0' ];
+        $values = [ 'expense' ];
+
+        if ( $amount ) {
+            $where[]  = 'ABS(amount - %f) < 1.00';
+            $values[] = $amount;
+        }
+
+        if ( $date ) {
+            $where[]  = 'ABS(DATEDIFF(date, %s)) <= 3';
+            $values[] = $date;
+        }
+
+        $sql = $wpdb->prepare(
+            'SELECT id, merchant, date, amount, category FROM ' . $this->table( 'el_bk_transactions' ) .
+            ' WHERE ' . implode( ' AND ', $where ) . ' LIMIT 20',
+            ...$values
+        );
+
+        $candidates = $wpdb->get_results( $sql );
+
+        if ( empty( $candidates ) ) {
+            EL_AJAX_Handler::success( [], __( 'No matching transactions found.', 'el-core' ) );
+            return;
+        }
+
+        // Build keyword set from receipt merchant name (words ≥ 3 chars)
+        $receipt_merchant = strtolower( $receipt->ai_extracted_merchant ?? '' );
+        $receipt_words    = array_filter(
+            preg_split( '/\W+/', $receipt_merchant ),
+            fn( string $w ) => strlen( $w ) >= 3
+        );
+
+        $scored = [];
+        foreach ( $candidates as $txn ) {
+            $score = 0;
+
+            if ( $amount && abs( (float) $txn->amount - $amount ) < 0.01 ) {
+                $score += 3; // exact amount
+            }
+
+            if ( $date && $txn->date === $date ) {
+                $score += 2; // exact date
+            }
+
+            if ( $receipt_words ) {
+                $txn_lower = strtolower( $txn->merchant );
+                foreach ( $receipt_words as $word ) {
+                    if ( str_contains( $txn_lower, $word ) ) {
+                        $score += 1; // keyword overlap — max +1 regardless of word count
+                        break;
+                    }
+                }
+            }
+
+            $scored[] = [
+                'id'       => (int) $txn->id,
+                'merchant' => $txn->merchant,
+                'date'     => $txn->date,
+                'amount'   => number_format( (float) $txn->amount, 2 ),
+                'category' => $txn->category,
+                'score'    => $score,
+            ];
+        }
+
+        usort( $scored, fn( array $a, array $b ) => $b['score'] <=> $a['score'] );
+
+        EL_AJAX_Handler::success( array_slice( $scored, 0, 3 ), __( 'Matches found.', 'el-core' ) );
     }
 
     public function handle_attach_receipt( array $data ): void {
