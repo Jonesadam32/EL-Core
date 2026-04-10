@@ -835,7 +835,8 @@
     text-align: center;
     padding: 40px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s;
+    border: 2px dashed #e0e0e0;
 }
 
 .el-admin-wrap .el-bk-upload-zone:hover {
@@ -843,7 +844,156 @@
     border-color: #2271b1;
 }
 
+.el-admin-wrap .el-bk-upload-zone--drag {
+    background: #eff6ff;
+    border-color: #2271b1;
+    border-style: dashed;
+}
+
+.el-admin-wrap .el-bk-upload-zone--uploading {
+    opacity: 0.65;
+    pointer-events: none;
+}
+
 .el-admin-wrap .el-bk-upload-icon { font-size: 40px; margin-bottom: 8px; }
+
+/* ── Receipt Review Queue ────────────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-receipt-review-queue {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.el-admin-wrap .el-bk-review-card {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    background: #fff;
+    border: 1px solid #86efac;
+    border-radius: 6px;
+    padding: 12px 32px 12px 12px;
+    width: 280px;
+    box-shadow: 0 2px 8px rgba(34,197,94,0.12);
+    animation: elBkSlideIn 0.2s ease;
+}
+
+@keyframes elBkSlideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.el-admin-wrap .el-bk-review-card-thumb {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #f6f7f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.el-admin-wrap .el-bk-review-card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.el-admin-wrap .el-bk-receipt-review-placeholder { font-size: 32px; }
+
+.el-admin-wrap .el-bk-review-card-body { flex: 1; min-width: 0; }
+
+.el-admin-wrap .el-bk-review-card-filename {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.el-admin-wrap .el-bk-review-field {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.el-admin-wrap .el-bk-review-field span  { color: #666; }
+.el-admin-wrap .el-bk-review-field strong {
+    font-weight: 600;
+    color: #1d2327;
+    text-align: right;
+    flex-shrink: 0;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.el-admin-wrap .el-bk-review-field-empty {
+    font-size: 12px;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.el-admin-wrap .el-bk-review-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 7px;
+}
+
+.el-admin-wrap .el-bk-review-badge--ai     { background: #dcfce7; color: #166534; }
+.el-admin-wrap .el-bk-review-badge--manual { background: #f3f4f6; color: #6b7280; }
+
+.el-admin-wrap .el-bk-review-dismiss {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: color 0.12s, background 0.12s;
+}
+
+.el-admin-wrap .el-bk-review-dismiss:hover {
+    color: #dc2626;
+    background: #fee2e2;
+}
+
+/* ── Receipt Table extras ─────────────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-receipt-actions-cell { white-space: nowrap; }
+
+.el-admin-wrap .el-bk-receipt-txn-label {
+    font-size: 12px;
+    color: #2271b1;
+}
+
+.el-admin-wrap .el-bk-muted { color: #888; font-size: 12px; }
+
+.el-admin-wrap .el-bk-status-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.el-admin-wrap .el-bk-status-badge--matched   { background: #dcfce7; color: #166534; }
+.el-admin-wrap .el-bk-status-badge--unmatched { background: #fef3c7; color: #92400e; }
 
 .el-admin-wrap .el-bk-receipt-grid { display: flex; flex-wrap: wrap; gap: 12px; }
 

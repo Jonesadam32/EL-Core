@@ -1766,8 +1766,164 @@ class EL_Bookkeeping_Module {
             EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
             return;
         }
-        // Phase 6
-        EL_AJAX_Handler::error( __( 'Receipt upload not yet implemented.', 'el-core' ) );
+
+        $file_data = $_FILES['receipt_file'] ?? null;
+
+        if ( ! $file_data ) {
+            EL_AJAX_Handler::error( __( 'No file received.', 'el-core' ) );
+            return;
+        }
+
+        if ( $file_data['error'] === UPLOAD_ERR_INI_SIZE || $file_data['error'] === UPLOAD_ERR_FORM_SIZE ) {
+            EL_AJAX_Handler::error( __( 'File exceeds the maximum allowed upload size.', 'el-core' ) );
+            return;
+        }
+
+        if ( $file_data['error'] !== UPLOAD_ERR_OK ) {
+            EL_AJAX_Handler::error( __( 'Upload error. Please try again.', 'el-core' ) );
+            return;
+        }
+
+        $ext = strtolower( pathinfo( $file_data['name'], PATHINFO_EXTENSION ) );
+        if ( ! in_array( $ext, [ 'jpg', 'jpeg', 'png', 'pdf' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Only JPG, PNG, and PDF files are accepted.', 'el-core' ) );
+            return;
+        }
+
+        if ( $file_data['size'] > 10 * 1024 * 1024 ) {
+            EL_AJAX_Handler::error( __( 'File exceeds the 10 MB limit.', 'el-core' ) );
+            return;
+        }
+
+        // ── Save file ──────────────────────────────────────────────────────────
+        $upload_dir   = wp_upload_dir();
+        $receipts_dir = $upload_dir['basedir'] . '/el-bk-receipts/';
+        wp_mkdir_p( $receipts_dir );
+
+        $rand      = substr( md5( uniqid( '', true ) ), 0, 8 );
+        $filename  = 'receipt_' . time() . '_' . $rand . '.' . $ext;
+        $file_path = $receipts_dir . $filename;
+        $file_url  = $upload_dir['baseurl'] . '/el-bk-receipts/' . $filename;
+
+        if ( ! move_uploaded_file( $file_data['tmp_name'], $file_path ) ) {
+            EL_AJAX_Handler::error( __( 'Could not save the uploaded file. Check directory permissions.', 'el-core' ) );
+            return;
+        }
+
+        // ── AI extraction (images only) ────────────────────────────────────────
+        $mime_map = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+        ];
+        $is_image    = isset( $mime_map[ $ext ] );
+        $ai_merchant = '';
+        $ai_date     = null;
+        $ai_amount   = null;
+        $ai_category = '';
+        $ai_raw      = '';
+
+        if ( $is_image && $this->core && $this->core->ai && $this->core->ai->is_configured() ) {
+            $categories = implode( ', ', self::get_expense_categories() );
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+            $image_b64  = base64_encode( file_get_contents( $file_path ) );
+
+            $result = $this->core->ai->complete_with_image( [
+                'system'       => "You are a receipt data extraction assistant. Analyze receipt images and extract key information.\n"
+                                . "Return ONLY a valid JSON object with exactly these four keys:\n"
+                                . "  \"merchant\": string (the business or vendor name, or null)\n"
+                                . "  \"date\": string (transaction date in YYYY-MM-DD format, or null)\n"
+                                . "  \"amount\": number (total amount charged as a positive number, or null)\n"
+                                . "  \"category\": string (choose the single closest match from this list, or null if unsure):\n"
+                                . "    {$categories}\n"
+                                . "Return ONLY the JSON object — no explanation, no markdown.",
+                'prompt'       => 'Extract the receipt data from this image.',
+                'image_base64' => $image_b64,
+                'image_mime'   => $mime_map[ $ext ],
+                'max_tokens'   => 512,
+            ] );
+
+            if ( $result['success'] ) {
+                $ai_raw  = $result['content'];
+                $parsed  = $this->parse_ai_receipt_response( $ai_raw );
+                $ai_merchant = $parsed['merchant'] ?? '';
+                $ai_date     = $parsed['date']     ?? null;
+                $ai_amount   = $parsed['amount']   ?? null;
+                $ai_category = $parsed['category'] ?? '';
+            }
+        }
+
+        // ── Insert DB row ──────────────────────────────────────────────────────
+        global $wpdb;
+        $wpdb->insert( $this->table( 'el_bk_receipts' ), [
+            'transaction_id'        => 0,
+            'file_path'             => $file_path,
+            'file_url'              => $file_url,
+            'file_type'             => $ext,
+            'ai_extracted_merchant' => $ai_merchant,
+            'ai_extracted_date'     => $ai_date,
+            'ai_extracted_amount'   => $ai_amount,
+            'ai_extracted_category' => $ai_category,
+            'ai_raw_response'       => $ai_raw,
+            'status'                => 'unmatched',
+        ] );
+
+        $receipt_id = (int) $wpdb->insert_id;
+
+        EL_AJAX_Handler::success( [
+            'id'           => $receipt_id,
+            'file_url'     => $file_url,
+            'file_type'    => $ext,
+            'is_image'     => $is_image,
+            'merchant'     => $ai_merchant,
+            'date'         => $ai_date,
+            'amount'       => $ai_amount !== null ? number_format( (float) $ai_amount, 2 ) : null,
+            'category'     => $ai_category,
+            'ai_extracted' => ! empty( $ai_raw ),
+        ], __( 'Receipt uploaded and processed.', 'el-core' ) );
+    }
+
+    /**
+     * Parse the JSON receipt-extraction response returned by the AI.
+     * Strips markdown fences if present and validates each field.
+     */
+    private function parse_ai_receipt_response( string $content ): array {
+        $content = trim( $content );
+
+        if ( preg_match( '/```(?:json)?\s*([\s\S]*?)```/s', $content, $m ) ) {
+            $content = trim( $m[1] );
+        }
+
+        $decoded = json_decode( $content, true );
+        if ( ! is_array( $decoded ) ) {
+            return [];
+        }
+
+        // Validate category against known list
+        $valid_categories = self::get_expense_categories();
+        $category = sanitize_text_field( $decoded['category'] ?? '' );
+        if ( ! in_array( $category, $valid_categories, true ) ) {
+            $category = '';
+        }
+
+        // Validate amount — must be a positive numeric value
+        $amount = null;
+        if ( isset( $decoded['amount'] ) && is_numeric( $decoded['amount'] ) ) {
+            $amount = round( abs( (float) $decoded['amount'] ), 2 );
+        }
+
+        // Validate date — must be YYYY-MM-DD
+        $date = sanitize_text_field( $decoded['date'] ?? '' );
+        if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
+            $date = null;
+        }
+
+        return [
+            'merchant' => sanitize_text_field( $decoded['merchant'] ?? '' ),
+            'date'     => $date,
+            'amount'   => $amount,
+            'category' => $category,
+        ];
     }
 
     public function handle_attach_receipt( array $data ): void {

@@ -471,33 +471,197 @@
         });
     });
 
-    // ── Receipt Actions ────────────────────────────────────────────────────────
+    // ── Receipt Upload ─────────────────────────────────────────────────────────
 
+    var RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+    var RECEIPT_EXTS      = ['jpg', 'jpeg', 'png', 'pdf'];
+
+    /**
+     * Upload a single File object to bk_upload_receipt.
+     * Calls onDone(errorMsg, data) when complete.
+     */
+    function uploadReceiptFile(file, onDone) {
+        var fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_upload_receipt');
+        fd.append('nonce', nonce);
+        fd.append('receipt_file', file);
+
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                if (res && res.success) {
+                    onDone(null, res.data.data || {});
+                } else {
+                    onDone((res && res.data && res.data.message) || 'Upload failed.');
+                }
+            },
+            error: function () {
+                onDone('Network error — please try again.');
+            }
+        });
+    }
+
+    /**
+     * Append one receipt card to the review queue.
+     * data = the object returned by handle_upload_receipt on the PHP side.
+     */
+    function addToReviewQueue(data, filename) {
+        var $queue = $('#el-bk-receipt-review-queue');
+
+        var thumbHtml;
+        if (data.is_image && data.file_url) {
+            thumbHtml = '<img src="' + $('<span>').text(data.file_url).html() + '" alt="receipt">';
+        } else {
+            thumbHtml = '<div class="el-bk-receipt-review-placeholder">📄</div>';
+        }
+
+        var fields = '';
+        if (data.merchant) {
+            fields += '<div class="el-bk-review-field"><span>Merchant</span><strong>' + $('<span>').text(data.merchant).html() + '</strong></div>';
+        }
+        if (data.date) {
+            fields += '<div class="el-bk-review-field"><span>Date</span><strong>' + $('<span>').text(data.date).html() + '</strong></div>';
+        }
+        if (data.amount) {
+            fields += '<div class="el-bk-review-field"><span>Amount</span><strong>$' + $('<span>').text(data.amount).html() + '</strong></div>';
+        }
+        if (data.category) {
+            fields += '<div class="el-bk-review-field"><span>Category</span><strong>' + $('<span>').text(data.category).html() + '</strong></div>';
+        }
+
+        if (!fields) {
+            fields = '<div class="el-bk-review-field-empty">No data extracted</div>';
+        }
+
+        var badge = data.ai_extracted
+            ? '<span class="el-bk-review-badge el-bk-review-badge--ai">✓ AI extracted</span>'
+            : '<span class="el-bk-review-badge el-bk-review-badge--manual">Saved (no AI extraction)</span>';
+
+        var $card = $('<div class="el-bk-review-card" data-receipt-id="' + data.id + '">').html(
+            '<div class="el-bk-review-card-thumb">' + thumbHtml + '</div>' +
+            '<div class="el-bk-review-card-body">' +
+                '<div class="el-bk-review-card-filename">' + $('<span>').text(filename).html() + '</div>' +
+                fields +
+                badge +
+            '</div>' +
+            '<button class="el-bk-review-dismiss" title="Dismiss">✕</button>'
+        );
+
+        $queue.append($card);
+    }
+
+    /**
+     * Validate and upload an array / FileList of files.
+     * Shows inline status in #el-bk-receipt-upload-status.
+     */
+    function processReceiptUploads(files) {
+        if (!files || !files.length) return;
+
+        var $zone   = $('#el-bk-receipt-upload-zone');
+        var $status = $('#el-bk-receipt-upload-status');
+        var fileArr = Array.from(files);
+        var total   = fileArr.length;
+        var done    = 0;
+        var uploaded = 0;
+        var errors   = 0;
+
+        $zone.addClass('el-bk-upload-zone--uploading');
+        $status.text('Uploading 1 of ' + total + '…');
+
+        fileArr.forEach(function (file) {
+            var ext = (file.name.split('.').pop() || '').toLowerCase();
+
+            // Client-side validation
+            if (RECEIPT_EXTS.indexOf(ext) === -1) {
+                $status.append(' | Skipped "' + $('<span>').text(file.name).html() + '": unsupported type.');
+                done++;
+                errors++;
+                if (done === total) finishUploads();
+                return;
+            }
+            if (file.size > RECEIPT_MAX_BYTES) {
+                $status.append(' | Skipped "' + $('<span>').text(file.name).html() + '": exceeds 10 MB.');
+                done++;
+                errors++;
+                if (done === total) finishUploads();
+                return;
+            }
+
+            uploadReceiptFile(file, function (err, data) {
+                done++;
+                if (err) {
+                    errors++;
+                    $status.append(' | Error: ' + $('<span>').text(err).html());
+                } else {
+                    uploaded++;
+                    addToReviewQueue(data, file.name);
+                    if (done < total) {
+                        $status.text('Uploading ' + (done + 1) + ' of ' + total + '…');
+                    }
+                }
+                if (done === total) finishUploads();
+            });
+        });
+
+        function finishUploads() {
+            $zone.removeClass('el-bk-upload-zone--uploading');
+            $('#el-bk-receipt-file-input').val('');
+
+            if (errors === 0) {
+                $status.text(uploaded + (uploaded === 1 ? ' receipt' : ' receipts') + ' uploaded. Reload to see in the table.');
+            } else {
+                $status.prepend(uploaded + ' uploaded, ' + errors + ' skipped. ');
+            }
+        }
+    }
+
+    // Browse button
     $('#el-bk-receipt-browse-btn').on('click', function () {
         $('#el-bk-receipt-file-input').trigger('click');
     });
 
-    $('#el-bk-receipt-upload-zone').on('dragover', function (e) {
-        e.preventDefault();
-        $(this).css('background', '#eff6ff');
-    }).on('dragleave drop', function (e) {
-        e.preventDefault();
-        $(this).css('background', '');
-        if (e.type === 'drop') {
-            // Phase 6: handle dropped files
-        }
+    // File picker change
+    $('#el-bk-receipt-file-input').on('change', function () {
+        processReceiptUploads(this.files);
     });
 
+    // Drag and drop
+    $('#el-bk-receipt-upload-zone')
+        .on('dragover', function (e) {
+            e.preventDefault();
+            $(this).addClass('el-bk-upload-zone--drag');
+        })
+        .on('dragleave', function (e) {
+            e.preventDefault();
+            $(this).removeClass('el-bk-upload-zone--drag');
+        })
+        .on('drop', function (e) {
+            e.preventDefault();
+            $(this).removeClass('el-bk-upload-zone--drag');
+            var files = e.originalEvent.dataTransfer.files;
+            processReceiptUploads(files);
+        });
+
+    // Dismiss a review queue card
+    $(document).on('click', '.el-bk-review-dismiss', function () {
+        $(this).closest('.el-bk-review-card').fadeOut(200, function () { $(this).remove(); });
+    });
+
+    // Detach receipt
     $(document).on('click', '.el-bk-detach-receipt-btn', function () {
         if (!confirm('Detach this receipt from its transaction?')) return;
-        elBkAjax('bk_detach_receipt', { receipt_id: $(this).data('receiptId') || $(this).data('receipt-id') }, function () {
+        var id = $(this).data('receiptId') || $(this).data('receipt-id');
+        elBkAjax('bk_detach_receipt', { receipt_id: id }, function () {
             location.reload();
         });
     });
 
+    // Delete receipt
     $(document).on('click', '.el-bk-delete-receipt-btn', function () {
-        if (!confirm('Permanently delete this receipt?')) return;
-        elBkAjax('bk_delete_receipt', { receipt_id: $(this).data('receiptId') || $(this).data('receipt-id') }, function () {
+        if (!confirm('Permanently delete this receipt? This cannot be undone.')) return;
+        var id = $(this).data('receiptId') || $(this).data('receipt-id');
+        elBkAjax('bk_delete_receipt', { receipt_id: id }, function () {
             location.reload();
         });
     });
