@@ -227,6 +227,47 @@
         filterExpenseTable();
     });
 
+    // ── Income Table Filtering ────────────────────────────────────────────────
+
+    function filterIncomeTable() {
+        var dateFrom = $('#el-bk-inc-from').val() || '';
+        var dateTo   = $('#el-bk-inc-to').val()   || '';
+
+        var visible = 0;
+        var visibleAmount = 0;
+        var total = 0;
+
+        $('#el-bk-inc-table tbody .el-bk-transaction-row').each(function () {
+            var $row    = $(this);
+            var rowDate = $row.attr('data-date') || '';
+            var show    = true;
+            total++;
+
+            if (show && dateFrom && rowDate < dateFrom) show = false;
+            if (show && dateTo   && rowDate > dateTo)   show = false;
+
+            if (show) {
+                $row.show();
+                visible++;
+                var amt = parseFloat($row.find('.el-bk-amount').text().replace(/[$,]/g, '')) || 0;
+                visibleAmount += amt;
+            } else {
+                $row.hide();
+            }
+        });
+
+        var isFiltered = (dateFrom || dateTo);
+        var $count = $('#el-bk-inc-filter-count');
+        if (isFiltered && visible < total) {
+            $count.html('Showing <strong>' + visible + '</strong> of ' + total + ' &mdash; $' + visibleAmount.toFixed(2));
+        } else {
+            $count.html('');
+        }
+    }
+
+    $('#el-bk-inc-filter-btn').on('click', filterIncomeTable);
+    $('#el-bk-inc-from, #el-bk-inc-to').on('change', filterIncomeTable);
+
     // ── Rules: Add/Edit Form Toggle ────────────────────────────────────────────
 
     $('#el-bk-add-rule-btn').on('click', function () {

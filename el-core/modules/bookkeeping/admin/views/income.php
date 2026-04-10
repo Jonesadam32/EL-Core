@@ -66,6 +66,7 @@ $business_name = $module->get_business_name();
         </label>
         <button class="el-btn el-btn-outline" id="el-bk-inc-filter-btn"><?php esc_html_e( 'Filter', 'el-core' ); ?></button>
     </div>
+    <span id="el-bk-inc-filter-count" class="el-bk-filter-count"></span>
 </div>
 
 <?php if ( empty( $transactions ) ) : ?>
@@ -73,7 +74,7 @@ $business_name = $module->get_business_name();
 <?php else : ?>
 
 <div class="el-bk-table-wrap">
-    <table class="el-bk-transactions-table widefat">
+    <table class="el-bk-transactions-table widefat" id="el-bk-inc-table">
         <thead>
             <tr>
                 <th>#</th>
@@ -87,7 +88,7 @@ $business_name = $module->get_business_name();
         </thead>
         <tbody>
             <?php foreach ( $transactions as $i => $t ) : ?>
-            <tr class="el-bk-transaction-row el-bk-row--classified" data-id="<?php echo esc_attr( $t->id ); ?>">
+            <tr class="el-bk-transaction-row el-bk-row--classified" data-id="<?php echo esc_attr( $t->id ); ?>" data-date="<?php echo esc_attr( $t->date ); ?>">
                 <td><?php echo esc_html( $i + 1 ); ?></td>
                 <td>
                     <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $t->id ); ?>">
