@@ -5,9 +5,9 @@
 >
 > **Last Updated:** April 11, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.38.36
+> **Current Plugin Version:** v1.38.37
 > **Git Status:** All committed. Clean working tree.
-> **ZIP in Downloads:** `el-core-v1.38.36.zip` — ready to upload.
+> **ZIP in Downloads:** `el-core-v1.38.37.zip` — ready to upload.
 
 ---
 
@@ -85,7 +85,8 @@ It contains all table schemas, AJAX patterns, feature specs (A–E), and kickoff
 | **v1.38.33** | Phase A.1 + A.2: DB setup + Clients tab | ✅ Deployed |
 | **v1.38.34** | Fix: Pattern tag remove + save (JSON attr, parent()) | ✅ Deployed |
 | **v1.38.35** | Fix: Pattern tag save (.attr vs .data jQuery cache) | ✅ Deployed |
-| **v1.38.36** | Phase A.3: 1099-NEC Entry Form | ✅ **CURRENT** |
+| **v1.38.36** | Phase A.3: 1099-NEC Entry Form | ✅ Deployed |
+| **v1.38.37** | Add Form 4852 upload to 1099-NEC form (DB v7) | ✅ **CURRENT** |
 
 ---
 
