@@ -885,14 +885,15 @@
 
             // EL_AJAX_Handler::success($array, $msg) wraps as { data: $array, message: $msg }
             var matches = Array.isArray(candidates) ? candidates : (candidates.data || []);
+            var serverMsg = (candidates && candidates.message) ? candidates.message : '';
 
             var $matchRow = $('<tr class="el-bk-receipt-match-row"><td colspan="' + colspan + '"></td></tr>');
             var $inner    = $('<div class="el-bk-receipt-match-panel"></div>');
 
             if (!matches || matches.length === 0) {
+                var emptyMsg = serverMsg || 'AI found no matching transactions for this receipt. Check that the receipt has a merchant name and date, then verify the expense exists in the Expenses tab.';
                 $inner.append(
-                    '<p class="el-bk-receipt-match-empty">AI found no matching transactions for this receipt. ' +
-                    'Check that the receipt has a merchant name and date, then verify the expense exists in the Expenses tab.</p>'
+                    '<p class="el-bk-receipt-match-empty">' + $('<span>').text(emptyMsg).html() + '</p>'
                 );
             } else {
                 var $table = $(

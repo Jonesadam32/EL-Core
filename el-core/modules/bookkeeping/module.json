@@ -23,7 +23,7 @@
     },
 
     "database": {
-        "version": 4,
+        "version": 5,
         "tables": {
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -109,7 +109,8 @@
         "migrations": {
             "2": "ALTER TABLE el_bk_receipts ADD COLUMN location varchar(255) NOT NULL DEFAULT ''",
             "3": "ALTER TABLE el_bk_receipts ADD COLUMN notes text NOT NULL DEFAULT ''",
-            "4": "ALTER TABLE el_bk_receipts ADD COLUMN match_source varchar(20) NOT NULL DEFAULT ''"
+            "4": "ALTER TABLE el_bk_receipts ADD COLUMN match_source varchar(20) NOT NULL DEFAULT ''",
+            "5": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS receipt_id bigint(20) NOT NULL DEFAULT 0"
         }
     },
 
