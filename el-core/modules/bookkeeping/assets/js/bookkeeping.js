@@ -883,10 +883,13 @@
         elBkAjax('bk_suggest_receipt_matches', { receipt_id: id, tax_year: elBookkeeping.taxYear || 0 }, function (candidates) {
             $btn.prop('disabled', false).text('Close');
 
+            // EL_AJAX_Handler::success($array, $msg) wraps as { data: $array, message: $msg }
+            var matches = Array.isArray(candidates) ? candidates : (candidates.data || []);
+
             var $matchRow = $('<tr class="el-bk-receipt-match-row"><td colspan="' + colspan + '"></td></tr>');
             var $inner    = $('<div class="el-bk-receipt-match-panel"></div>');
 
-            if (!candidates || candidates.length === 0) {
+            if (!matches || matches.length === 0) {
                 $inner.append(
                     '<p class="el-bk-receipt-match-empty">AI found no matching transactions for this receipt. ' +
                     'Check that the receipt has a merchant name and date, then verify the expense exists in the Expenses tab.</p>'
@@ -907,7 +910,7 @@
                     '</table>'
                 );
 
-                candidates.forEach(function (c) {
+                matches.forEach(function (c) {
                     var conf = (c.confidence || 'low').toLowerCase();
                     $table.find('tbody').append(
                         $('<tr>').append(
