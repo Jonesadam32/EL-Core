@@ -84,6 +84,11 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_save_contractor',     [ $this, 'handle_save_contractor' ] );
         add_action( 'el_core_ajax_bk_delete_contractor',   [ $this, 'handle_delete_contractor' ] );
         add_action( 'el_core_ajax_bk_assign_contractor',   [ $this, 'handle_assign_contractor' ] );
+
+        // ── Clients (1099-NEC issuers — entities that PAY Fred) ───
+        add_action( 'el_core_ajax_bk_get_clients',    [ $this, 'handle_get_clients' ] );
+        add_action( 'el_core_ajax_bk_save_client',    [ $this, 'handle_save_client' ] );
+        add_action( 'el_core_ajax_bk_delete_client',  [ $this, 'handle_delete_client' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -163,7 +168,7 @@ class EL_Bookkeeping_Module {
         // Validate tab; gate settings.
         $valid_tabs = [
             'dashboard', 'expenses', 'income', 'profit-loss', 'contractors',
-            'known-expenses', 'travel-dates', 'receipts', 'settings',
+            'known-expenses', 'travel-dates', 'receipts', 'clients', 'settings',
         ];
         if ( ! in_array( $active_tab, $valid_tabs, true ) ) {
             $active_tab = 'dashboard';
@@ -190,6 +195,9 @@ class EL_Bookkeeping_Module {
         $prefetch_contract_labor = ( $active_tab === 'contractors' )
                                     ? $this->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year, 'category' => 'Contract Labor' ] )
                                     : [];
+        $prefetch_clients     = ( $active_tab === 'clients' )
+                                    ? $this->get_clients()
+                                    : [];
 
         $base_url = admin_url( 'admin.php?page=els-bookkeeping&year=' . $selected_year );
 
@@ -213,6 +221,7 @@ class EL_Bookkeeping_Module {
             'known-expenses' => __( 'Known Expenses', 'el-core' ),
             'travel-dates'   => __( 'Travel Dates', 'el-core' ),
             'receipts'       => __( 'Receipts', 'el-core' ),
+            'clients'        => __( 'Clients / 1099', 'el-core' ),
             'settings'       => __( 'Settings', 'el-core' ),
         ];
 
@@ -520,6 +529,12 @@ class EL_Bookkeeping_Module {
         global $wpdb;
         $table = $this->table( 'el_bk_contractors' );
         return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY name ASC" ) ?: [];
+    }
+
+    public function get_clients(): array {
+        global $wpdb;
+        $table = $this->table( 'el_bk_clients' );
+        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY client_name ASC" ) ?: [];
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -2503,5 +2518,96 @@ class EL_Bookkeeping_Module {
         ] );
 
         EL_AJAX_Handler::success( null, __( 'Contractor assigned.', 'el-core' ) );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — CLIENTS (1099-NEC issuers — entities that PAY Fred)
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_get_clients( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        EL_AJAX_Handler::success( $this->get_clients() );
+    }
+
+    public function handle_save_client( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id            = absint( $data['id'] ?? 0 );
+        $client_name   = sanitize_text_field( wp_unslash( $data['client_name']   ?? '' ) );
+        $short_name    = sanitize_text_field( wp_unslash( $data['short_name']    ?? '' ) );
+        $ein           = sanitize_text_field( wp_unslash( $data['ein']           ?? '' ) );
+        $contact_name  = sanitize_text_field( wp_unslash( $data['contact_name']  ?? '' ) );
+        $contact_email = sanitize_email(      wp_unslash( $data['contact_email'] ?? '' ) );
+        $contact_phone = sanitize_text_field( wp_unslash( $data['contact_phone'] ?? '' ) );
+        $address       = sanitize_textarea_field( wp_unslash( $data['address']   ?? '' ) );
+        $contract_type = sanitize_text_field( wp_unslash( $data['contract_type'] ?? '' ) );
+        $status        = in_array( $data['status'] ?? '', [ 'active', 'inactive', 'completed' ], true )
+                            ? $data['status']
+                            : 'active';
+        $bank_patterns = sanitize_textarea_field( wp_unslash( $data['bank_patterns'] ?? '' ) );
+        $notes         = sanitize_textarea_field( wp_unslash( $data['notes']         ?? '' ) );
+
+        if ( ! $client_name ) {
+            EL_AJAX_Handler::error( __( 'Client name is required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_clients' );
+        $row   = [
+            'client_name'   => $client_name,
+            'short_name'    => $short_name,
+            'ein'           => $ein,
+            'contact_name'  => $contact_name,
+            'contact_email' => $contact_email,
+            'contact_phone' => $contact_phone,
+            'address'       => $address,
+            'contract_type' => $contract_type,
+            'status'        => $status,
+            'bank_patterns' => $bank_patterns,
+            'notes'         => $notes,
+        ];
+
+        if ( $id ) {
+            $wpdb->update( $table, $row, [ 'id' => $id ] );
+        } else {
+            $wpdb->insert( $table, $row );
+            $id = $wpdb->insert_id;
+        }
+
+        EL_AJAX_Handler::success( [ 'id' => $id ], __( 'Client saved.', 'el-core' ) );
+    }
+
+    public function handle_delete_client( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid client ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        // Clear client_id on any assigned transactions
+        $wpdb->update(
+            $this->table( 'el_bk_transactions' ),
+            [ 'client_id' => 0 ],
+            [ 'client_id' => $id ]
+        );
+        // Delete 1099 records (cascade in DB, but explicit here for safety)
+        $wpdb->delete( $this->table( 'el_bk_1099_nec' ), [ 'client_id' => $id ] );
+        // Delete the client
+        $wpdb->delete( $this->table( 'el_bk_clients' ), [ 'id' => $id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Client deleted.', 'el-core' ) );
     }
 }

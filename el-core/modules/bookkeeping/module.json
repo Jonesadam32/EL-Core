@@ -23,7 +23,7 @@
     },
 
     "database": {
-        "version": 5,
+        "version": 6,
         "tables": {
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -32,6 +32,7 @@
                 "merchant": "varchar(500) NOT NULL DEFAULT ''",
                 "amount": "decimal(10,2) NOT NULL DEFAULT 0.00",
                 "category": "varchar(255) NOT NULL DEFAULT ''",
+                "client_id": "bigint(20) NOT NULL DEFAULT 0",
                 "bank_account": "varchar(255) NOT NULL DEFAULT ''",
                 "business": "varchar(255) NOT NULL DEFAULT 'Expanded Learning Solutions'",
                 "status": "varchar(20) NOT NULL DEFAULT 'unclassified'",
@@ -46,7 +47,8 @@
                 "KEY idx_type_year": "(type, tax_year)",
                 "KEY idx_status": "(status)",
                 "KEY idx_category": "(category)",
-                "KEY idx_date": "(date)"
+                "KEY idx_date": "(date)",
+                "KEY idx_client_id": "(client_id)"
             },
             "el_bk_rules": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -104,13 +106,52 @@
                 "PRIMARY KEY": "(id)",
                 "KEY idx_transaction": "(transaction_id)",
                 "KEY idx_contractor": "(contractor_id)"
+            },
+            "el_bk_clients": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "client_name": "varchar(255) NOT NULL",
+                "short_name": "varchar(100) NOT NULL DEFAULT ''",
+                "ein": "varchar(20) NOT NULL DEFAULT ''",
+                "contact_name": "varchar(255) NOT NULL DEFAULT ''",
+                "contact_email": "varchar(255) NOT NULL DEFAULT ''",
+                "contact_phone": "varchar(50) NOT NULL DEFAULT ''",
+                "address": "text NOT NULL DEFAULT ''",
+                "contract_type": "varchar(100) NOT NULL DEFAULT ''",
+                "status": "enum('active','inactive','completed') NOT NULL DEFAULT 'active'",
+                "bank_patterns": "text NOT NULL DEFAULT ''",
+                "notes": "text NOT NULL DEFAULT ''",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "KEY idx_status": "(status)",
+                "KEY idx_short_name": "(short_name)"
+            },
+            "el_bk_1099_nec": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "client_id": "bigint(20) NOT NULL DEFAULT 0",
+                "tax_year": "year NOT NULL",
+                "box1_amount": "decimal(12,2) NOT NULL DEFAULT 0.00",
+                "date_received": "date DEFAULT NULL",
+                "document_status": "enum('received','missing','substitute') NOT NULL DEFAULT 'received'",
+                "document_attachment_id": "bigint(20) NOT NULL DEFAULT 0",
+                "substitute_docs": "text NOT NULL DEFAULT ''",
+                "reconciliation_status": "enum('pending','reconciled','discrepancy') NOT NULL DEFAULT 'pending'",
+                "verified_at": "datetime DEFAULT NULL",
+                "notes": "text NOT NULL DEFAULT ''",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "UNIQUE KEY unique_client_year": "(client_id, tax_year)",
+                "KEY idx_tax_year": "(tax_year)",
+                "KEY idx_reconciliation": "(reconciliation_status)"
             }
         },
         "migrations": {
             "2": "ALTER TABLE el_bk_receipts ADD COLUMN location varchar(255) NOT NULL DEFAULT ''",
             "3": "ALTER TABLE el_bk_receipts ADD COLUMN notes text NOT NULL DEFAULT ''",
             "4": "ALTER TABLE el_bk_receipts ADD COLUMN match_source varchar(20) NOT NULL DEFAULT ''",
-            "5": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS receipt_id bigint(20) NOT NULL DEFAULT 0"
+            "5": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS receipt_id bigint(20) NOT NULL DEFAULT 0",
+            "6": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS client_id bigint(20) NOT NULL DEFAULT 0"
         }
     },
 

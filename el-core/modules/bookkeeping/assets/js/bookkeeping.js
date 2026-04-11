@@ -1601,6 +1601,166 @@
         $row.after($newRow);
     });
 
+    // ── Clients / 1099-NEC ────────────────────────────────────────────────────
+
+    function elBkRebuildPatternHidden() {
+        var patterns = [];
+        $('#el-bk-client-pattern-tags .el-bk-pattern-tag').each(function () {
+            patterns.push($(this).data('value'));
+        });
+        $('#el-bk-client-bank-patterns').val(patterns.join("\n"));
+    }
+
+    function elBkAddPatternTag(value) {
+        value = $.trim(value);
+        if (!value) return;
+        // Prevent duplicate
+        var exists = false;
+        $('#el-bk-client-pattern-tags .el-bk-pattern-tag').each(function () {
+            if ($(this).data('value') === value) { exists = true; }
+        });
+        if (exists) return;
+
+        var $tag = $('<span class="el-bk-pattern-tag">')
+            .text(value)
+            .attr('data-value', value)
+            .append(' <button type="button" class="el-bk-pattern-tag-remove" aria-label="Remove">&times;</button>');
+        $('#el-bk-client-pattern-tags').append($tag);
+        elBkRebuildPatternHidden();
+    }
+
+    function elBkResetClientForm() {
+        $('#el-bk-client-id').val('');
+        $('#el-bk-client-name').val('');
+        $('#el-bk-client-short-name').val('');
+        $('#el-bk-client-ein').val('');
+        $('#el-bk-client-contact-name').val('');
+        $('#el-bk-client-contact-email').val('');
+        $('#el-bk-client-contact-phone').val('');
+        $('#el-bk-client-address').val('');
+        $('#el-bk-client-contract-type').val('');
+        $('#el-bk-client-status').val('active');
+        $('#el-bk-client-notes').val('');
+        $('#el-bk-client-pattern-input').val('');
+        $('#el-bk-client-pattern-tags').empty();
+        $('#el-bk-client-bank-patterns').val('');
+        $('#el-bk-client-form-title').text('Add Client');
+    }
+
+    // Open form for new client
+    $('#el-bk-add-client-btn').on('click', function () {
+        elBkResetClientForm();
+        $('#el-bk-client-form').slideDown();
+        $('html, body').animate({ scrollTop: $('#el-bk-client-form').offset().top - 60 }, 200);
+    });
+
+    // Open form for edit
+    $(document).on('click', '.el-bk-edit-client-btn', function () {
+        var $btn = $(this);
+        elBkResetClientForm();
+        $('#el-bk-client-id').val($btn.data('id'));
+        $('#el-bk-client-name').val($btn.data('client-name'));
+        $('#el-bk-client-short-name').val($btn.data('short-name'));
+        $('#el-bk-client-ein').val($btn.data('ein'));
+        $('#el-bk-client-contact-name').val($btn.data('contact-name'));
+        $('#el-bk-client-contact-email').val($btn.data('contact-email'));
+        $('#el-bk-client-contact-phone').val($btn.data('contact-phone'));
+        $('#el-bk-client-address').val($btn.data('address'));
+        $('#el-bk-client-contract-type').val($btn.data('contract-type'));
+        $('#el-bk-client-status').val($btn.data('status'));
+        $('#el-bk-client-notes').val($btn.data('notes'));
+        // Rebuild pattern tags
+        var raw = $btn.data('bank-patterns') || '';
+        var lines = raw.split(/\n/).map($.trim).filter(Boolean);
+        lines.forEach(elBkAddPatternTag);
+        $('#el-bk-client-form-title').text('Edit Client');
+        $('#el-bk-client-form').slideDown();
+        $('html, body').animate({ scrollTop: $('#el-bk-client-form').offset().top - 60 }, 200);
+    });
+
+    // Cancel form
+    $('#el-bk-cancel-client-btn').on('click', function () {
+        $('#el-bk-client-form').slideUp();
+    });
+
+    // Add pattern tag via button
+    $('#el-bk-client-add-pattern-btn').on('click', function () {
+        var val = $('#el-bk-client-pattern-input').val();
+        elBkAddPatternTag(val);
+        $('#el-bk-client-pattern-input').val('').focus();
+    });
+
+    // Add pattern tag via Enter key
+    $('#el-bk-client-pattern-input').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var val = $(this).val();
+            elBkAddPatternTag(val);
+            $(this).val('');
+        }
+    });
+
+    // Remove pattern tag
+    $(document).on('click', '.el-bk-pattern-tag-remove', function () {
+        $(this).closest('.el-bk-pattern-tag').remove();
+        elBkRebuildPatternHidden();
+    });
+
+    // Save client
+    $('#el-bk-save-client-btn').on('click', function () {
+        var $btn = $(this).prop('disabled', true).text('Saving…');
+        elBkAjax('bk_save_client', {
+            id:            $('#el-bk-client-id').val(),
+            client_name:   $('#el-bk-client-name').val(),
+            short_name:    $('#el-bk-client-short-name').val(),
+            ein:           $('#el-bk-client-ein').val(),
+            contact_name:  $('#el-bk-client-contact-name').val(),
+            contact_email: $('#el-bk-client-contact-email').val(),
+            contact_phone: $('#el-bk-client-contact-phone').val(),
+            address:       $('#el-bk-client-address').val(),
+            contract_type: $('#el-bk-client-contract-type').val(),
+            status:        $('#el-bk-client-status').val(),
+            bank_patterns: $('#el-bk-client-bank-patterns').val(),
+            notes:         $('#el-bk-client-notes').val(),
+        }, function () {
+            location.reload();
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Save Client');
+            alert('Error: ' + msg);
+        });
+    });
+
+    // Delete client
+    $(document).on('click', '.el-bk-delete-client-btn', function () {
+        var name = $(this).data('name') || 'this client';
+        if (!confirm('Delete ' + name + '? This cannot be undone.')) return;
+        var $btn = $(this).prop('disabled', true).text('Deleting…');
+        elBkAjax('bk_delete_client', { id: $btn.data('id') }, function () {
+            $btn.closest('tr').fadeOut(300, function () { $(this).remove(); });
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Delete');
+            alert('Error: ' + msg);
+        });
+    });
+
+    // Client search filter
+    $('#el-bk-client-search').on('input', function () {
+        var q = $(this).val().toLowerCase();
+        $('#el-bk-clients-table tbody tr.el-bk-client-row').each(function () {
+            var name = ($(this).data('name') || '').toLowerCase();
+            $(this).toggle(q === '' || name.indexOf(q) !== -1);
+        });
+    });
+
+    // Status filter
+    $('#el-bk-client-status-filter').on('change', function () {
+        var status = $(this).val();
+        $('#el-bk-clients-table tbody tr.el-bk-client-row').each(function () {
+            var rowStatus = $(this).data('status') || '';
+            $(this).toggle(status === '' || rowStatus === status);
+        });
+    });
+
     // Detach receipt from expense tab panel
     $(document).on('click', '.el-bk-expense-detach-btn', function () {
         if (!confirm('Detach this receipt from the transaction?')) return;
