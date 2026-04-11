@@ -878,9 +878,9 @@
         var id      = $row.data('receiptId') || $row.data('receipt-id');
         var colspan = $row.find('td').length;
 
-        $btn.prop('disabled', true).text('Searching…');
+        $btn.prop('disabled', true).text('Asking AI…');
 
-        elBkAjax('bk_suggest_receipt_matches', { receipt_id: id }, function (candidates) {
+        elBkAjax('bk_suggest_receipt_matches', { receipt_id: id, tax_year: elBookkeeping.taxYear || 0 }, function (candidates) {
             $btn.prop('disabled', false).text('Close');
 
             var $matchRow = $('<tr class="el-bk-receipt-match-row"><td colspan="' + colspan + '"></td></tr>');
@@ -888,8 +888,8 @@
 
             if (!candidates || candidates.length === 0) {
                 $inner.append(
-                    '<p class="el-bk-receipt-match-empty">No matching transactions found for this receipt. ' +
-                    'Check that the receipt has an amount and date, then verify the transaction exists in the Expenses tab.</p>'
+                    '<p class="el-bk-receipt-match-empty">AI found no matching transactions for this receipt. ' +
+                    'Check that the receipt has a merchant name and date, then verify the expense exists in the Expenses tab.</p>'
                 );
             } else {
                 var $table = $(
@@ -899,7 +899,8 @@
                             '<th>Date</th>' +
                             '<th>Amount</th>' +
                             '<th>Category</th>' +
-                            '<th>Match</th>' +
+                            '<th>Confidence</th>' +
+                            '<th>AI Reasoning</th>' +
                             '<th></th>' +
                         '</tr></thead>' +
                         '<tbody></tbody>' +
@@ -907,20 +908,17 @@
                 );
 
                 candidates.forEach(function (c) {
-                    var stars = '';
-                    var maxScore = 12;
-                    var filled  = Math.min(c.score, maxScore);
-                    // Display as 6 visual stars (each star = 2 pts) so the column stays narrow
-                    var starsFilled = Math.round(filled / 2);
-                    for (var i = 0; i < starsFilled; i++) stars += '★';
-                    for (var j = starsFilled; j < 6; j++) stars += '☆';
+                    var conf = (c.confidence || 'low').toLowerCase();
                     $table.find('tbody').append(
                         $('<tr>').append(
                             $('<td>').text(c.merchant || '—'),
                             $('<td>').text(c.date || '—'),
                             $('<td>').text('$' + c.amount),
                             $('<td>').text(c.category || '—'),
-                            $('<td class="el-bk-match-score">').html(stars),
+                            $('<td>').append(
+                                $('<span class="el-bk-conf-badge el-bk-conf-' + conf + '">').text(conf)
+                            ),
+                            $('<td class="el-bk-match-reason">').text(c.reason || ''),
                             $('<td>').append(
                                 $('<button class="el-btn el-btn-primary el-btn-sm el-bk-attach-match-btn">')
                                     .text('Attach')

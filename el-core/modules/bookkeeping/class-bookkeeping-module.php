@@ -2160,17 +2160,11 @@ class EL_Bookkeeping_Module {
     }
 
     /**
-     * Auto-match: suggest up to 5 unattached expense transactions for an unmatched receipt.
+     * Auto-match: use AI to suggest up to 3 unattached expense transactions for an unmatched receipt.
      *
-     * Matching strategy (per user feedback):
-     *   - PRIMARY: merchant name keyword overlap (LIKE filter in SQL — name is required)
-     *   - Date: wide ±30 day window at SQL level to handle bank posting delays; tighter = higher score
-     *   - Amount: scoring bonus only — never required (tips/fees mean receipt ≠ card charge)
-     *
-     * Scoring:
-     *   +2 per matching keyword (max +6)
-     *   Exact amount (±$0.01): +3 | within $5: +2 | within $20: +1
-     *   Exact date: +3 | within 3 days: +2 | within 7 days: +1
+     * Fetches candidate expense transactions (same tax year, ±60 days if date available),
+     * then sends receipt details + candidates to the AI for reasoning-based matching.
+     * AI handles abbreviations, location suffixes, tip differences, bank posting delays, etc.
      */
     public function handle_suggest_receipt_matches( array $data ): void {
         if ( ! el_core_can( 'manage_bookkeeping' ) ) {
@@ -2196,107 +2190,138 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $receipt_merchant = strtolower( trim( $receipt->ai_extracted_merchant ?? '' ) );
-        $amount           = isset( $receipt->ai_extracted_amount ) ? (float) $receipt->ai_extracted_amount : null;
-        $date             = $receipt->ai_extracted_date ?: null;
+        $merchant  = trim( $receipt->ai_extracted_merchant ?? '' );
+        $amount    = isset( $receipt->ai_extracted_amount ) ? (float) $receipt->ai_extracted_amount : null;
+        $date      = $receipt->ai_extracted_date ?: null;
+        $category  = $receipt->ai_extracted_category ?? '';
+        $location  = $receipt->location ?? '';
+        $tax_year  = absint( $data['tax_year'] ?? 0 );
 
-        if ( ! $receipt_merchant ) {
-            EL_AJAX_Handler::success( [], __( 'Receipt has no merchant name to match against.', 'el-core' ) );
+        if ( ! $merchant && ! $amount && ! $date ) {
+            EL_AJAX_Handler::success( [], __( 'Receipt has no details to match against.', 'el-core' ) );
             return;
         }
 
-        // Build keyword list — words ≥ 3 chars, strip common noise words
-        $noise = [ 'the', 'and', 'for', 'inc', 'llc', 'ltd', 'corp', 'dba', 'pos', 'pmt' ];
-        $words = array_values( array_filter(
-            preg_split( '/\W+/', $receipt_merchant ),
-            fn( string $w ) => strlen( $w ) >= 3 && ! in_array( $w, $noise, true )
-        ) );
+        // ── Fetch candidates ──────────────────────────────────────────────────────
+        $where  = [ 'type = %s', 'receipt_id = 0' ];
+        $values = [ 'expense' ];
 
-        if ( empty( $words ) ) {
-            EL_AJAX_Handler::success( [], __( 'No usable keywords in merchant name.', 'el-core' ) );
-            return;
+        if ( $tax_year ) {
+            $where[]  = 'tax_year = %d';
+            $values[] = $tax_year;
         }
 
-        // SQL: match any keyword via LIKE (OR) — name is the only hard filter
-        $like_clauses = [];
-        $values       = [ 'expense' ];
-        foreach ( $words as $word ) {
-            $like_clauses[] = 'LOWER(merchant) LIKE %s';
-            $values[]       = '%' . $wpdb->esc_like( $word ) . '%';
-        }
-
-        $where = [ 'type = %s', 'receipt_id = 0', '( ' . implode( ' OR ', $like_clauses ) . ' )' ];
-
-        // Date window: ±30 days to handle bank posting delays. No date = no date filter.
+        // Use a wide ±60 day window if we have a date, to handle bank posting delays
         if ( $date ) {
-            $where[]  = 'ABS(DATEDIFF(date, %s)) <= 30';
+            $where[]  = 'ABS(DATEDIFF(date, %s)) <= 60';
             $values[] = $date;
         }
 
         $sql = $wpdb->prepare(
             'SELECT id, merchant, date, amount, category FROM ' . $this->table( 'el_bk_transactions' ) .
-            ' WHERE ' . implode( ' AND ', $where ) . ' LIMIT 30',
+            ' WHERE ' . implode( ' AND ', $where ) . ' ORDER BY date DESC LIMIT 25',
             ...$values
         );
 
         $candidates = $wpdb->get_results( $sql );
 
         if ( empty( $candidates ) ) {
-            EL_AJAX_Handler::success( [], __( 'No matching transactions found.', 'el-core' ) );
+            EL_AJAX_Handler::success( [], __( 'No expense transactions found in this period.', 'el-core' ) );
             return;
         }
 
-        $scored = [];
-        foreach ( $candidates as $txn ) {
-            $score     = 0;
-            $txn_lower = strtolower( $txn->merchant );
-
-            // Keyword scoring — primary signal
-            $kw_hits = 0;
-            foreach ( $words as $word ) {
-                if ( str_contains( $txn_lower, $word ) ) {
-                    $kw_hits++;
-                }
-            }
-            $score += min( $kw_hits * 2, 6 ); // +2 per word, max +6
-
-            // Amount scoring — bonus only (tips/fees mean receipt ≠ card charge)
-            if ( $amount && $txn->amount ) {
-                $diff = abs( (float) $txn->amount - $amount );
-                if ( $diff < 0.01 )      $score += 3;
-                elseif ( $diff < 5.00 )  $score += 2;
-                elseif ( $diff < 20.00 ) $score += 1;
-            }
-
-            // Date scoring — bonus only (bank posting vs actual charge date)
-            if ( $date && $txn->date ) {
-                $days = (int) abs( ( new DateTime( $txn->date ) )->diff( new DateTime( $date ) )->days );
-                if ( $days === 0 )      $score += 3;
-                elseif ( $days <= 3 )  $score += 2;
-                elseif ( $days <= 7 )  $score += 1;
-            }
-
-            // Only include if there is at least one keyword hit
-            if ( $kw_hits > 0 ) {
-                $scored[] = [
-                    'id'       => (int) $txn->id,
-                    'merchant' => $txn->merchant,
-                    'date'     => $txn->date,
-                    'amount'   => number_format( (float) $txn->amount, 2 ),
-                    'category' => $txn->category,
-                    'score'    => $score,
-                ];
-            }
-        }
-
-        if ( empty( $scored ) ) {
-            EL_AJAX_Handler::success( [], __( 'No matching transactions found.', 'el-core' ) );
+        if ( ! $this->core || ! $this->core->ai ) {
+            EL_AJAX_Handler::error( __( 'AI service unavailable.', 'el-core' ) );
             return;
         }
 
-        usort( $scored, fn( array $a, array $b ) => $b['score'] <=> $a['score'] );
+        // ── Build prompt ──────────────────────────────────────────────────────────
+        $receipt_info = array_filter( [
+            'merchant' => $merchant ?: null,
+            'date'     => $date,
+            'amount'   => $amount ? '$' . number_format( $amount, 2 ) : null,
+            'category' => $category ?: null,
+            'location' => $location ?: null,
+        ] );
 
-        EL_AJAX_Handler::success( array_slice( $scored, 0, 5 ), __( 'Matches found.', 'el-core' ) );
+        $candidates_list = array_map( fn( object $t ) => [
+            'id'       => (int) $t->id,
+            'merchant' => $t->merchant,
+            'date'     => $t->date,
+            'amount'   => '$' . number_format( (float) $t->amount, 2 ),
+            'category' => $t->category,
+        ], $candidates );
+
+        $system = implode( "\n", [
+            'You are a bookkeeping assistant. Your job is to match a receipt to the correct bank expense transaction.',
+            'The merchant name on receipts often differs from what appears in bank records:',
+            '  - Bank records may append a city, state, or location code (e.g. "Houston\'s Atlanta GA")',
+            '  - Bank records may use abbreviations or alternate descriptions',
+            '  - Restaurant charges in the bank include the tip; the receipt shows pre-tip total',
+            '  - The bank may post the charge 1–5 days after the actual purchase date',
+            'Return ONLY a valid JSON array — no markdown, no explanation outside the JSON.',
+            'Each element: {"id": <int>, "confidence": "high|medium|low", "reason": "<one sentence>"}',
+            'Return up to 3 matches ordered by confidence. Return [] if nothing is a reasonable match.',
+        ] );
+
+        $user = "Receipt:\n" . json_encode( $receipt_info, JSON_PRETTY_PRINT )
+              . "\n\nCandidate transactions:\n" . json_encode( $candidates_list, JSON_PRETTY_PRINT );
+
+        // ── Call AI ───────────────────────────────────────────────────────────────
+        $ai_response = $this->core->ai->complete( [
+            'system' => $system,
+            'user'   => $user,
+        ] );
+
+        if ( ! $ai_response ) {
+            EL_AJAX_Handler::error( __( 'AI did not return a response. Please try again.', 'el-core' ) );
+            return;
+        }
+
+        // Strip markdown fences if present
+        $json_str = trim( $ai_response );
+        if ( preg_match( '/```(?:json)?\s*([\s\S]*?)```/s', $json_str, $m ) ) {
+            $json_str = trim( $m[1] );
+        }
+
+        $ai_matches = json_decode( $json_str, true );
+
+        if ( ! is_array( $ai_matches ) ) {
+            EL_AJAX_Handler::error( __( 'AI returned an unexpected format. Please try again.', 'el-core' ) );
+            return;
+        }
+
+        if ( empty( $ai_matches ) ) {
+            EL_AJAX_Handler::success( [], __( 'AI found no matching transactions.', 'el-core' ) );
+            return;
+        }
+
+        // ── Map back to full transaction data ─────────────────────────────────────
+        $txn_map = [];
+        foreach ( $candidates as $t ) {
+            $txn_map[ (int) $t->id ] = $t;
+        }
+
+        $result = [];
+        foreach ( $ai_matches as $match ) {
+            $id = absint( $match['id'] ?? 0 );
+            if ( ! $id || ! isset( $txn_map[ $id ] ) ) {
+                continue;
+            }
+            $t        = $txn_map[ $id ];
+            $conf     = sanitize_text_field( $match['confidence'] ?? 'low' );
+            $result[] = [
+                'id'         => $id,
+                'merchant'   => $t->merchant,
+                'date'       => $t->date,
+                'amount'     => number_format( (float) $t->amount, 2 ),
+                'category'   => $t->category,
+                'confidence' => in_array( $conf, [ 'high', 'medium', 'low' ], true ) ? $conf : 'low',
+                'reason'     => sanitize_text_field( $match['reason'] ?? '' ),
+            ];
+        }
+
+        EL_AJAX_Handler::success( $result, __( 'AI matches found.', 'el-core' ) );
     }
 
     public function handle_attach_receipt( array $data ): void {
