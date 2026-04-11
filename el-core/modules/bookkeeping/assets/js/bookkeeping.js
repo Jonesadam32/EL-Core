@@ -1951,4 +1951,53 @@
         });
     });
 
+    // ── Income Tab — Client Assignment (Phase A.4) ──────────────────────────────
+
+    // Assign client to income transaction
+    $(document).on('change', '.el-bk-assign-client-select', function () {
+        var $select        = $(this);
+        var transactionId  = $select.attr('data-transaction-id');
+        var clientId       = $select.val();
+        if (!clientId) return;
+
+        elBkAjax('bk_assign_client_to_transaction', {
+            transaction_id: transactionId,
+            client_id: clientId
+        }, function (res) {
+            var $cell = $select.parent();
+            $cell.html(
+                '<span class="el-bk-client-badge">' + res.client_name +
+                ' <button class="el-bk-unassign-client" data-transaction-id="' + transactionId + '">\u00d7</button></span>'
+            );
+            refreshIncomeSummaryWidget();
+        }, function (msg) {
+            alert('Error: ' + msg);
+            $select.val('');
+        });
+    });
+
+    // Unassign client from income transaction
+    $(document).on('click', '.el-bk-unassign-client', function () {
+        var transactionId = $(this).attr('data-transaction-id');
+        elBkAjax('bk_unassign_client', { transaction_id: transactionId }, function () {
+            location.reload();
+        });
+    });
+
+    // Refresh reconciliation summary widget
+    function refreshIncomeSummaryWidget() {
+        if (!$('.el-bk-income-summary-widget').length) return;
+        elBkAjax('bk_get_income_summary', { tax_year: elBookkeeping.taxYear }, function (res) {
+            $('#el-bk-income-reconciled-count').text(res.reconciled_count + ' of ' + res.total_with_1099);
+            $('#el-bk-income-unassigned').text(res.unassigned_count + ' ($' + parseFloat(res.unassigned_total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ')');
+            var pct = res.total_with_1099 > 0 ? Math.round((res.reconciled_count / res.total_with_1099) * 100) : 0;
+            $('#el-bk-income-progress-bar').css('width', pct + '%');
+        });
+    }
+
+    // Load widget on page ready
+    $(document).ready(function () {
+        refreshIncomeSummaryWidget();
+    });
+
 }(jQuery));

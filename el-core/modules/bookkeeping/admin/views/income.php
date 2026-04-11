@@ -5,6 +5,7 @@
  * @var EL_Bookkeeping_Module $module
  * @var int                   $tax_year
  * @var array                 $prefetch_income
+ * @var array                 $prefetch_clients
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -18,6 +19,14 @@ $taxable       = array_filter( $transactions, fn( $t ) => ! in_array( $t->catego
 $total_all     = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions ) );
 $total_taxable = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable ) );
 $business_name = $module->get_business_name();
+
+// Build client lookup map: id => display name
+$client_map = [];
+if ( ! empty( $prefetch_clients ) ) {
+    foreach ( $prefetch_clients as $c ) {
+        $client_map[ (int) $c->id ] = $c->short_name ?: $c->client_name;
+    }
+}
 ?>
 
 <div class="el-bk-tab-header">
@@ -56,6 +65,22 @@ $business_name = $module->get_business_name();
     </div>
 </div>
 
+<?php if ( ! empty( $client_map ) ) : ?>
+<div class="el-bk-income-summary-widget">
+    <h4><?php echo esc_html( sprintf( __( 'Income Reconciliation: %d', 'el-core' ), $tax_year ) ); ?></h4>
+    <div class="el-bk-income-summary-row">
+        <span><?php esc_html_e( 'Clients Reconciled:', 'el-core' ); ?> <strong id="el-bk-income-reconciled-count"><?php esc_html_e( '…', 'el-core' ); ?></strong></span>
+        <div class="el-bk-income-progress-bar">
+            <div class="el-bk-income-progress-fill" id="el-bk-income-progress-bar" style="width:0%"></div>
+        </div>
+    </div>
+    <div class="el-bk-income-summary-row">
+        <span><?php esc_html_e( 'Unassigned Deposits:', 'el-core' ); ?> <strong id="el-bk-income-unassigned"><?php esc_html_e( '…', 'el-core' ); ?></strong></span>
+        <a href="?page=els-bookkeeping&tab=clients"><?php esc_html_e( 'View All Clients →', 'el-core' ); ?></a>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="el-bk-action-row">
     <div class="el-bk-date-range">
         <label><?php esc_html_e( 'From', 'el-core' ); ?>
@@ -79,6 +104,7 @@ $business_name = $module->get_business_name();
             <tr>
                 <th>#</th>
                 <th><?php esc_html_e( 'Category', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Client', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Amount', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Merchant / Description', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Date', 'el-core' ); ?></th>
@@ -87,7 +113,10 @@ $business_name = $module->get_business_name();
             </tr>
         </thead>
         <tbody>
-            <?php foreach ( $transactions as $i => $t ) : ?>
+            <?php foreach ( $transactions as $i => $t ) :
+                $assigned_client_id   = (int) ( $t->client_id ?? 0 );
+                $assigned_client_name = $assigned_client_id ? ( $client_map[ $assigned_client_id ] ?? __( 'Unknown', 'el-core' ) ) : '';
+            ?>
             <tr class="el-bk-transaction-row el-bk-row--classified" data-id="<?php echo esc_attr( $t->id ); ?>" data-date="<?php echo esc_attr( $t->date ); ?>">
                 <td><?php echo esc_html( $i + 1 ); ?></td>
                 <td>
@@ -99,6 +128,23 @@ $business_name = $module->get_business_name();
                             </option>
                         <?php endforeach; ?>
                     </select>
+                </td>
+                <td class="el-bk-client-cell">
+                    <?php if ( $assigned_client_id && $assigned_client_name ) : ?>
+                        <span class="el-bk-client-badge">
+                            <?php echo esc_html( $assigned_client_name ); ?>
+                            <button class="el-bk-unassign-client" data-transaction-id="<?php echo esc_attr( $t->id ); ?>">×</button>
+                        </span>
+                    <?php elseif ( ! empty( $prefetch_clients ) ) : ?>
+                        <select class="el-bk-assign-client-select" data-transaction-id="<?php echo esc_attr( $t->id ); ?>">
+                            <option value=""><?php esc_html_e( '— Assign —', 'el-core' ); ?></option>
+                            <?php foreach ( $prefetch_clients as $c ) : ?>
+                                <option value="<?php echo esc_attr( $c->id ); ?>">
+                                    <?php echo esc_html( $c->short_name ?: $c->client_name ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php endif; ?>
                 </td>
                 <td class="el-bk-amount">$<?php echo esc_html( number_format( (float) $t->amount, 2 ) ); ?></td>
                 <td><?php echo esc_html( $t->merchant ); ?></td>
@@ -122,7 +168,7 @@ $business_name = $module->get_business_name();
         </tbody>
         <tfoot>
             <tr class="el-bk-total-row">
-                <td colspan="2"><strong><?php esc_html_e( 'Total (all)', 'el-core' ); ?></strong></td>
+                <td colspan="3"><strong><?php esc_html_e( 'Total (all)', 'el-core' ); ?></strong></td>
                 <td class="el-bk-amount"><strong>$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></strong></td>
                 <td colspan="4"></td>
             </tr>

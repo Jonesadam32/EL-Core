@@ -95,6 +95,11 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_save_1099',                      [ $this, 'handle_save_1099' ] );
         add_action( 'el_core_ajax_bk_delete_1099',                    [ $this, 'handle_delete_1099' ] );
         add_action( 'el_core_ajax_bk_calculate_1099_from_deposits',   [ $this, 'handle_calculate_1099_from_deposits' ] );
+
+        // ── Income Tab — Client Assignment (Phase A.4) ────────────
+        add_action( 'el_core_ajax_bk_assign_client_to_transaction', [ $this, 'handle_assign_client' ] );
+        add_action( 'el_core_ajax_bk_unassign_client',              [ $this, 'handle_unassign_client' ] );
+        add_action( 'el_core_ajax_bk_get_income_summary',           [ $this, 'handle_get_income_summary' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -201,8 +206,8 @@ class EL_Bookkeeping_Module {
         $prefetch_contract_labor = ( $active_tab === 'contractors' )
                                     ? $this->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year, 'category' => 'Contract Labor' ] )
                                     : [];
-        $prefetch_clients     = ( $active_tab === 'clients' )
-                                    ? $this->get_clients()
+        $prefetch_clients     = in_array( $active_tab, [ 'clients', 'income' ], true )
+                                    ? $this->get_clients( 'active' )
                                     : [];
         $prefetch_1099s       = ( $active_tab === 'clients' )
                                     ? $this->get_1099s()
@@ -540,9 +545,15 @@ class EL_Bookkeeping_Module {
         return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY name ASC" ) ?: [];
     }
 
-    public function get_clients(): array {
+    public function get_clients( string $status = '' ): array {
         global $wpdb;
         $table = $this->table( 'el_bk_clients' );
+        if ( $status ) {
+            return $wpdb->get_results( $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE status = %s ORDER BY client_name ASC",
+                $status
+            ) ) ?: [];
+        }
         return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY client_name ASC" ) ?: [];
     }
 
@@ -2784,5 +2795,90 @@ class EL_Bookkeeping_Module {
         ) );
 
         EL_AJAX_Handler::success( [ 'total' => round( (float) $total, 2 ) ] );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // INCOME TAB — CLIENT ASSIGNMENT (Phase A.4)
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_assign_client( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $transaction_id = absint( $data['transaction_id'] ?? 0 );
+        $client_id      = absint( $data['client_id'] ?? 0 );
+
+        if ( ! $transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->update(
+            $this->table( 'el_bk_transactions' ),
+            [ 'client_id' => $client_id ],
+            [ 'id' => $transaction_id ],
+            [ '%d' ],
+            [ '%d' ]
+        );
+
+        $client_name = '';
+        if ( $client_id ) {
+            $client = $wpdb->get_row( $wpdb->prepare(
+                "SELECT short_name, client_name FROM {$this->table('el_bk_clients')} WHERE id = %d",
+                $client_id
+            ) );
+            if ( $client ) {
+                $client_name = $client->short_name ?: $client->client_name;
+            }
+        }
+
+        EL_AJAX_Handler::success( [
+            'transaction_id' => $transaction_id,
+            'client_id'      => $client_id,
+            'client_name'    => $client_name,
+        ] );
+    }
+
+    public function handle_unassign_client( array $data ): void {
+        $data['client_id'] = 0;
+        $this->handle_assign_client( $data );
+    }
+
+    public function handle_get_income_summary( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $tax_year = absint( $data['tax_year'] ?? gmdate( 'Y' ) );
+        global $wpdb;
+
+        $reconciled = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->table('el_bk_1099_nec')}
+             WHERE tax_year = %d AND reconciliation_status = 'reconciled'",
+            $tax_year
+        ) );
+
+        $total_with_1099 = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->table('el_bk_1099_nec')} WHERE tax_year = %d",
+            $tax_year
+        ) );
+
+        $unassigned = $wpdb->get_row( $wpdb->prepare(
+            "SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
+             FROM {$this->table('el_bk_transactions')}
+             WHERE type = 'income' AND tax_year = %d AND (client_id = 0 OR client_id IS NULL)",
+            $tax_year
+        ) );
+
+        EL_AJAX_Handler::success( [
+            'reconciled_count' => $reconciled,
+            'total_with_1099'  => $total_with_1099,
+            'unassigned_count' => (int) $unassigned->count,
+            'unassigned_total' => round( (float) $unassigned->total, 2 ),
+        ] );
     }
 }

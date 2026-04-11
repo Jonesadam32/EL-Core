@@ -1680,3 +1680,74 @@
     color: #1d4ed8;
 }
 
+/* ── Income Tab — Client Assignment (Phase A.4) ─────────────────────────── */
+
+.el-admin-wrap .el-bk-assign-client-select {
+    min-width: 140px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+.el-admin-wrap .el-bk-client-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #e8f4e8;
+    border: 1px solid #4caf50;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    color: #2e7d32;
+    white-space: nowrap;
+}
+
+.el-admin-wrap .el-bk-unassign-client {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    line-height: 1;
+}
+
+.el-admin-wrap .el-bk-unassign-client:hover {
+    color: #c62828;
+}
+
+.el-admin-wrap .el-bk-income-summary-widget {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+
+.el-admin-wrap .el-bk-income-summary-widget h4 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: #495057;
+}
+
+.el-admin-wrap .el-bk-income-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.el-admin-wrap .el-bk-income-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.el-admin-wrap .el-bk-income-progress-fill {
+    height: 100%;
+    background: #4caf50;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
