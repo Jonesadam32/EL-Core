@@ -1786,4 +1786,154 @@
         });
     });
 
+    // ── 1099-NEC Records ──────────────────────────────────────────────────────
+
+    function elBkResetNecForm() {
+        $('#el-bk-nec-id').val('');
+        $('#el-bk-nec-doc-attachment-id').val('');
+        $('#el-bk-nec-client-id').val('');
+        $('#el-bk-nec-tax-year').val(new Date().getFullYear());
+        $('input[name="el-bk-nec-doc-status"][value="received"]').prop('checked', true);
+        $('#el-bk-nec-box1-amount').val('');
+        $('#el-bk-nec-date-received').val('');
+        $('#el-bk-nec-doc-file').val('');
+        $('#el-bk-nec-doc-current').hide().empty();
+        $('#el-bk-nec-substitute-docs').val('');
+        $('#el-bk-nec-reconciliation-status').val('pending');
+        $('#el-bk-nec-notes').val('');
+        $('#el-bk-nec-calculate-result').text('');
+        $('#el-bk-nec-form-title').text('Add 1099-NEC Record');
+        elBkNecUpdateConditionalFields();
+    }
+
+    function elBkNecUpdateConditionalFields() {
+        var status = $('input[name="el-bk-nec-doc-status"]:checked').val();
+        if (status === 'received') {
+            $('#el-bk-nec-date-row, #el-bk-nec-doc-row').show();
+            $('#el-bk-nec-substitute-row').hide();
+        } else {
+            $('#el-bk-nec-date-row, #el-bk-nec-doc-row').hide();
+            $('#el-bk-nec-substitute-row').show();
+        }
+    }
+
+    // Document status radio → show/hide conditional fields
+    $(document).on('change', 'input[name="el-bk-nec-doc-status"]', function () {
+        elBkNecUpdateConditionalFields();
+    });
+
+    // Open 1099 form for a specific client (from "+ 1099" row button)
+    $(document).on('click', '.el-bk-add-nec-btn', function () {
+        var $btn = $(this);
+        elBkResetNecForm();
+        $('#el-bk-nec-client-id').val($btn.attr('data-client-id'));
+        $('#el-bk-nec-form-title').text('Add 1099-NEC: ' + ($btn.attr('data-client-name') || ''));
+        $('#el-bk-nec-form').slideDown();
+        $('html, body').animate({ scrollTop: $('#el-bk-nec-form').offset().top - 60 }, 200);
+    });
+
+    // Open 1099 form for editing existing record
+    $(document).on('click', '.el-bk-edit-nec-btn', function () {
+        var $btn = $(this);
+        elBkResetNecForm();
+        $('#el-bk-nec-id').val($btn.attr('data-id'));
+        $('#el-bk-nec-doc-attachment-id').val($btn.attr('data-document-attachment-id') || '');
+        $('#el-bk-nec-client-id').val($btn.attr('data-client-id'));
+        $('#el-bk-nec-tax-year').val($btn.attr('data-tax-year'));
+        $('input[name="el-bk-nec-doc-status"][value="' + $btn.attr('data-document-status') + '"]').prop('checked', true);
+        $('#el-bk-nec-box1-amount').val($btn.attr('data-box1-amount'));
+        $('#el-bk-nec-date-received').val($btn.attr('data-date-received') || '');
+        $('#el-bk-nec-substitute-docs').val($btn.attr('data-substitute-docs') || '');
+        $('#el-bk-nec-reconciliation-status').val($btn.attr('data-reconciliation-status') || 'pending');
+        $('#el-bk-nec-notes').val($btn.attr('data-notes') || '');
+        elBkNecUpdateConditionalFields();
+        var docUrl = $btn.attr('data-doc-url') || '';
+        if (docUrl) {
+            $('#el-bk-nec-doc-current')
+                .html('Current doc: <a href="' + docUrl + '" target="_blank">View</a> — upload a new file to replace')
+                .show();
+        }
+        $('#el-bk-nec-form-title').text('Edit 1099-NEC Record');
+        $('#el-bk-nec-form').slideDown();
+        $('html, body').animate({ scrollTop: $('#el-bk-nec-form').offset().top - 60 }, 200);
+    });
+
+    // Cancel
+    $('#el-bk-cancel-nec-btn').on('click', function () {
+        $('#el-bk-nec-form').slideUp();
+    });
+
+    // Calculate from Deposits
+    $('#el-bk-nec-calculate-btn').on('click', function () {
+        var clientId = $('#el-bk-nec-client-id').val();
+        var taxYear  = $('#el-bk-nec-tax-year').val();
+        if (!clientId || !taxYear) {
+            alert('Please select a client and enter a tax year first.');
+            return;
+        }
+        var $btn = $(this).prop('disabled', true).text('Calculating…');
+        elBkAjax('bk_calculate_1099_from_deposits', { client_id: clientId, tax_year: taxYear }, function (res) {
+            $btn.prop('disabled', false).text('Calculate from Deposits');
+            var total = (res && typeof res.total !== 'undefined') ? parseFloat(res.total) : 0;
+            $('#el-bk-nec-box1-amount').val(total.toFixed(2));
+            $('#el-bk-nec-calculate-result').text('Matched deposits: $' + total.toFixed(2));
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Calculate from Deposits');
+            alert('Error: ' + msg);
+        });
+    });
+
+    // Save 1099-NEC record (FormData to support file upload)
+    $('#el-bk-save-nec-btn').on('click', function () {
+        var $btn = $(this).prop('disabled', true).text('Saving…');
+        var fd = new FormData();
+        fd.append('action',                  'el_core_action');
+        fd.append('el_action',               'bk_save_1099');
+        fd.append('nonce',                   nonce);
+        fd.append('id',                      $('#el-bk-nec-id').val());
+        fd.append('document_attachment_id',  $('#el-bk-nec-doc-attachment-id').val());
+        fd.append('client_id',               $('#el-bk-nec-client-id').val());
+        fd.append('tax_year',                $('#el-bk-nec-tax-year').val());
+        fd.append('document_status',         $('input[name="el-bk-nec-doc-status"]:checked').val());
+        fd.append('box1_amount',             $('#el-bk-nec-box1-amount').val());
+        fd.append('date_received',           $('#el-bk-nec-date-received').val());
+        fd.append('substitute_docs',         $('#el-bk-nec-substitute-docs').val());
+        fd.append('reconciliation_status',   $('#el-bk-nec-reconciliation-status').val());
+        fd.append('notes',                   $('#el-bk-nec-notes').val());
+        var fileInput = document.getElementById('el-bk-nec-doc-file');
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            fd.append('nec_doc_file', fileInput.files[0]);
+        }
+        $.ajax({
+            url: ajax, type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (res) {
+                $btn.prop('disabled', false).text('Save 1099-NEC Record');
+                if (res && res.success) {
+                    location.reload();
+                } else {
+                    var msg = (res && res.data && res.data.message) ? res.data.message : 'Unknown error';
+                    alert('Error: ' + msg);
+                }
+            },
+            error: function () {
+                $btn.prop('disabled', false).text('Save 1099-NEC Record');
+                alert('Request failed. Please try again.');
+            }
+        });
+    });
+
+    // Delete 1099-NEC record
+    $(document).on('click', '.el-bk-delete-nec-btn', function () {
+        var client = $(this).attr('data-client') || 'this client';
+        var year   = $(this).attr('data-year')   || '';
+        if (!confirm('Delete the ' + year + ' 1099-NEC for ' + client + '? This cannot be undone.')) return;
+        var $btn = $(this).prop('disabled', true).text('Deleting…');
+        elBkAjax('bk_delete_1099', { id: $btn.attr('data-id') }, function () {
+            $btn.closest('tr').fadeOut(300, function () { $(this).remove(); });
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Delete');
+            alert('Error: ' + msg);
+        });
+    });
+
 }(jQuery));

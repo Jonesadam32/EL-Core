@@ -1579,3 +1579,104 @@
     color: #991b1b;
 }
 
+/* ── 1099-NEC Form ─────────────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-nec-form-card {
+    margin-bottom: 20px;
+}
+
+.el-admin-wrap .el-bk-nec-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.el-admin-wrap .el-bk-nec-form-col--wide {
+    grid-column: span 2;
+}
+
+.el-admin-wrap .el-bk-nec-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.el-admin-wrap .el-bk-radio-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.el-admin-wrap .el-bk-radio-label input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.el-admin-wrap .el-bk-nec-doc-current {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #555;
+}
+
+/* 1099 records table */
+.el-admin-wrap .el-bk-nec-table th,
+.el-admin-wrap .el-bk-nec-table td {
+    vertical-align: middle;
+    padding: 10px 12px;
+}
+
+/* Document status badges */
+.el-admin-wrap .el-bk-nec-status--received {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.el-admin-wrap .el-bk-nec-status--missing {
+    background: #fef9c3;
+    color: #713f12;
+    border: 1px solid #fde68a;
+}
+
+.el-admin-wrap .el-bk-nec-status--substitute {
+    background: #ede9fe;
+    color: #4c1d95;
+    border: 1px solid #ddd6fe;
+}
+
+/* Reconciliation status badges */
+.el-admin-wrap .el-bk-rec-status--pending {
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+}
+
+.el-admin-wrap .el-bk-rec-status--reconciled {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.el-admin-wrap .el-bk-rec-status--discrepancy {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.el-admin-wrap .el-bk-doc-link {
+    font-size: 12px;
+    text-decoration: underline;
+    color: #2563eb;
+}
+
+.el-admin-wrap .el-bk-doc-link:hover {
+    color: #1d4ed8;
+}
+

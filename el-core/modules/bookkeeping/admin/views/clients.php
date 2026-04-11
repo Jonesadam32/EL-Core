@@ -181,6 +181,127 @@ $status_labels = [
     </div>
 </div><!-- #el-bk-client-form -->
 
+<!-- ── Section C: 1099-NEC Entry Form ──────────────────────────────────── -->
+<div id="el-bk-nec-form" class="el-bk-card el-bk-nec-form-card" style="display:none;">
+    <h3 id="el-bk-nec-form-title"><?php esc_html_e( 'Add 1099-NEC Record', 'el-core' ); ?></h3>
+    <input type="hidden" id="el-bk-nec-id" value="">
+    <input type="hidden" id="el-bk-nec-doc-attachment-id" value="">
+
+    <div class="el-bk-nec-form-grid">
+
+        <div class="el-bk-nec-form-col">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( 'Client', 'el-core' ); ?>
+                <select id="el-bk-nec-client-id" class="el-select">
+                    <option value=""><?php esc_html_e( '— Select Client —', 'el-core' ); ?></option>
+                    <?php foreach ( $clients as $c ) : ?>
+                        <option value="<?php echo esc_attr( $c->id ); ?>">
+                            <?php echo esc_html( $c->client_name . ( $c->short_name ? ' (' . $c->short_name . ')' : '' ) ); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+        </div>
+
+        <div class="el-bk-nec-form-col">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( 'Tax Year', 'el-core' ); ?>
+                <input type="number" id="el-bk-nec-tax-year" class="el-input el-bk-voice-input"
+                    value="<?php echo esc_attr( $tax_year ); ?>"
+                    placeholder="<?php esc_attr_e( 'e.g. 2025', 'el-core' ); ?>"
+                    min="2000" max="2099" step="1">
+            </label>
+        </div>
+
+        <div class="el-bk-nec-form-col el-bk-nec-form-col--wide">
+            <div class="el-bk-form-label"><?php esc_html_e( 'Document Status', 'el-core' ); ?></div>
+            <div class="el-bk-nec-radio-group">
+                <label class="el-bk-radio-label">
+                    <input type="radio" name="el-bk-nec-doc-status" value="received" checked>
+                    <?php esc_html_e( 'Received — 1099-NEC in hand', 'el-core' ); ?>
+                </label>
+                <label class="el-bk-radio-label">
+                    <input type="radio" name="el-bk-nec-doc-status" value="missing">
+                    <?php esc_html_e( 'Missing — never received', 'el-core' ); ?>
+                </label>
+                <label class="el-bk-radio-label">
+                    <input type="radio" name="el-bk-nec-doc-status" value="substitute">
+                    <?php esc_html_e( 'Substitute — using bank deposits instead', 'el-core' ); ?>
+                </label>
+            </div>
+        </div>
+
+        <div class="el-bk-nec-form-col">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( 'Box 1 Amount ($)', 'el-core' ); ?>
+                <input type="number" id="el-bk-nec-box1-amount" class="el-input el-bk-voice-input"
+                    placeholder="0.00" min="0" step="0.01">
+            </label>
+        </div>
+
+        <div class="el-bk-nec-form-col" id="el-bk-nec-date-row">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( 'Date Received', 'el-core' ); ?>
+                <input type="date" id="el-bk-nec-date-received" class="el-input el-bk-voice-input">
+            </label>
+        </div>
+
+        <div class="el-bk-nec-form-col" id="el-bk-nec-doc-row">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( '1099-NEC Document (PDF, JPG, PNG)', 'el-core' ); ?>
+                <input type="file" id="el-bk-nec-doc-file" class="el-input"
+                    accept=".pdf,.jpg,.jpeg,.png">
+            </label>
+            <div id="el-bk-nec-doc-current" class="el-bk-nec-doc-current" style="display:none;"></div>
+        </div>
+
+        <div class="el-bk-nec-form-col el-bk-nec-form-col--wide" id="el-bk-nec-substitute-row" style="display:none;">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( 'Substitute Documents / Notes', 'el-core' ); ?>
+                <span class="description" style="font-weight:normal;font-size:12px;display:block;margin-bottom:6px;">
+                    <?php esc_html_e( 'Describe the bank statements or other records being used in place of a 1099-NEC.', 'el-core' ); ?>
+                </span>
+                <textarea id="el-bk-nec-substitute-docs" class="el-textarea el-bk-voice-input" rows="3"
+                    placeholder="<?php esc_attr_e( 'e.g. Chase Bank deposits Jan–Dec 2025', 'el-core' ); ?>"></textarea>
+            </label>
+            <button type="button" class="el-btn el-btn-outline" id="el-bk-nec-calculate-btn"
+                style="margin-top:8px;">
+                <?php esc_html_e( 'Calculate from Deposits', 'el-core' ); ?>
+            </button>
+            <span id="el-bk-nec-calculate-result" class="el-bk-muted" style="margin-left:10px;font-size:13px;"></span>
+        </div>
+
+        <div class="el-bk-nec-form-col">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( 'Reconciliation Status', 'el-core' ); ?>
+                <select id="el-bk-nec-reconciliation-status" class="el-select">
+                    <option value="pending"><?php esc_html_e( 'Pending', 'el-core' ); ?></option>
+                    <option value="reconciled"><?php esc_html_e( 'Reconciled', 'el-core' ); ?></option>
+                    <option value="discrepancy"><?php esc_html_e( 'Discrepancy', 'el-core' ); ?></option>
+                </select>
+            </label>
+        </div>
+
+        <div class="el-bk-nec-form-col el-bk-nec-form-col--wide">
+            <label class="el-bk-form-label">
+                <?php esc_html_e( 'Notes', 'el-core' ); ?>
+                <textarea id="el-bk-nec-notes" class="el-textarea el-bk-voice-input" rows="3"
+                    placeholder="<?php esc_attr_e( 'Additional notes about this 1099-NEC record…', 'el-core' ); ?>"></textarea>
+            </label>
+        </div>
+
+    </div><!-- .el-bk-nec-form-grid -->
+
+    <div class="el-bk-form-actions">
+        <button class="el-btn el-btn-primary" id="el-bk-save-nec-btn">
+            <?php esc_html_e( 'Save 1099-NEC Record', 'el-core' ); ?>
+        </button>
+        <button class="el-btn el-btn-outline" id="el-bk-cancel-nec-btn">
+            <?php esc_html_e( 'Cancel', 'el-core' ); ?>
+        </button>
+    </div>
+</div><!-- #el-bk-nec-form -->
+
 <!-- ── Section A: Client List ──────────────────────────────────────────── -->
 <?php if ( empty( $clients ) ) : ?>
     <?php echo EL_Admin_UI::notice( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -235,6 +356,11 @@ $status_labels = [
                     <?php endif; ?>
                 </td>
                 <td class="el-bk-actions">
+                    <button class="el-btn el-btn-outline el-bk-add-nec-btn"
+                        data-client-id="<?php echo esc_attr( $c->id ); ?>"
+                        data-client-name="<?php echo esc_attr( $c->client_name ); ?>">
+                        <?php esc_html_e( '+ 1099', 'el-core' ); ?>
+                    </button>
                     <button class="el-btn el-btn-outline el-bk-edit-client-btn"
                         data-id="<?php echo esc_attr( $c->id ); ?>"
                         data-client-name="<?php echo esc_attr( $c->client_name ); ?>"
@@ -261,5 +387,115 @@ $status_labels = [
         </tbody>
     </table>
 </div><!-- .el-bk-table-wrap -->
+
+<?php endif; ?>
+
+<!-- ── Section D: 1099-NEC Records ─────────────────────────────────────── -->
+<div class="el-bk-section-header" style="margin-top:36px;margin-bottom:12px;display:flex;align-items:center;gap:16px;">
+    <h3 style="margin:0;"><?php esc_html_e( '1099-NEC Records', 'el-core' ); ?></h3>
+</div>
+
+<?php
+$doc_status_labels = [
+    'received'   => __( 'Received',   'el-core' ),
+    'missing'    => __( 'Missing',    'el-core' ),
+    'substitute' => __( 'Substitute', 'el-core' ),
+];
+$rec_status_labels = [
+    'pending'     => __( 'Pending',     'el-core' ),
+    'reconciled'  => __( 'Reconciled',  'el-core' ),
+    'discrepancy' => __( 'Discrepancy', 'el-core' ),
+];
+?>
+
+<?php if ( empty( $prefetch_1099s ) ) : ?>
+    <?php echo EL_Admin_UI::notice( [ // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        'message' => __( 'No 1099-NEC records yet. Click "+ 1099" on a client row above to create one.', 'el-core' ),
+        'type'    => 'info',
+    ] ); ?>
+<?php else : ?>
+
+<div class="el-bk-table-wrap" id="el-bk-nec-table-wrap">
+    <table class="el-bk-nec-table widefat" id="el-bk-nec-table">
+        <thead>
+            <tr>
+                <th><?php esc_html_e( 'Client', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Tax Year', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Box 1 Amount', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Document Status', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Date Received', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Reconciliation', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Document', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Actions', 'el-core' ); ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ( $prefetch_1099s as $n ) :
+                $doc_url = $n->document_attachment_id ? wp_get_attachment_url( (int) $n->document_attachment_id ) : '';
+            ?>
+            <tr class="el-bk-nec-row"
+                data-id="<?php echo esc_attr( $n->id ); ?>"
+                data-client-id="<?php echo esc_attr( $n->client_id ); ?>"
+                data-tax-year="<?php echo esc_attr( $n->tax_year ); ?>">
+                <td>
+                    <strong><?php echo esc_html( $n->client_name ); ?></strong>
+                    <?php if ( $n->short_name ) : ?>
+                        <br><span class="el-bk-muted"><?php echo esc_html( $n->short_name ); ?></span>
+                    <?php endif; ?>
+                </td>
+                <td><?php echo esc_html( $n->tax_year ); ?></td>
+                <td>$<?php echo esc_html( number_format( (float) $n->box1_amount, 2 ) ); ?></td>
+                <td>
+                    <span class="el-bk-status-badge el-bk-nec-status--<?php echo esc_attr( $n->document_status ); ?>">
+                        <?php echo esc_html( $doc_status_labels[ $n->document_status ] ?? $n->document_status ); ?>
+                    </span>
+                </td>
+                <td>
+                    <?php echo $n->date_received
+                        ? esc_html( gmdate( 'M j, Y', strtotime( $n->date_received ) ) )
+                        : '<span class="el-bk-muted">—</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+                    ?>
+                </td>
+                <td>
+                    <span class="el-bk-status-badge el-bk-rec-status--<?php echo esc_attr( $n->reconciliation_status ); ?>">
+                        <?php echo esc_html( $rec_status_labels[ $n->reconciliation_status ] ?? $n->reconciliation_status ); ?>
+                    </span>
+                </td>
+                <td>
+                    <?php if ( $doc_url ) : ?>
+                        <a href="<?php echo esc_url( $doc_url ); ?>" target="_blank" class="el-bk-doc-link">
+                            <?php esc_html_e( 'View', 'el-core' ); ?>
+                        </a>
+                    <?php else : ?>
+                        <span class="el-bk-muted">—</span>
+                    <?php endif; ?>
+                </td>
+                <td class="el-bk-actions">
+                    <button class="el-btn el-btn-outline el-bk-edit-nec-btn"
+                        data-id="<?php echo esc_attr( $n->id ); ?>"
+                        data-client-id="<?php echo esc_attr( $n->client_id ); ?>"
+                        data-tax-year="<?php echo esc_attr( $n->tax_year ); ?>"
+                        data-document-status="<?php echo esc_attr( $n->document_status ); ?>"
+                        data-box1-amount="<?php echo esc_attr( $n->box1_amount ); ?>"
+                        data-date-received="<?php echo esc_attr( $n->date_received ?? '' ); ?>"
+                        data-document-attachment-id="<?php echo esc_attr( $n->document_attachment_id ); ?>"
+                        data-doc-url="<?php echo esc_attr( $doc_url ); ?>"
+                        data-substitute-docs="<?php echo esc_attr( $n->substitute_docs ); ?>"
+                        data-reconciliation-status="<?php echo esc_attr( $n->reconciliation_status ); ?>"
+                        data-notes="<?php echo esc_attr( $n->notes ); ?>">
+                        <?php esc_html_e( 'Edit', 'el-core' ); ?>
+                    </button>
+                    <button class="el-btn el-btn-outline el-btn-danger el-bk-delete-nec-btn"
+                        data-id="<?php echo esc_attr( $n->id ); ?>"
+                        data-client="<?php echo esc_attr( $n->client_name ); ?>"
+                        data-year="<?php echo esc_attr( $n->tax_year ); ?>">
+                        <?php esc_html_e( 'Delete', 'el-core' ); ?>
+                    </button>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div><!-- .el-bk-table-wrap #el-bk-nec-table-wrap -->
 
 <?php endif; ?>

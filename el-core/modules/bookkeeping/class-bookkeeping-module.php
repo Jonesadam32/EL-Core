@@ -89,6 +89,12 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_get_clients',    [ $this, 'handle_get_clients' ] );
         add_action( 'el_core_ajax_bk_save_client',    [ $this, 'handle_save_client' ] );
         add_action( 'el_core_ajax_bk_delete_client',  [ $this, 'handle_delete_client' ] );
+
+        // ── 1099-NEC Records ─────────────────────────────────────
+        add_action( 'el_core_ajax_bk_get_1099s',                      [ $this, 'handle_get_1099s' ] );
+        add_action( 'el_core_ajax_bk_save_1099',                      [ $this, 'handle_save_1099' ] );
+        add_action( 'el_core_ajax_bk_delete_1099',                    [ $this, 'handle_delete_1099' ] );
+        add_action( 'el_core_ajax_bk_calculate_1099_from_deposits',   [ $this, 'handle_calculate_1099_from_deposits' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -197,6 +203,9 @@ class EL_Bookkeeping_Module {
                                     : [];
         $prefetch_clients     = ( $active_tab === 'clients' )
                                     ? $this->get_clients()
+                                    : [];
+        $prefetch_1099s       = ( $active_tab === 'clients' )
+                                    ? $this->get_1099s()
                                     : [];
 
         $base_url = admin_url( 'admin.php?page=els-bookkeeping&year=' . $selected_year );
@@ -535,6 +544,34 @@ class EL_Bookkeeping_Module {
         global $wpdb;
         $table = $this->table( 'el_bk_clients' );
         return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY client_name ASC" ) ?: [];
+    }
+
+    public function get_1099s( int $client_id = 0, int $tax_year = 0 ): array {
+        global $wpdb;
+        $nec_table    = $this->table( 'el_bk_1099_nec' );
+        $client_table = $this->table( 'el_bk_clients' );
+
+        $where = 'WHERE 1=1';
+        $args  = [];
+        if ( $client_id ) {
+            $where .= ' AND n.client_id = %d';
+            $args[] = $client_id;
+        }
+        if ( $tax_year ) {
+            $where .= ' AND n.tax_year = %d';
+            $args[] = $tax_year;
+        }
+
+        $sql = "SELECT n.*, c.client_name, c.short_name
+                FROM {$nec_table} n
+                LEFT JOIN {$client_table} c ON c.id = n.client_id
+                {$where}
+                ORDER BY n.tax_year DESC, c.client_name ASC";
+
+        if ( $args ) {
+            return $wpdb->get_results( $wpdb->prepare( $sql, $args ) ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        }
+        return $wpdb->get_results( $sql ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -2609,5 +2646,129 @@ class EL_Bookkeeping_Module {
         $wpdb->delete( $this->table( 'el_bk_clients' ), [ 'id' => $id ] );
 
         EL_AJAX_Handler::success( null, __( 'Client deleted.', 'el-core' ) );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — 1099-NEC RECORDS
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_get_1099s( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $client_id = absint( $data['client_id'] ?? 0 );
+        $tax_year  = absint( $data['tax_year']  ?? 0 );
+        EL_AJAX_Handler::success( $this->get_1099s( $client_id, $tax_year ) );
+    }
+
+    public function handle_save_1099( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id                    = absint( $data['id'] ?? 0 );
+        $client_id             = absint( $data['client_id'] ?? 0 );
+        $tax_year              = absint( $data['tax_year']  ?? 0 );
+        $document_status       = in_array( $data['document_status'] ?? '', [ 'received', 'missing', 'substitute' ], true )
+                                    ? $data['document_status'] : 'received';
+        $box1_raw              = str_replace( [ '$', ',', ' ' ], '', $data['box1_amount'] ?? '' );
+        $box1_amount           = is_numeric( $box1_raw ) ? round( (float) $box1_raw, 2 ) : 0.00;
+        $date_received         = sanitize_text_field( $data['date_received'] ?? '' );
+        $substitute_docs       = sanitize_textarea_field( wp_unslash( $data['substitute_docs'] ?? '' ) );
+        $reconciliation_status = in_array( $data['reconciliation_status'] ?? '', [ 'pending', 'reconciled', 'discrepancy' ], true )
+                                    ? $data['reconciliation_status'] : 'pending';
+        $notes                 = sanitize_textarea_field( wp_unslash( $data['notes'] ?? '' ) );
+
+        if ( ! $client_id || ! $tax_year ) {
+            EL_AJAX_Handler::error( __( 'Client and tax year are required.', 'el-core' ) );
+            return;
+        }
+
+        // Keep existing attachment ID unless a new file is uploaded
+        $document_attachment_id = absint( $data['document_attachment_id'] ?? 0 );
+        if ( ! empty( $_FILES['nec_doc_file'] ) && $_FILES['nec_doc_file']['error'] === UPLOAD_ERR_OK ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+            $attachment_id = media_handle_upload( 'nec_doc_file', 0 );
+            if ( ! is_wp_error( $attachment_id ) ) {
+                $document_attachment_id = $attachment_id;
+            }
+        }
+
+        // date_received is only relevant for "received" status
+        $date_val = ( $date_received && $document_status === 'received' ) ? $date_received : null;
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_1099_nec' );
+        $row   = [
+            'client_id'              => $client_id,
+            'tax_year'               => $tax_year,
+            'document_status'        => $document_status,
+            'box1_amount'            => $box1_amount,
+            'date_received'          => $date_val,
+            'document_attachment_id' => $document_attachment_id,
+            'substitute_docs'        => $substitute_docs,
+            'reconciliation_status'  => $reconciliation_status,
+            'notes'                  => $notes,
+        ];
+        $formats = [ '%d', '%d', '%s', '%f', '%s', '%d', '%s', '%s', '%s' ];
+
+        if ( $id ) {
+            $wpdb->update( $table, $row, [ 'id' => $id ], $formats );
+        } else {
+            $wpdb->insert( $table, $row, $formats );
+            $id = $wpdb->insert_id;
+        }
+
+        $doc_url = $document_attachment_id ? wp_get_attachment_url( $document_attachment_id ) : '';
+        EL_AJAX_Handler::success(
+            [ 'id' => $id, 'doc_url' => $doc_url ],
+            __( '1099-NEC record saved.', 'el-core' )
+        );
+    }
+
+    public function handle_delete_1099( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid record ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->delete( $this->table( 'el_bk_1099_nec' ), [ 'id' => $id ] );
+        EL_AJAX_Handler::success( null, __( '1099-NEC record deleted.', 'el-core' ) );
+    }
+
+    public function handle_calculate_1099_from_deposits( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $client_id = absint( $data['client_id'] ?? 0 );
+        $tax_year  = absint( $data['tax_year']  ?? 0 );
+
+        if ( ! $client_id || ! $tax_year ) {
+            EL_AJAX_Handler::error( __( 'Client and tax year are required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+        $total = $wpdb->get_var( $wpdb->prepare(
+            "SELECT SUM(amount) FROM {$table} WHERE client_id = %d AND tax_year = %d AND type = 'income'",
+            $client_id,
+            $tax_year
+        ) );
+
+        EL_AJAX_Handler::success( [ 'total' => round( (float) $total, 2 ) ] );
     }
 }
