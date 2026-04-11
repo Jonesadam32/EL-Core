@@ -2206,7 +2206,14 @@ class EL_Bookkeeping_Module {
         $where  = [ 'type = %s', 'receipt_id = 0' ];
         $values = [ 'expense' ];
 
-        if ( $tax_year ) {
+        // Use the year from the receipt's own date — NOT the UI-selected tax year.
+        // If the user is viewing 2025 receipts but this receipt is dated 2024, passing
+        // the UI year would filter out all 2024 transactions and return zero candidates.
+        if ( $date ) {
+            $derived_year = (int) gmdate( 'Y', strtotime( $date ) );
+            $where[]  = 'tax_year = %d';
+            $values[] = $derived_year;
+        } elseif ( $tax_year ) {
             $where[]  = 'tax_year = %d';
             $values[] = $tax_year;
         }
