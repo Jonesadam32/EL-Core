@@ -5,9 +5,9 @@
 >
 > **Last Updated:** April 11, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.38.35
+> **Current Plugin Version:** v1.38.36
 > **Git Status:** All committed. Clean working tree.
-> **ZIP in Downloads:** `el-core-v1.38.35.zip` — ready to upload.
+> **ZIP in Downloads:** `el-core-v1.38.36.zip` — ready to upload.
 
 ---
 
@@ -53,7 +53,23 @@ It contains all table schemas, AJAX patterns, feature specs (A–E), and kickoff
 - **Remove bug:** `$(this).closest('.el-bk-pattern-tag')` was ambiguous — changed to `$(this).parent()` (button is always a direct child of the tag span)
 - **Save/edit bug:** Data attribute used literal newline delimiter (`\n`), unreliable in HTML attributes. Changed PHP to JSON-encode the patterns array (`wp_json_encode($patterns)`) and JS to parse with `JSON.parse()`. Also changed from `$btn.data()` to `$btn.attr()` to read the attribute.
 
-### v1.38.35 — Fix: Pattern tags still not saving (jQuery `.data()` cache bug)
+### v1.38.36 — Phase A.3: 1099-NEC Entry Form (Phase A.3 complete)
+**What was built:**
+- **"+ 1099" button** on each client row — opens the 1099 form with that client pre-selected
+- **Section C: 1099-NEC Entry Form** in `clients.php`:
+  - Fields: Client dropdown, Tax Year, Document Status (radio: received/missing/substitute), Box 1 Amount, Date Received, 1099 doc file upload (received only), Substitute Documents textarea + "Calculate from Deposits" button (missing/substitute only), Reconciliation Status, Notes
+  - Conditional display: received → shows date + file upload; missing/substitute → shows substitute docs + calculate button
+  - File upload via WP `media_handle_upload` → stores attachment ID in `document_attachment_id`
+- **Section D: 1099-NEC Records table** showing all records, with doc status badges, reconciliation badges, View doc link, Edit/Delete
+- **`class-bookkeeping-module.php`**:
+  - `get_1099s()` method (JOINs client name)
+  - `$prefetch_1099s` loaded when clients tab active
+  - AJAX hooks + handlers: `bk_get_1099s`, `bk_save_1099`, `bk_delete_1099`, `bk_calculate_1099_from_deposits`
+  - `handle_calculate_1099_from_deposits` sums income transactions WHERE `client_id = X AND tax_year = Y`
+- **`bookkeeping.js`**: `elBkResetNecForm`, `elBkNecUpdateConditionalFields`, open from "+ 1099" / Edit buttons, Calculate AJAX, FormData save with optional file upload, delete with confirmation
+- **`bookkeeping.css`**: 1099 form grid, radio labels (44px touch targets), document status badges (received=green, missing=yellow, substitute=purple), reconciliation badges (pending=gray, reconciled=green, discrepancy=red)
+
+
 - Root cause: `elBkRebuildPatternHidden()` and the duplicate check used `$(this).data('value')` to read tag values, but the tags were created using `.attr('data-value', value)` to set them
 - jQuery's `.data()` reads from the HTML attribute once then caches internally — in some contexts with dynamically created elements this cache is never populated, returning `undefined`
 - Fix: Changed ALL reads to `$(this).attr('data-value')` which always reads the live DOM attribute. No caching involved.
@@ -68,18 +84,23 @@ It contains all table schemas, AJAX patterns, feature specs (A–E), and kickoff
 | v1.38.31–32 | Add Pick Manually fallback + Receipt badge panel in Expenses | Previous session — deployed |
 | **v1.38.33** | Phase A.1 + A.2: DB setup + Clients tab | ✅ Deployed |
 | **v1.38.34** | Fix: Pattern tag remove + save (JSON attr, parent()) | ✅ Deployed |
-| **v1.38.35** | Fix: Pattern tag save (.attr vs .data jQuery cache) | ✅ **CURRENT** |
+| **v1.38.35** | Fix: Pattern tag save (.attr vs .data jQuery cache) | ✅ Deployed |
+| **v1.38.36** | Phase A.3: 1099-NEC Entry Form | ✅ **CURRENT** |
 
 ---
 
 ## WHAT'S WORKING ✅
 
-### Clients / 1099 Tab (Phase A.2 — New this session)
+### Clients / 1099 Tab (Phase A.2 + A.3 — Complete)
 - Add, edit, delete clients
 - Bank deposit pattern tags — add via input + Enter or Add button, remove with ×, persist on save
 - Status badges: Active (green), Inactive (gray), Completed (blue)
 - Live search by client name; status dropdown filter
 - Voice-friendly form (min 44px inputs, no required attributes, no input masks)
+- **1099-NEC records** — add from "+ 1099" button per client row
+- **Section C form** — Client, Tax Year, Document Status (radio), Box 1 Amount, Date Received, file upload, Substitute docs + Calculate from Deposits, Reconciliation Status, Notes
+- **Section D records table** — all 1099s with doc-status + reconciliation badges, View doc link, Edit/Delete
+- **Calculate from Deposits** — sums income transactions for that client+year
 
 ### Receipts Tab
 - Upload zone, AI extraction, review queue, manual entry form
@@ -110,7 +131,8 @@ From `SPEC-EL-Core-Bookkeeping-Delta-v2_6.md`:
 3. ✅ ~~Feature E — Receipt Auto-Match Engine~~ (v1.38.30)
 4. ✅ ~~Feature A — Phase A.1: Database Setup~~ (v1.38.33)
 5. ✅ ~~Feature A — Phase A.2: Clients Tab CRUD~~ (v1.38.35)
-6. **Feature A — Phase A.3: 1099-NEC Entry Form** ← NEXT
+6. ✅ ~~Feature A — Phase A.3: 1099-NEC Entry Form~~ (v1.38.36)
+7. **Feature A — Phase A.4: Income Tab — Client Assignment** ← NEXT
    - Build Section C: 1099 entry form (tax year, document status, box1 amount, file upload)
    - Conditional logic: received vs missing vs substitute
    - AJAX: `bk_save_1099`, `bk_delete_1099`, `bk_calculate_1099_from_deposits`
