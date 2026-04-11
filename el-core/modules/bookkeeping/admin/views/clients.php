@@ -186,6 +186,7 @@ $status_labels = [
     <h3 id="el-bk-nec-form-title"><?php esc_html_e( 'Add 1099-NEC Record', 'el-core' ); ?></h3>
     <input type="hidden" id="el-bk-nec-id" value="">
     <input type="hidden" id="el-bk-nec-doc-attachment-id" value="">
+    <input type="hidden" id="el-bk-nec-form4852-attachment-id" value="">
 
     <div class="el-bk-nec-form-grid">
 
@@ -264,11 +265,23 @@ $status_labels = [
                 <textarea id="el-bk-nec-substitute-docs" class="el-textarea el-bk-voice-input" rows="3"
                     placeholder="<?php esc_attr_e( 'e.g. Chase Bank deposits Jan–Dec 2025', 'el-core' ); ?>"></textarea>
             </label>
-            <button type="button" class="el-btn el-btn-outline" id="el-bk-nec-calculate-btn"
-                style="margin-top:8px;">
-                <?php esc_html_e( 'Calculate from Deposits', 'el-core' ); ?>
-            </button>
-            <span id="el-bk-nec-calculate-result" class="el-bk-muted" style="margin-left:10px;font-size:13px;"></span>
+            <div style="margin-top:12px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+                <button type="button" class="el-btn el-btn-outline" id="el-bk-nec-calculate-btn">
+                    <?php esc_html_e( 'Calculate from Deposits', 'el-core' ); ?>
+                </button>
+                <span id="el-bk-nec-calculate-result" class="el-bk-muted" style="font-size:13px;"></span>
+            </div>
+            <div style="margin-top:16px;">
+                <label class="el-bk-form-label">
+                    <?php esc_html_e( 'IRS Form 4852 (PDF, JPG, PNG)', 'el-core' ); ?>
+                    <span class="description" style="font-weight:normal;font-size:12px;display:block;margin-bottom:6px;">
+                        <?php esc_html_e( 'Upload your completed Form 4852 (Substitute for Form 1099-NEC) if prepared.', 'el-core' ); ?>
+                    </span>
+                    <input type="file" id="el-bk-nec-form4852-file" class="el-input"
+                        accept=".pdf,.jpg,.jpeg,.png">
+                </label>
+                <div id="el-bk-nec-form4852-current" class="el-bk-nec-doc-current" style="display:none;"></div>
+            </div>
         </div>
 
         <div class="el-bk-nec-form-col">
@@ -426,12 +439,14 @@ $rec_status_labels = [
                 <th><?php esc_html_e( 'Date Received', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Reconciliation', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Document', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Form 4852', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Actions', 'el-core' ); ?></th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ( $prefetch_1099s as $n ) :
-                $doc_url = $n->document_attachment_id ? wp_get_attachment_url( (int) $n->document_attachment_id ) : '';
+                $doc_url      = $n->document_attachment_id  ? wp_get_attachment_url( (int) $n->document_attachment_id )  : '';
+                $form4852_url = $n->form_4852_attachment_id ? wp_get_attachment_url( (int) $n->form_4852_attachment_id ) : '';
             ?>
             <tr class="el-bk-nec-row"
                 data-id="<?php echo esc_attr( $n->id ); ?>"
@@ -470,6 +485,15 @@ $rec_status_labels = [
                         <span class="el-bk-muted">—</span>
                     <?php endif; ?>
                 </td>
+                <td>
+                    <?php if ( $form4852_url ) : ?>
+                        <a href="<?php echo esc_url( $form4852_url ); ?>" target="_blank" class="el-bk-doc-link">
+                            <?php esc_html_e( 'View', 'el-core' ); ?>
+                        </a>
+                    <?php else : ?>
+                        <span class="el-bk-muted">—</span>
+                    <?php endif; ?>
+                </td>
                 <td class="el-bk-actions">
                     <button class="el-btn el-btn-outline el-bk-edit-nec-btn"
                         data-id="<?php echo esc_attr( $n->id ); ?>"
@@ -480,6 +504,8 @@ $rec_status_labels = [
                         data-date-received="<?php echo esc_attr( $n->date_received ?? '' ); ?>"
                         data-document-attachment-id="<?php echo esc_attr( $n->document_attachment_id ); ?>"
                         data-doc-url="<?php echo esc_attr( $doc_url ); ?>"
+                        data-form-4852-attachment-id="<?php echo esc_attr( $n->form_4852_attachment_id ); ?>"
+                        data-form4852-url="<?php echo esc_attr( $form4852_url ); ?>"
                         data-substitute-docs="<?php echo esc_attr( $n->substitute_docs ); ?>"
                         data-reconciliation-status="<?php echo esc_attr( $n->reconciliation_status ); ?>"
                         data-notes="<?php echo esc_attr( $n->notes ); ?>">
