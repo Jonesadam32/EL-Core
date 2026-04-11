@@ -869,11 +869,12 @@
             return;
         }
 
-        // Close any open edit rows and other match rows
+        // Close any open edit rows, other match rows, and expense receipt panels
         $('.el-bk-receipt-edit-row').remove();
         $('.el-bk-edit-receipt-btn').text('Edit');
         $('.el-bk-receipt-match-row').remove();
         $('.el-bk-find-match-btn').text('Find Match');
+        $('.el-bk-expense-receipt-row').remove();
 
         var id      = $row.data('receiptId') || $row.data('receipt-id');
         var colspan = $row.find('td').length;
@@ -936,6 +937,15 @@
                 $inner.append($table);
             }
 
+            // Always show Pick Manually fallback — lets user browse all unattached expenses
+            $inner.append(
+                $('<div class="el-bk-pick-manually-section">').append(
+                    $('<button class="el-btn el-btn-outline el-btn-sm el-bk-pick-manually-btn">')
+                        .text('Pick Manually')
+                        .attr('data-receipt-id', id)
+                )
+            );
+
             $matchRow.find('td').append($inner);
             $row.after($matchRow);
 
@@ -959,6 +969,79 @@
         }, function (msg) {
             $btn.prop('disabled', false).text('Attach');
             alert('Error: ' + msg);
+        });
+    });
+
+    // Pick Manually — toggle searchable expense list in match panel
+    $(document).on('click', '.el-bk-pick-manually-btn', function () {
+        var $btn     = $(this);
+        var $section = $btn.closest('.el-bk-pick-manually-section');
+        var $wrap    = $section.find('.el-bk-manual-pick-wrap');
+
+        if ($wrap.length) {
+            $wrap.remove();
+            $btn.text('Pick Manually');
+            return;
+        }
+
+        $btn.text('Hide Manual Pick');
+
+        var receiptId = $btn.data('receiptId') || $btn.data('receipt-id');
+        var expenses  = (typeof elBkManualExpenses !== 'undefined') ? elBkManualExpenses : [];
+
+        var $newWrap = $('<div class="el-bk-manual-pick-wrap">');
+        $newWrap.append(
+            '<div class="el-bk-manual-pick-search">' +
+                '<input type="text" class="el-input el-bk-manual-pick-filter" placeholder="Search by merchant or date…">' +
+            '</div>'
+        );
+
+        if (!expenses.length) {
+            $newWrap.append('<p class="el-bk-receipt-match-empty">No unattached expense transactions found for this tax year.</p>');
+        } else {
+            var $t = $(
+                '<table class="el-bk-receipt-match-table el-bk-manual-pick-table widefat">' +
+                    '<thead><tr>' +
+                        '<th>Merchant</th>' +
+                        '<th>Date</th>' +
+                        '<th>Amount</th>' +
+                        '<th>Category</th>' +
+                        '<th></th>' +
+                    '</tr></thead>' +
+                    '<tbody></tbody>' +
+                '</table>'
+            );
+
+            expenses.forEach(function (e) {
+                $t.find('tbody').append(
+                    $('<tr class="el-bk-manual-pick-row">').append(
+                        $('<td class="el-bk-manual-pick-merchant">').text(e.merchant || '—'),
+                        $('<td>').text(e.date || '—'),
+                        $('<td>').text('$' + parseFloat(e.amount || 0).toFixed(2)),
+                        $('<td>').text(e.category || '—'),
+                        $('<td>').append(
+                            $('<button class="el-btn el-btn-primary el-btn-sm el-bk-attach-match-btn">')
+                                .text('Attach')
+                                .attr('data-receipt-id', receiptId)
+                                .attr('data-transaction-id', e.id)
+                        )
+                    )
+                );
+            });
+
+            $newWrap.append($t);
+        }
+
+        $section.append($newWrap);
+    });
+
+    // Pick Manually — live search filter
+    $(document).on('input', '.el-bk-manual-pick-filter', function () {
+        var term = $(this).val().toLowerCase();
+        $(this).closest('.el-bk-manual-pick-wrap').find('.el-bk-manual-pick-row').each(function () {
+            var merchant = $(this).find('.el-bk-manual-pick-merchant').text().toLowerCase();
+            var date     = $(this).find('td').eq(1).text().toLowerCase();
+            $(this).toggle(!term || merchant.indexOf(term) !== -1 || date.indexOf(term) !== -1);
         });
     });
 
@@ -1455,6 +1538,88 @@
 
     $('#el-bk-manual-receipt-add-another-btn').on('click', function () {
         submitManualReceipt(true);
+    });
+
+    // ── Expense Tab: Receipt Badge Panel (GAP 2) ──────────────────────────────
+
+    // Click 📎 badge to toggle receipt detail panel below the expense row
+    $(document).on('click', '.el-bk-receipt-badge-btn', function () {
+        var $btn      = $(this);
+        var $row      = $btn.closest('tr.el-bk-transaction-row');
+        var $existing = $row.next('tr.el-bk-expense-receipt-row');
+
+        if ($existing.length) {
+            $existing.remove();
+            return;
+        }
+
+        // Close all open panels
+        $('.el-bk-receipt-edit-row').remove();
+        $('.el-bk-edit-receipt-btn').text('Edit');
+        $('.el-bk-receipt-match-row').remove();
+        $('.el-bk-find-match-btn').not(':disabled').text('Find Match');
+        $('.el-bk-expense-receipt-row').remove();
+
+        var receiptId = parseInt($btn.data('receiptId') || $btn.data('receipt-id'), 10);
+        var colspan   = $row.find('td').length;
+        var receipt   = (typeof elBkReceiptMap !== 'undefined') ? (elBkReceiptMap[receiptId] || null) : null;
+
+        var $panel = $('<div class="el-bk-expense-receipt-panel">');
+
+        if (!receipt) {
+            $panel.append('<p class="el-bk-receipt-match-empty">Receipt data not available. Please reload the page.</p>');
+        } else {
+            var thumbHtml = '';
+            var ft = (receipt.file_type || '').toLowerCase();
+            if (receipt.file_url && (ft === 'jpg' || ft === 'jpeg' || ft === 'png')) {
+                thumbHtml = '<div class="el-bk-expense-receipt-thumb-wrap">' +
+                    '<a href="' + $('<span>').text(receipt.file_url).html() + '" target="_blank" rel="noopener">' +
+                    '<img src="' + $('<span>').text(receipt.file_url).html() + '" alt="receipt"></a></div>';
+            } else if (receipt.file_url) {
+                thumbHtml = '<div class="el-bk-expense-receipt-thumb-wrap">' +
+                    '<a href="' + $('<span>').text(receipt.file_url).html() + '" target="_blank" rel="noopener">📄 View PDF</a></div>';
+            }
+
+            var meta = '<div class="el-bk-expense-receipt-meta">';
+            if (receipt.ai_extracted_merchant) meta += '<div><strong>Merchant:</strong> ' + $('<span>').text(receipt.ai_extracted_merchant).html() + '</div>';
+            if (receipt.ai_extracted_date)     meta += '<div><strong>Date:</strong> '     + $('<span>').text(receipt.ai_extracted_date).html()     + '</div>';
+            if (receipt.ai_extracted_amount)   meta += '<div><strong>Amount:</strong> $'  + $('<span>').text(parseFloat(receipt.ai_extracted_amount).toFixed(2)).html() + '</div>';
+            if (receipt.ai_extracted_category) meta += '<div><strong>Category:</strong> ' + $('<span>').text(receipt.ai_extracted_category).html() + '</div>';
+            if (receipt.location)              meta += '<div><strong>Location:</strong> ' + $('<span>').text(receipt.location).html()               + '</div>';
+            meta += '</div>';
+
+            $panel.append('<div class="el-bk-expense-receipt-body">' + thumbHtml + meta + '</div>');
+            $panel.append(
+                '<div class="el-bk-expense-receipt-actions">' +
+                    '<button class="el-btn el-btn-outline el-btn-sm el-bk-expense-detach-btn" data-receipt-id="' + receiptId + '">Detach Receipt</button>' +
+                '</div>'
+            );
+        }
+
+        var $newRow = $('<tr class="el-bk-expense-receipt-row"><td colspan="' + colspan + '"></td></tr>');
+        $newRow.find('td').append($panel);
+        $row.after($newRow);
+    });
+
+    // Detach receipt from expense tab panel
+    $(document).on('click', '.el-bk-expense-detach-btn', function () {
+        if (!confirm('Detach this receipt from the transaction?')) return;
+        var $btn      = $(this).prop('disabled', true).text('Detaching…');
+        var receiptId = parseInt($btn.data('receiptId') || $btn.data('receipt-id'), 10);
+        var $panelRow = $btn.closest('tr.el-bk-expense-receipt-row');
+        var $txnRow   = $panelRow.prev('tr.el-bk-transaction-row');
+
+        elBkAjax('bk_detach_receipt', { receipt_id: receiptId }, function () {
+            $panelRow.remove();
+            $txnRow.find('.el-bk-receipt-badge-btn').replaceWith('<span class="el-bk-muted">—</span>');
+            $txnRow.attr('data-receipt-id', '0');
+            if (typeof elBkReceiptMap !== 'undefined') {
+                delete elBkReceiptMap[receiptId];
+            }
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Detach Receipt');
+            alert('Error: ' + msg);
+        });
     });
 
 }(jQuery));

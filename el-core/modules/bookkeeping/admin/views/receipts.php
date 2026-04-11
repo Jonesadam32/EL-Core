@@ -234,6 +234,23 @@ $all       = $module->get_receipts( '', $tax_year );
 </div>
 <?php endif; ?>
 
+<!-- Pre-loaded unattached expenses for the Pick Manually fallback (no extra AJAX needed) -->
+<script>
+var elBkManualExpenses = <?php
+    $all_expenses  = $module->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year, 'limit' => 1000 ] );
+    $unattached_ex = array_values( array_filter( $all_expenses, fn( $t ) => empty( (int) ( $t->receipt_id ?? 0 ) ) ) );
+    echo wp_json_encode( array_map( function ( $t ) {
+        return [
+            'id'       => (int) $t->id,
+            'merchant' => $t->merchant    ?? '',
+            'date'     => $t->date        ?? '',
+            'amount'   => $t->amount      ?? '0',
+            'category' => $t->category    ?? '',
+        ];
+    }, $unattached_ex ) );
+?>;
+</script>
+
 <!-- Hidden category select template — cloned by JS for the receipt edit row -->
 <select id="el-bk-receipt-category-template" style="display:none;">
     <option value=""><?php esc_html_e( '— Select category —', 'el-core' ); ?></option>

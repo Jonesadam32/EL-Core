@@ -36,6 +36,25 @@ foreach ( $transactions as $t ) {
 arsort( $category_totals );
 
 $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions ) );
+
+// Build a map of receipt data for all transactions that have one attached
+$_receipt_ids = array_values( array_unique( array_filter( array_map(
+    fn( $t ) => (int) ( $t->receipt_id ?? 0 ),
+    $transactions
+) ) ) );
+$_receipt_map = [];
+if ( ! empty( $_receipt_ids ) ) {
+    global $wpdb;
+    $_ids_in  = implode( ',', $_receipt_ids );
+    $_rcpts   = $wpdb->get_results(
+        "SELECT id, ai_extracted_merchant, ai_extracted_date, ai_extracted_amount,
+                ai_extracted_category, location, file_url, file_type
+         FROM {$wpdb->prefix}el_bk_receipts WHERE id IN ($_ids_in)"
+    );
+    foreach ( $_rcpts as $_r ) {
+        $_receipt_map[ (int) $_r->id ] = $_r;
+    }
+}
 ?>
 
 <div class="el-bk-tab-header">
@@ -202,6 +221,7 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
             ?>
             <tr class="el-bk-transaction-row <?php echo esc_attr( $row_class ); ?>"
                 data-id="<?php echo esc_attr( $t->id ); ?>"
+                data-receipt-id="<?php echo esc_attr( $t->receipt_id ?? 0 ); ?>"
                 data-merchant="<?php echo esc_attr( strtolower( $t->merchant ) ); ?>"
                 data-business="<?php echo esc_attr( strtolower( $t->business ?? '' ) ); ?>"
                 data-comments="<?php echo esc_attr( strtolower( $t->comments ?? '' ) ); ?>"
@@ -247,6 +267,15 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
                         <?php endforeach; ?>
                     </select>
                 </td>
+                <td class="el-bk-receipt-col">
+                    <?php if ( $t->receipt_id ) : ?>
+                        <button class="el-bk-receipt-badge-btn"
+                                data-receipt-id="<?php echo esc_attr( $t->receipt_id ); ?>"
+                                title="<?php esc_attr_e( 'View attached receipt', 'el-core' ); ?>">📎</button>
+                    <?php else : ?>
+                        <span class="el-bk-muted">—</span>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <input type="text" class="el-bk-inline-input" data-field="comments" data-id="<?php echo esc_attr( $t->id ); ?>"
                         value="<?php echo esc_attr( $t->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">
@@ -270,6 +299,11 @@ $total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions
 </div>
 
 <?php endif; ?>
+
+<!-- Receipt data for the inline receipt panel (keyed by receipt_id) -->
+<script>
+var elBkReceiptMap = <?php echo wp_json_encode( $_receipt_map ); ?>;
+</script>
 
 <!-- Ledger Tab Import Modal -->
 <div id="el-bk-ledger-modal" class="el-bk-modal" style="display:none;">
