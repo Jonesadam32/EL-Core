@@ -1670,8 +1670,10 @@
         $('#el-bk-client-status').val($btn.data('status'));
         $('#el-bk-client-notes').val($btn.data('notes'));
         // Rebuild pattern tags
-        var raw = $btn.data('bank-patterns') || '';
-        var lines = raw.split(/\n/).map($.trim).filter(Boolean);
+        var raw = $btn.attr('data-bank-patterns') || '[]';
+        var lines = [];
+        try { lines = JSON.parse(raw); } catch(e) { lines = []; }
+        if (!Array.isArray(lines)) lines = [];
         lines.forEach(elBkAddPatternTag);
         $('#el-bk-client-form-title').text('Edit Client');
         $('#el-bk-client-form').slideDown();
@@ -1701,8 +1703,9 @@
     });
 
     // Remove pattern tag
-    $(document).on('click', '.el-bk-pattern-tag-remove', function () {
-        $(this).closest('.el-bk-pattern-tag').remove();
+    $(document).on('click', '.el-bk-pattern-tag-remove', function (e) {
+        e.stopPropagation();
+        $(this).parent().remove();
         elBkRebuildPatternHidden();
     });
 

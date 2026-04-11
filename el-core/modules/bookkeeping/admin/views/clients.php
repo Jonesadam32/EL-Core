@@ -205,6 +205,7 @@ $status_labels = [
         <tbody>
             <?php foreach ( $clients as $c ) :
                 $patterns     = array_filter( array_map( 'trim', explode( "\n", $c->bank_patterns ) ) );
+                $patterns     = array_values( $patterns );
                 $status_class = 'el-bk-client-status--' . esc_attr( $c->status );
             ?>
             <tr class="el-bk-client-row"
@@ -245,7 +246,7 @@ $status_labels = [
                         data-address="<?php echo esc_attr( $c->address ); ?>"
                         data-contract-type="<?php echo esc_attr( $c->contract_type ); ?>"
                         data-status="<?php echo esc_attr( $c->status ); ?>"
-                        data-bank-patterns="<?php echo esc_attr( $c->bank_patterns ); ?>"
+                        data-bank-patterns="<?php echo esc_attr( wp_json_encode( $patterns ) ); ?>"
                         data-notes="<?php echo esc_attr( $c->notes ); ?>">
                         <?php esc_html_e( 'Edit', 'el-core' ); ?>
                     </button>
