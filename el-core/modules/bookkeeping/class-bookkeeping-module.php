@@ -2244,6 +2244,25 @@ class EL_Bookkeeping_Module {
             return;
         }
 
+        // ── Direct name match (skip AI for exact hits) ────────────────────────────
+        if ( $merchant ) {
+            $merchant_lower = strtolower( $merchant );
+            foreach ( $candidates as $t ) {
+                if ( strtolower( $t->merchant ) === $merchant_lower ) {
+                    EL_AJAX_Handler::success( [ [
+                        'id'         => (int) $t->id,
+                        'merchant'   => $t->merchant,
+                        'date'       => $t->date,
+                        'amount'     => number_format( (float) $t->amount, 2 ),
+                        'category'   => $t->category,
+                        'confidence' => 'high',
+                        'reason'     => 'Exact merchant name match.',
+                    ] ], __( 'Direct match found.', 'el-core' ) );
+                    return;
+                }
+            }
+        }
+
         if ( ! $this->core || ! $this->core->ai ) {
             EL_AJAX_Handler::error( __( 'AI service unavailable.', 'el-core' ) );
             return;
