@@ -2218,9 +2218,10 @@ class EL_Bookkeeping_Module {
             $values[] = $tax_year;
         }
 
-        // Use a wide ±60 day window if we have a date, to handle bank posting delays
+        // Bank charges always post on or after the receipt date — look forward 10 days only
         if ( $date ) {
-            $where[]  = 'ABS(DATEDIFF(date, %s)) <= 60';
+            $where[]  = 'date BETWEEN %s AND DATE_ADD(%s, INTERVAL 10 DAY)';
+            $values[] = $date;
             $values[] = $date;
         }
 
@@ -2233,7 +2234,13 @@ class EL_Bookkeeping_Module {
         $candidates = $wpdb->get_results( $sql );
 
         if ( empty( $candidates ) ) {
-            EL_AJAX_Handler::success( [], __( 'No expense transactions found in this period.', 'el-core' ) );
+            // DEBUG: show what query params were used
+            EL_AJAX_Handler::success( [], sprintf(
+                'No expense transactions found. Receipt: merchant="%s" date="%s" derived_year=%d. Query had %d conditions.',
+                $merchant, $date,
+                $date ? (int) gmdate( 'Y', strtotime( $date ) ) : 0,
+                count( $where )
+            ) );
             return;
         }
 
@@ -2265,7 +2272,7 @@ class EL_Bookkeeping_Module {
             '  - Bank records may append a city, state, or location code (e.g. "Houston\'s Atlanta GA")',
             '  - Bank records may use abbreviations or alternate descriptions',
             '  - Restaurant charges in the bank include the tip; the receipt shows pre-tip total',
-            '  - The bank may post the charge 1–5 days after the actual purchase date',
+            '  - The bank may post the charge 1–10 days after the actual purchase date',
             'Return ONLY a valid JSON array — no markdown, no explanation outside the JSON.',
             'Each element: {"id": <int>, "confidence": "high|medium|low", "reason": "<one sentence>"}',
             'Return up to 3 matches ordered by confidence. Return [] if nothing is a reasonable match.',
@@ -2294,12 +2301,22 @@ class EL_Bookkeeping_Module {
 
         $ai_matches = json_decode( $json_str, true );
 
-        if ( ! is_array( $ai_matches ) ) {            EL_AJAX_Handler::error( __( 'AI returned an unexpected format. Please try again.', 'el-core' ) );
+        if ( ! is_array( $ai_matches ) ) {
+            EL_AJAX_Handler::error( 'AI returned unexpected format. Raw: ' . substr( $result['content'], 0, 300 ) );
             return;
         }
 
         if ( empty( $ai_matches ) ) {
-            EL_AJAX_Handler::success( [], __( 'AI found no matching transactions.', 'el-core' ) );
+            // DEBUG: include receipt info + candidate count + raw AI reply so we can diagnose
+            $cand_summary = array_map( fn( $t ) => $t->merchant . ' / ' . $t->date, $candidates );
+            EL_AJAX_Handler::success( [], sprintf(
+                'AI returned []. Receipt: merchant="%s" date="%s" amount="%s" derived_year=%d. Candidates(%d): %s. AI said: %s',
+                $merchant, $date, $amount,
+                $date ? (int) gmdate( 'Y', strtotime( $date ) ) : 0,
+                count( $candidates ),
+                implode( ' | ', array_slice( $cand_summary, 0, 5 ) ),
+                substr( $result['content'], 0, 200 )
+            ) );
             return;
         }
 
