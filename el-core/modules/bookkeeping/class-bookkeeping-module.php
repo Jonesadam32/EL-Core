@@ -2268,27 +2268,26 @@ class EL_Bookkeeping_Module {
               . "\n\nCandidate transactions:\n" . json_encode( $candidates_list, JSON_PRETTY_PRINT );
 
         // ── Call AI ───────────────────────────────────────────────────────────────
-        $ai_response = $this->core->ai->complete( [
+        $result = $this->core->ai->complete( [
             'system'     => $system,
             'prompt'     => $user,
             'max_tokens' => 1024,
         ] );
 
-        if ( ! $ai_response ) {
-            EL_AJAX_Handler::error( __( 'AI did not return a response. Please try again.', 'el-core' ) );
+        if ( ! $result['success'] ) {
+            EL_AJAX_Handler::error( sprintf( __( 'AI error: %s', 'el-core' ), $result['error'] ?? 'Unknown error' ) );
             return;
         }
 
         // Strip markdown fences if present
-        $json_str = trim( $ai_response );
+        $json_str = trim( $result['content'] );
         if ( preg_match( '/```(?:json)?\s*([\s\S]*?)```/s', $json_str, $m ) ) {
             $json_str = trim( $m[1] );
         }
 
         $ai_matches = json_decode( $json_str, true );
 
-        if ( ! is_array( $ai_matches ) ) {
-            EL_AJAX_Handler::error( __( 'AI returned an unexpected format. Please try again.', 'el-core' ) );
+        if ( ! is_array( $ai_matches ) ) {            EL_AJAX_Handler::error( __( 'AI returned an unexpected format. Please try again.', 'el-core' ) );
             return;
         }
 
