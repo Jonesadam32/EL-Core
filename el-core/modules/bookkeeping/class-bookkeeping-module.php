@@ -2269,8 +2269,9 @@ class EL_Bookkeeping_Module {
 
         // ── Call AI ───────────────────────────────────────────────────────────────
         $ai_response = $this->core->ai->complete( [
-            'system' => $system,
-            'user'   => $user,
+            'system'     => $system,
+            'prompt'     => $user,
+            'max_tokens' => 1024,
         ] );
 
         if ( ! $ai_response ) {
