@@ -5,9 +5,9 @@
 >
 > **Last Updated:** April 11, 2026
 > **Updated By:** Cursor
-> **Current Plugin Version:** v1.38.30
+> **Current Plugin Version:** v1.38.32
 > **Git Status:** All committed. Clean working tree.
-> **ZIP in Downloads:** `el-core-v1.38.30.zip` — ready to upload.
+> **ZIP in Downloads:** `el-core-v1.38.32.zip` — ready to upload.
 
 ---
 
