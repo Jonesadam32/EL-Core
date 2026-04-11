@@ -207,7 +207,7 @@ class EL_Bookkeeping_Module {
                                     ? $this->get_transactions( [ 'type' => 'expense', 'tax_year' => $tax_year, 'category' => 'Contract Labor' ] )
                                     : [];
         $prefetch_clients     = in_array( $active_tab, [ 'clients', 'income' ], true )
-                                    ? $this->get_clients( 'active' )
+                                    ? $this->get_clients()
                                     : [];
         $prefetch_1099s       = ( $active_tab === 'clients' )
                                     ? $this->get_1099s()
@@ -446,7 +446,7 @@ class EL_Bookkeeping_Module {
         $status   = sanitize_text_field( $args['status']      ?? '' );
         $category = sanitize_text_field( $args['category']    ?? '' );
         $search   = sanitize_text_field( $args['search']      ?? '' );
-        $limit    = absint(              $args['limit']        ?? 500 );
+        $limit    = absint(              $args['limit']        ?? 5000 );
         $offset   = absint(              $args['offset']       ?? 0 );
 
         $where[]  = 'type = %s';
