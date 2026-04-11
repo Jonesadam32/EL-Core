@@ -1606,7 +1606,8 @@
     function elBkRebuildPatternHidden() {
         var patterns = [];
         $('#el-bk-client-pattern-tags .el-bk-pattern-tag').each(function () {
-            patterns.push($(this).data('value'));
+            var v = $(this).attr('data-value');
+            if (v) patterns.push(v);
         });
         $('#el-bk-client-bank-patterns').val(patterns.join("\n"));
     }
@@ -1617,7 +1618,7 @@
         // Prevent duplicate
         var exists = false;
         $('#el-bk-client-pattern-tags .el-bk-pattern-tag').each(function () {
-            if ($(this).data('value') === value) { exists = true; }
+            if ($(this).attr('data-value') === value) { exists = true; }
         });
         if (exists) return;
 
