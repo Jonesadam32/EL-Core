@@ -200,7 +200,9 @@ if ( ! empty( $_receipt_ids ) ) {
                 <th><?php esc_html_e( 'Business', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Amount', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Merchant', 'el-core' ); ?></th>
-                <th><?php esc_html_e( 'Date', 'el-core' ); ?></th>
+                <th id="el-bk-exp-date-th" style="cursor:pointer;user-select:none;" title="Click to toggle sort order">
+                    <?php esc_html_e( 'Date', 'el-core' ); ?> <span id="el-bk-exp-date-sort-icon">▼</span>
+                </th>
                 <th><?php esc_html_e( 'Bank Account', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Receipt', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Comments', 'el-core' ); ?></th>

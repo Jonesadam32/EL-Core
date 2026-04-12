@@ -227,6 +227,23 @@
         filterExpenseTable();
     });
 
+    // ── Expense Date Column Sort ──────────────────────────────────────────────
+
+    var expDateSortDesc = true; // starts newest-first (matches server ORDER BY date DESC)
+
+    $('#el-bk-exp-date-th').on('click', function () {
+        expDateSortDesc = !expDateSortDesc;
+        $('#el-bk-exp-date-sort-icon').text(expDateSortDesc ? '▼' : '▲');
+        var $tbody = $('.el-bk-transactions-table tbody');
+        var $rows = $tbody.find('.el-bk-transaction-row').toArray();
+        $rows.sort(function (a, b) {
+            var da = $(a).attr('data-date') || '';
+            var db = $(b).attr('data-date') || '';
+            return expDateSortDesc ? db.localeCompare(da) : da.localeCompare(db);
+        });
+        $tbody.append($rows);
+    });
+
     // ── Income Table Filtering ────────────────────────────────────────────────
 
     function filterIncomeTable() {
