@@ -227,6 +227,110 @@
         filterExpenseTable();
     });
 
+    // ── Make Rule Popover ─────────────────────────────────────────────────────
+
+    var $makeRulePopover = $('#el-bk-make-rule-popover');
+    var makeRuleConflictTimer = null;
+
+    function closeMakeRulePopover() {
+        $makeRulePopover.hide();
+        $('#el-bk-make-rule-conflict').hide().empty();
+    }
+
+    function checkMakeRuleConflict(keyword) {
+        clearTimeout(makeRuleConflictTimer);
+        if (!keyword) { $('#el-bk-make-rule-conflict').hide().empty(); return; }
+        makeRuleConflictTimer = setTimeout(function () {
+            elBkAjax('bk_check_rule_conflict', { keyword: keyword }, function (data) {
+                var $warn = $('#el-bk-make-rule-conflict');
+                if (data.conflicts && data.conflicts.length > 0) {
+                    var lines = data.conflicts.map(function (c) {
+                        return '\u2022 \u201c' + c.keyword + '\u201d \u2192 ' + c.category;
+                    });
+                    $warn.html('<strong>⚠ This will replace an existing rule:</strong><br>' + lines.join('<br>')).show();
+                } else {
+                    $warn.hide().empty();
+                }
+            });
+        }, 300);
+    }
+
+    $(document).on('click', '.el-bk-make-rule-btn', function (e) {
+        e.stopPropagation();
+        var $btn    = $(this);
+        var merchant = $btn.attr('data-merchant') || '';
+        var category = $btn.attr('data-category') || '';
+        var txnId    = $btn.attr('data-id') || '';
+
+        $('#el-bk-make-rule-keyword').val(merchant);
+        $('#el-bk-make-rule-category').val(category);
+        $('#el-bk-make-rule-txn-id').val(txnId);
+        $('#el-bk-make-rule-conflict').hide().empty();
+
+        // Position near the button
+        var offset = $btn.offset();
+        var popW   = 360;
+        var left   = Math.min(offset.left, $(window).width() - popW - 20);
+        $makeRulePopover.css({ top: offset.top + $btn.outerHeight() + 6, left: left }).show();
+
+        checkMakeRuleConflict(merchant);
+    });
+
+    $('#el-bk-make-rule-keyword').on('input', function () {
+        checkMakeRuleConflict($(this).val().trim());
+    });
+
+    $('#el-bk-make-rule-close, #el-bk-make-rule-cancel').on('click', closeMakeRulePopover);
+
+    $(document).on('click', function (e) {
+        if ($makeRulePopover.is(':visible') && !$(e.target).closest('#el-bk-make-rule-popover, .el-bk-make-rule-btn').length) {
+            closeMakeRulePopover();
+        }
+    });
+
+    $('#el-bk-make-rule-save').on('click', function () {
+        var keyword  = $('#el-bk-make-rule-keyword').val().trim();
+        var category = $('#el-bk-make-rule-category').val();
+        var txnId    = $('#el-bk-make-rule-txn-id').val();
+        var $btn     = $(this).prop('disabled', true).text('Saving…');
+
+        if (!keyword || !category) {
+            alert('Keyword and category are both required.');
+            $btn.prop('disabled', false).text('Save Rule');
+            return;
+        }
+
+        elBkAjax('bk_quick_save_rule', {
+            keyword:        keyword,
+            category:       category,
+            match_type:     'contains',
+            transaction_id: txnId,
+        }, function (data) {
+            $btn.prop('disabled', false).text('Save Rule');
+            closeMakeRulePopover();
+
+            // Update the row in the table immediately
+            if (txnId) {
+                var $row = $('.el-bk-transaction-row[data-id="' + txnId + '"]');
+                $row.find('select.el-bk-inline-select[data-field="category"]').val(category);
+                $row.attr('data-category', category.toLowerCase());
+                $row.attr('data-status', 'classified');
+                $row.removeClass('el-bk-row--suggested el-bk-row--rejected').addClass('el-bk-row--classified');
+                $row.find('.el-bk-make-rule-btn').attr('data-category', category);
+            }
+
+            var msg = 'Rule saved.';
+            if (data.replaced && data.replaced.length > 0) {
+                var old = data.replaced.map(function(r){ return '\u201c' + r.category + '\u201d'; }).join(', ');
+                msg = 'Rule saved. Replaced previous rule: ' + old + '.';
+            }
+            alert(msg);
+        }, function (errMsg) {
+            $btn.prop('disabled', false).text('Save Rule');
+            alert('Error: ' + errMsg);
+        });
+    });
+
     // ── Expense Date Column Sort ──────────────────────────────────────────────
 
     var expDateSortDesc = true; // starts newest-first (matches server ORDER BY date DESC)

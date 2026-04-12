@@ -225,6 +225,7 @@ if ( ! empty( $_receipt_ids ) ) {
                 data-id="<?php echo esc_attr( $t->id ); ?>"
                 data-receipt-id="<?php echo esc_attr( $t->receipt_id ?? 0 ); ?>"
                 data-merchant="<?php echo esc_attr( strtolower( $t->merchant ) ); ?>"
+                data-merchant-raw="<?php echo esc_attr( $t->merchant ); ?>"
                 data-business="<?php echo esc_attr( strtolower( $t->business ?? '' ) ); ?>"
                 data-comments="<?php echo esc_attr( strtolower( $t->comments ?? '' ) ); ?>"
                 data-category="<?php echo esc_attr( strtolower( $t->category ?? '' ) ); ?>"
@@ -283,6 +284,13 @@ if ( ! empty( $_receipt_ids ) ) {
                         value="<?php echo esc_attr( $t->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">
                 </td>
                 <td class="el-bk-col-actions">
+                    <button class="el-bk-make-rule-btn el-btn el-btn-outline"
+                        data-id="<?php echo esc_attr( $t->id ); ?>"
+                        data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
+                        data-category="<?php echo esc_attr( $t->category ?? '' ); ?>"
+                        title="<?php esc_attr_e( 'Create a Known Expense rule from this merchant', 'el-core' ); ?>">
+                        <?php esc_html_e( '+ Rule', 'el-core' ); ?>
+                    </button>
                     <?php if ( in_array( $t->status, [ 'suggested', 'classified' ], true ) ) : ?>
                         <button class="el-bk-reject-btn" data-id="<?php echo esc_attr( $t->id ); ?>" title="<?php esc_attr_e( 'Reject — clear category and mark rejected', 'el-core' ); ?>">✕</button>
                     <?php endif; ?>
@@ -348,4 +356,38 @@ var elBkReceiptMap = <?php echo wp_json_encode( $_receipt_map ); ?>;
             <div id="el-bk-ledger-result" style="margin-top:10px;"></div>
         </div>
     </div>
+</div>
+
+<!-- ── Make Rule Popover ────────────────────────────────────────────────── -->
+<div id="el-bk-make-rule-popover" style="display:none;position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:8px;padding:18px 20px;width:360px;box-shadow:0 6px 24px rgba(0,0,0,.18);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <strong style="font-size:14px;"><?php esc_html_e( 'Make a Known Expense Rule', 'el-core' ); ?></strong>
+        <button id="el-bk-make-rule-close" style="background:none;border:none;cursor:pointer;font-size:20px;line-height:1;color:#666;">&times;</button>
+    </div>
+    <div id="el-bk-make-rule-conflict" style="display:none;margin-bottom:12px;padding:9px 12px;background:#fff8e1;border:1px solid #f6c600;border-radius:4px;font-size:12px;color:#7a5c00;"></div>
+    <label style="display:block;margin-bottom:10px;font-size:13px;font-weight:500;">
+        <?php esc_html_e( 'Keyword (what to match in the merchant name)', 'el-core' ); ?>
+        <input type="text" id="el-bk-make-rule-keyword" class="el-input" style="display:block;width:100%;margin-top:5px;box-sizing:border-box;">
+    </label>
+    <label style="display:block;margin-bottom:14px;font-size:13px;font-weight:500;">
+        <?php esc_html_e( 'Category', 'el-core' ); ?>
+        <select id="el-bk-make-rule-category" class="el-select" style="display:block;width:100%;margin-top:5px;">
+            <option value=""><?php esc_html_e( '— Select —', 'el-core' ); ?></option>
+            <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
+                    <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                <?php endforeach; ?>
+            </optgroup>
+            <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
+                    <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                <?php endforeach; ?>
+            </optgroup>
+        </select>
+    </label>
+    <div style="display:flex;gap:8px;">
+        <button id="el-bk-make-rule-save" class="el-btn el-btn-primary" style="flex:1;"><?php esc_html_e( 'Save Rule', 'el-core' ); ?></button>
+        <button id="el-bk-make-rule-cancel" class="el-btn el-btn-outline"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>
+    </div>
+    <input type="hidden" id="el-bk-make-rule-txn-id" value="">
 </div>

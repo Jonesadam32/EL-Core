@@ -57,13 +57,14 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_export_pl',           [ $this, 'handle_export_pl' ] );
 
         // ── Known Expense Rules ───────────────────────────────────
-        add_action( 'el_core_ajax_bk_process_rules',       [ $this, 'handle_process_rules' ] );
-        add_action( 'el_core_ajax_bk_save_rule',           [ $this, 'handle_save_rule' ] );
-        add_action( 'el_core_ajax_bk_delete_rule',         [ $this, 'handle_delete_rule' ] );
-        add_action( 'el_core_ajax_bk_bulk_delete_rules',   [ $this, 'handle_bulk_delete_rules' ] );
-        add_action( 'el_core_ajax_bk_reorder_rules',       [ $this, 'handle_reorder_rules' ] );
-        add_action( 'el_core_ajax_bk_import_rules_csv',    [ $this, 'handle_import_rules_csv' ] );
-        add_action( 'el_core_ajax_bk_import_ledger',       [ $this, 'handle_import_ledger' ] );
+        add_action( 'el_core_ajax_bk_process_rules',         [ $this, 'handle_process_rules' ] );
+        add_action( 'el_core_ajax_bk_save_rule',             [ $this, 'handle_save_rule' ] );
+        add_action( 'el_core_ajax_bk_delete_rule',           [ $this, 'handle_delete_rule' ] );
+        add_action( 'el_core_ajax_bk_bulk_delete_rules',     [ $this, 'handle_bulk_delete_rules' ] );
+        add_action( 'el_core_ajax_bk_reorder_rules',         [ $this, 'handle_reorder_rules' ] );
+        add_action( 'el_core_ajax_bk_import_rules_csv',      [ $this, 'handle_import_rules_csv' ] );
+        add_action( 'el_core_ajax_bk_check_rule_conflict',   [ $this, 'handle_check_rule_conflict' ] );
+        add_action( 'el_core_ajax_bk_quick_save_rule',       [ $this, 'handle_quick_save_rule' ] );
 
         // ── Travel Dates ──────────────────────────────────────────
         add_action( 'el_core_ajax_bk_save_travel_period',   [ $this, 'handle_save_travel_period' ] );
@@ -1512,6 +1513,101 @@ class EL_Bookkeeping_Module {
         }
 
         EL_AJAX_Handler::success( [ 'id' => $id ], __( 'Rule saved.', 'el-core' ) );
+    }
+
+    /**
+     * Check whether any existing rules conflict with the given keyword.
+     * Returns matching rules so JS can show a warning before saving.
+     */
+    public function handle_check_rule_conflict( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $keyword = sanitize_text_field( $data['keyword'] ?? '' );
+        if ( ! $keyword ) {
+            EL_AJAX_Handler::success( [ 'conflicts' => [] ] );
+            return;
+        }
+
+        global $wpdb;
+        $table     = $this->table( 'el_bk_rules' );
+        $conflicts = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, keyword, category, match_type FROM {$table} WHERE LOWER(keyword) = %s ORDER BY priority ASC",
+            strtolower( $keyword )
+        ) );
+
+        EL_AJAX_Handler::success( [ 'conflicts' => $conflicts ] );
+    }
+
+    /**
+     * Create a rule from an expense row — deletes any conflicting rules first,
+     * inserts at top priority, and optionally reclassifies the source transaction.
+     */
+    public function handle_quick_save_rule( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $keyword        = sanitize_text_field( $data['keyword'] ?? '' );
+        $category       = sanitize_text_field( $data['category'] ?? '' );
+        $type           = sanitize_key( $data['match_type'] ?? 'contains' );
+        $transaction_id = absint( $data['transaction_id'] ?? 0 );
+
+        if ( ! $keyword || ! $category ) {
+            EL_AJAX_Handler::error( __( 'Keyword and category are required.', 'el-core' ) );
+            return;
+        }
+
+        if ( ! in_array( $category, self::get_expense_categories(), true ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid category.', 'el-core' ) );
+            return;
+        }
+
+        if ( ! in_array( $type, [ 'contains', 'all_words', 'exact' ], true ) ) {
+            $type = 'contains';
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_rules' );
+
+        // Remove any existing rules with the same keyword (case-insensitive)
+        $existing = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, keyword, category FROM {$table} WHERE LOWER(keyword) = %s",
+            strtolower( $keyword )
+        ) );
+
+        $replaced = [];
+        foreach ( $existing as $e ) {
+            $replaced[] = [ 'keyword' => $e->keyword, 'category' => $e->category ];
+            $wpdb->delete( $table, [ 'id' => (int) $e->id ] );
+        }
+
+        // Shift all existing priorities up by 1, then insert at 0 (top)
+        $wpdb->query( "UPDATE {$table} SET priority = priority + 1" );
+        $wpdb->insert( $table, [
+            'keyword'    => $keyword,
+            'match_type' => $type,
+            'category'   => $category,
+            'priority'   => 0,
+        ] );
+        $new_id = $wpdb->insert_id;
+
+        // Reclassify the source transaction immediately
+        if ( $transaction_id ) {
+            $wpdb->update(
+                $this->table( 'el_bk_transactions' ),
+                [ 'category' => $category, 'status' => 'classified', 'updated_at' => current_time( 'mysql' ) ],
+                [ 'id' => $transaction_id ]
+            );
+        }
+
+        EL_AJAX_Handler::success(
+            [ 'id' => $new_id, 'replaced' => $replaced ],
+            __( 'Rule saved.', 'el-core' )
+        );
     }
 
     public function handle_delete_rule( array $data ): void {
