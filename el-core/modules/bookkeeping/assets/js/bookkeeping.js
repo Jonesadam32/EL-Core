@@ -1609,7 +1609,7 @@
             var v = $(this).attr('data-value');
             if (v) patterns.push(v);
         });
-        $('#el-bk-client-bank-patterns').val(patterns.join("\n"));
+        $('#el-bk-client-bank-patterns').val(patterns.join("|"));
     }
 
     function elBkAddPatternTag(value) {

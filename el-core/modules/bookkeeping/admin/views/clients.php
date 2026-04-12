@@ -363,7 +363,7 @@ $status_labels = [
         </thead>
         <tbody>
             <?php foreach ( $clients as $c ) :
-                $patterns     = array_filter( array_map( 'trim', explode( "\n", $c->bank_patterns ) ) );
+                $patterns     = array_filter( array_map( 'trim', explode( "|", $c->bank_patterns ) ) );
                 $patterns     = array_values( $patterns );
                 $status_class = 'el-bk-client-status--' . esc_attr( $c->status );
             ?>
