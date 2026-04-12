@@ -792,7 +792,7 @@ class EL_Bookkeeping_Module {
     private function match_client_by_pattern( string $description, float $amount = 0.0 ): ?object {
         global $wpdb;
         $clients = $wpdb->get_results(
-            "SELECT id, bank_patterns FROM {$this->table('el_bk_clients')} WHERE status = 'active' AND bank_patterns != ''"
+            "SELECT id, bank_patterns FROM {$this->table('el_bk_clients')} WHERE bank_patterns != ''"
         );
 
         if ( empty( $clients ) ) {
@@ -811,8 +811,8 @@ class EL_Bookkeeping_Module {
 
                 // Detect amount patterns: strip $, commas, spaces — if what remains is numeric, treat as amount match
                 $clean = preg_replace( '/[\$,\s]/', '', $pattern );
-                if ( $amount > 0.0 && preg_match( '/^\d+(\.\d{1,2})?$/', $clean ) ) {
-                    if ( abs( (float) $clean - $amount ) < 0.005 ) {
+                if ( $amount > 0.0 && preg_match( '/^\d+(\.\d+)?$/', $clean ) ) {
+                    if ( round( (float) $clean, 2 ) === round( $amount, 2 ) ) {
                         return $client;
                     }
                     continue; // amount pattern — don't fall through to description match
