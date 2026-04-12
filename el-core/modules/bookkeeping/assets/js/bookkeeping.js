@@ -267,11 +267,18 @@
         $('#el-bk-make-rule-txn-id').val(txnId);
         $('#el-bk-make-rule-conflict').hide().empty();
 
-        // Position near the button
-        var offset = $btn.offset();
-        var popW   = 360;
-        var left   = Math.min(offset.left, $(window).width() - popW - 20);
-        $makeRulePopover.css({ top: offset.top + $btn.outerHeight() + 6, left: left }).show();
+        // Position near the button, correcting for scroll (fixed positioning is viewport-relative)
+        var offset    = $btn.offset();
+        var scrollTop = $(window).scrollTop();
+        var popW      = 360;
+        var left      = offset.left - $(window).scrollLeft();
+        if ( left + popW + 20 > $(window).width() ) {
+            left = $(window).width() - popW - 20;
+        }
+        $makeRulePopover.css({
+            top:  offset.top - scrollTop + $btn.outerHeight() + 6,
+            left: Math.max(10, left),
+        }).show();
 
         checkMakeRuleConflict(merchant);
     });
