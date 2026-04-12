@@ -2118,6 +2118,22 @@
         });
     });
 
+    // Clear all income for the current tax year
+    $(document).on('click', '.el-bk-clear-income-btn', function () {
+        var taxYear = $(this).attr('data-tax-year');
+        if (!confirm('Delete ALL income transactions for ' + taxYear + '?\n\nThis cannot be undone. Your expenses will not be affected.\n\nClick OK to continue, then re-import your bank statements.')) {
+            return;
+        }
+        var $btn = $(this).prop('disabled', true).text('Clearing…');
+        elBkAjax('bk_clear_income', { tax_year: taxYear }, function (res) {
+            alert(res.message || 'Income cleared. Re-import your bank statements.');
+            location.reload();
+        }, function (msg) {
+            alert('Error: ' + msg);
+            $btn.prop('disabled', false).text('Clear All Income');
+        });
+    });
+
     // Refresh reconciliation summary widget
     function refreshIncomeSummaryWidget() {
         if (!$('.el-bk-income-summary-widget').length) return;

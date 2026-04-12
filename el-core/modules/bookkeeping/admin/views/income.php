@@ -37,6 +37,9 @@ if ( ! empty( $prefetch_clients ) ) {
         <button class="el-btn el-btn-outline el-bk-export-btn" data-format="csv" data-type="income">
             <?php esc_html_e( 'Download CSV', 'el-core' ); ?>
         </button>
+        <button class="el-btn el-btn-danger el-bk-clear-income-btn" data-tax-year="<?php echo esc_attr( $tax_year ); ?>">
+            <?php esc_html_e( 'Clear All Income', 'el-core' ); ?>
+        </button>
         <button class="el-btn el-btn-primary el-bk-upload-csv-btn">
             <?php esc_html_e( 'Upload Bank Statement', 'el-core' ); ?>
         </button>

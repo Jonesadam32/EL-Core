@@ -100,6 +100,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_assign_client_to_transaction', [ $this, 'handle_assign_client' ] );
         add_action( 'el_core_ajax_bk_unassign_client',              [ $this, 'handle_unassign_client' ] );
         add_action( 'el_core_ajax_bk_get_income_summary',           [ $this, 'handle_get_income_summary' ] );
+        add_action( 'el_core_ajax_bk_clear_income',                 [ $this, 'handle_clear_income' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -2965,5 +2966,34 @@ class EL_Bookkeeping_Module {
             'unassigned_count' => (int) $unassigned->count,
             'unassigned_total' => round( (float) $unassigned->total, 2 ),
         ] );
+    }
+
+    /**
+     * Delete all income transactions for a given tax year.
+     * Used for clean re-import after clients + bank patterns are set up.
+     */
+    public function handle_clear_income( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $tax_year = absint( $data['tax_year'] ?? 0 );
+        if ( ! $tax_year ) {
+            EL_AJAX_Handler::error( __( 'Tax year is required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $deleted = $wpdb->delete(
+            $this->table( 'el_bk_transactions' ),
+            [ 'type' => 'income', 'tax_year' => $tax_year ],
+            [ '%s', '%d' ]
+        );
+
+        EL_AJAX_Handler::success(
+            [ 'deleted' => (int) $deleted ],
+            sprintf( __( 'Cleared %d income transactions for %d. Re-import your bank statements to rebuild.', 'el-core' ), (int) $deleted, $tax_year )
+        );
     }
 }
