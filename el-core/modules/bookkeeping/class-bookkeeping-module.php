@@ -783,13 +783,13 @@ class EL_Bookkeeping_Module {
      * Match a transaction merchant description against all clients' pipe-delimited
      * bank_patterns. Returns the first matching client object or null.
      *
-     * "Mobile Deposit" entries have no identifiable client name — skip them.
+     * Supports two pattern types:
+     *  - Text patterns: case-insensitive substring match against description
+     *  - Amount patterns: if pattern looks like a dollar amount ($1,500.00 / 1500 / 1500.00),
+     *    compare against the transaction amount — useful for "Mobile Deposit" checks
+     *    where only the amount identifies the payer.
      */
-    private function match_client_by_pattern( string $description ): ?object {
-        if ( stripos( $description, 'mobile deposit' ) !== false ) {
-            return null;
-        }
-
+    private function match_client_by_pattern( string $description, float $amount = 0.0 ): ?object {
         global $wpdb;
         $clients = $wpdb->get_results(
             "SELECT id, bank_patterns FROM {$this->table('el_bk_clients')} WHERE status = 'active' AND bank_patterns != ''"
@@ -799,12 +799,32 @@ class EL_Bookkeeping_Module {
             return null;
         }
 
+        $is_mobile_deposit = stripos( $description, 'mobile deposit' ) !== false;
         $description_lower = strtolower( $description );
 
         foreach ( $clients as $client ) {
             $patterns = array_filter( array_map( 'trim', explode( '|', $client->bank_patterns ) ) );
             foreach ( $patterns as $pattern ) {
-                if ( $pattern !== '' && stripos( $description_lower, strtolower( $pattern ) ) !== false ) {
+                if ( $pattern === '' ) {
+                    continue;
+                }
+
+                // Detect amount patterns: strip $, commas, spaces — if what remains is numeric, treat as amount match
+                $clean = preg_replace( '/[\$,\s]/', '', $pattern );
+                if ( $amount > 0.0 && preg_match( '/^\d+(\.\d{1,2})?$/', $clean ) ) {
+                    if ( abs( (float) $clean - $amount ) < 0.005 ) {
+                        return $client;
+                    }
+                    continue; // amount pattern — don't fall through to description match
+                }
+
+                // Mobile Deposit has no useful description — skip text patterns for it
+                if ( $is_mobile_deposit ) {
+                    continue;
+                }
+
+                // Standard description-based match
+                if ( stripos( $description_lower, strtolower( $pattern ) ) !== false ) {
                     return $client;
                 }
             }
@@ -961,7 +981,7 @@ class EL_Bookkeeping_Module {
             // Auto-match client for income transactions via bank_patterns
             $client_id = 0;
             if ( $type === 'income' ) {
-                $matched_client = $this->match_client_by_pattern( $merchant );
+                $matched_client = $this->match_client_by_pattern( $merchant, $store_amt );
                 if ( $matched_client ) {
                     $client_id = (int) $matched_client->id;
                     $auto_matched++;
