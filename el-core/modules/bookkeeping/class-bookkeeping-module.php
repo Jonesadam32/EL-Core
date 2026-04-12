@@ -68,7 +68,6 @@ class EL_Bookkeeping_Module {
         // ── Travel Dates ──────────────────────────────────────────
         add_action( 'el_core_ajax_bk_save_travel_period',   [ $this, 'handle_save_travel_period' ] );
         add_action( 'el_core_ajax_bk_delete_travel_period', [ $this, 'handle_delete_travel_period' ] );
-        add_action( 'el_core_ajax_bk_reapply_travel_rules', [ $this, 'handle_reapply_travel_rules' ] );
 
         // ── Receipts ──────────────────────────────────────────────
         add_action( 'el_core_ajax_bk_upload_receipt',           [ $this, 'handle_upload_receipt' ] );
@@ -709,18 +708,7 @@ class EL_Bookkeeping_Module {
      * Returns [ 'category' => string, 'source' => 'travel'|'rule'|'', 'travel_period_id' => int ]
      */
     public function auto_classify( string $merchant, string $date ): array {
-        // Step 1 — Travel Date Rules
-        $travel = $this->match_travel_period( $date );
-        if ( $travel ) {
-            $category = $this->map_travel_category( $merchant );
-            return [
-                'category'         => $category,
-                'source'           => 'travel',
-                'travel_period_id' => (int) $travel->id,
-            ];
-        }
-
-        // Step 2 — Known Expense Rules
+        // Step 1 — Known Expense Rules
         // Clean the merchant so raw bank descriptions match cleaned rule keywords
         $cleaned   = self::clean_merchant_name( $merchant );
         $haystack  = strtolower( $cleaned ?: $merchant );
@@ -787,33 +775,6 @@ class EL_Bookkeeping_Module {
         $s = preg_replace( '/[^\w\s]/u', ' ', $s );
         $s = preg_replace( '/\s+/', ' ', $s );
         return trim( $s );
-    }
-
-    private function match_travel_period( string $date ): ?object {
-        global $wpdb;
-        $table = $this->table( 'el_bk_travel_periods' );
-        return $wpdb->get_row( $wpdb->prepare(
-            "SELECT * FROM {$table} WHERE start_date <= %s AND end_date >= %s LIMIT 1",
-            $date, $date
-        ) ) ?: null;
-    }
-
-    private function map_travel_category( string $merchant ): string {
-        $merchant_upper = strtoupper( $merchant );
-
-        $airlines = [ 'AIRLINE', 'DELTA', 'UNITED', 'AMERICAN', 'SOUTHWEST', 'SPIRIT', 'JETBLUE', 'FRONTIER' ];
-        $hotels   = [ 'HOTEL', 'MARRIOTT', 'HILTON', 'HYATT', 'IHG', 'WESTIN', 'AIRBNB', 'VRBO' ];
-        $ground   = [ 'UBER', 'LYFT', 'TAXI', 'CAB', 'PARKING', 'GARAGE' ];
-        $meals    = [ 'RESTAURANT', 'CAFE', 'COFFEE', 'MCDONALD', 'CHICK-FIL', 'SUBWAY', 'STARBUCKS', 'DUNKIN', 'DOORDASH', 'GRUBHUB', 'UBEREATS' ];
-        $gas      = [ 'GAS', 'SHELL', 'EXXON', 'CHEVRON', 'BP', 'SUNOCO' ];
-
-        foreach ( $airlines as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel Expense'; }
-        foreach ( $hotels   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel Expense'; }
-        foreach ( $ground   as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Travel Expense'; }
-        foreach ( $meals    as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Meals & Entertainment'; }
-        foreach ( $gas      as $kw ) { if ( str_contains( $merchant_upper, $kw ) ) return 'Vehicle - Fuel'; }
-
-        return 'Travel Expense';
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1814,42 +1775,6 @@ class EL_Bookkeeping_Module {
         );
 
         EL_AJAX_Handler::success( null, __( 'Travel period deleted.', 'el-core' ) );
-    }
-
-    public function handle_reapply_travel_rules( array $data ): void {
-        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
-            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
-            return;
-        }
-
-        global $wpdb;
-        $table    = $this->table( 'el_bk_transactions' );
-        $tax_year = absint( $data['tax_year'] ?? $this->get_tax_year() );
-
-        // Only re-apply to unclassified transactions
-        $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, merchant, date FROM {$table} WHERE status = 'unclassified' AND tax_year = %d",
-            $tax_year
-        ) );
-
-        $updated = 0;
-        foreach ( $rows as $row ) {
-            $result = $this->auto_classify( $row->merchant, $row->date );
-            if ( $result['source'] === 'travel' ) {
-                $wpdb->update( $table, [
-                    'category'         => $result['category'],
-                    'status'           => 'suggested',
-                    'travel_period_id' => $result['travel_period_id'],
-                    'updated_at'       => current_time( 'mysql' ),
-                ], [ 'id' => $row->id ] );
-                $updated++;
-            }
-        }
-
-        EL_AJAX_Handler::success(
-            [ 'updated' => $updated ],
-            sprintf( _n( '%d transaction tagged.', '%d transactions tagged.', $updated, 'el-core' ), $updated )
-        );
     }
 
     // ─────────────────────────────────────────────────────────────

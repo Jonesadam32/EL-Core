@@ -458,19 +458,6 @@
 
     // ── Re-Apply Travel Rules ──────────────────────────────────────────────────
 
-    $(document).on('click', '.el-bk-reapply-travel-btn', function () {
-        if (!confirm('Re-apply travel rules to all unclassified transactions for this tax year?')) return;
-        const $btn = $(this).prop('disabled', true).text('Processing…');
-        elBkAjax('bk_reapply_travel_rules', { tax_year: $(this).data('taxYear') || elBookkeeping.taxYear }, function (data) {
-            alert(data.message || 'Done.');
-            $btn.prop('disabled', false).text('Re-Apply Travel Rules');
-            location.reload();
-        }, function (msg) {
-            alert(msg);
-            $btn.prop('disabled', false).text('Re-Apply Travel Rules');
-        });
-    });
-
     // ── Contractors: Add/Edit Form Toggle ──────────────────────────────────────
 
     $('#el-bk-add-contractor-btn').on('click', function () {

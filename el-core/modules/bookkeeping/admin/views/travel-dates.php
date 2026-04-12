@@ -14,12 +14,9 @@ $periods  = $module->get_travel_periods( $tax_year );
 <div class="el-bk-tab-header">
     <div class="el-bk-tab-header-left">
         <h2><?php echo esc_html( sprintf( __( 'Travel Dates — %d', 'el-core' ), $tax_year ) ); ?></h2>
-        <p class="el-bk-tab-desc"><?php esc_html_e( 'Any expense transaction during a travel period is automatically tagged as a business travel expense.', 'el-core' ); ?></p>
+        <p class="el-bk-tab-desc"><?php esc_html_e( 'Record business travel periods for IRS documentation purposes.', 'el-core' ); ?></p>
     </div>
     <div class="el-bk-tab-header-right">
-        <button class="el-btn el-btn-outline el-bk-reapply-travel-btn" data-tax-year="<?php echo esc_attr( $tax_year ); ?>">
-            <?php esc_html_e( 'Re-Apply Travel Rules', 'el-core' ); ?>
-        </button>
         <button class="el-btn el-btn-primary" id="el-bk-add-period-btn">
             <?php esc_html_e( 'Add Travel Period', 'el-core' ); ?>
         </button>
@@ -55,7 +52,7 @@ $periods  = $module->get_travel_periods( $tax_year );
 
 <!-- Travel Periods Table -->
 <?php if ( empty( $periods ) ) : ?>
-    <?php echo EL_Admin_UI::notice( [ 'message' => sprintf( __( 'No travel periods found for %d. Add a period to start auto-tagging travel transactions.', 'el-core' ), $tax_year ), 'type' => 'info' ] ); // phpcs:ignore ?>
+    <?php echo EL_Admin_UI::notice( [ 'message' => sprintf( __( 'No travel periods found for %d.', 'el-core' ), $tax_year ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 <table class="el-bk-travel-table widefat">
     <thead>
@@ -100,18 +97,3 @@ $periods  = $module->get_travel_periods( $tax_year );
     </tbody>
 </table>
 <?php endif; ?>
-
-<!-- Travel Category Mapping Reference -->
-<div class="el-bk-card el-bk-travel-map-card">
-    <h3><?php esc_html_e( 'Auto-Category Mapping', 'el-core' ); ?></h3>
-    <p class="el-bk-hint"><?php esc_html_e( 'When a transaction falls within a travel period, it is categorized based on the merchant name:', 'el-core' ); ?></p>
-    <table class="widefat el-bk-travel-map-table">
-        <thead><tr><th><?php esc_html_e( 'Merchant contains…', 'el-core' ); ?></th><th><?php esc_html_e( 'Auto-category', 'el-core' ); ?></th></tr></thead>
-        <tbody>
-            <tr><td>AIRLINE, DELTA, UNITED, AMERICAN, SOUTHWEST, SPIRIT, JETBLUE, FRONTIER, HOTEL, MARRIOTT, HILTON, HYATT, IHG, WESTIN, AIRBNB, VRBO, UBER, LYFT, TAXI, CAB, PARKING, GARAGE</td><td>Travel Expense</td></tr>
-            <tr><td>RESTAURANT, CAFE, COFFEE, MCDONALD, CHICK-FIL, SUBWAY, STARBUCKS, DUNKIN, DOORDASH, GRUBHUB, UBEREATS</td><td>Meals &amp; Entertainment</td></tr>
-            <tr><td>GAS, SHELL, EXXON, CHEVRON, BP, SUNOCO</td><td>Vehicle - Fuel</td></tr>
-            <tr><td><em><?php esc_html_e( 'All other merchants during travel period', 'el-core' ); ?></em></td><td>Travel Expense (default)</td></tr>
-        </tbody>
-    </table>
-</div>
