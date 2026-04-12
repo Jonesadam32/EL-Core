@@ -778,6 +778,40 @@ class EL_Bookkeeping_Module {
         return trim( $s );
     }
 
+    /**
+     * Match a transaction merchant description against all clients' pipe-delimited
+     * bank_patterns. Returns the first matching client object or null.
+     *
+     * "Mobile Deposit" entries have no identifiable client name — skip them.
+     */
+    private function match_client_by_pattern( string $description ): ?object {
+        if ( stripos( $description, 'mobile deposit' ) !== false ) {
+            return null;
+        }
+
+        global $wpdb;
+        $clients = $wpdb->get_results(
+            "SELECT id, bank_patterns FROM {$this->table('el_bk_clients')} WHERE status = 'active' AND bank_patterns != ''"
+        );
+
+        if ( empty( $clients ) ) {
+            return null;
+        }
+
+        $description_lower = strtolower( $description );
+
+        foreach ( $clients as $client ) {
+            $patterns = array_filter( array_map( 'trim', explode( '|', $client->bank_patterns ) ) );
+            foreach ( $patterns as $pattern ) {
+                if ( $pattern !== '' && stripos( $description_lower, strtolower( $pattern ) ) !== false ) {
+                    return $client;
+                }
+            }
+        }
+
+        return null;
+    }
+
     // ─────────────────────────────────────────────────────────────
     // AJAX HANDLERS — EXPENSES
     // ─────────────────────────────────────────────────────────────
@@ -861,6 +895,7 @@ class EL_Bookkeeping_Module {
         $income_imported  = 0;
         $expense_imported = 0;
         $classified       = 0;
+        $auto_matched     = 0;
         $skipped          = 0;
 
         while ( ( $row = fgetcsv( $handle ) ) !== false ) {
@@ -922,6 +957,16 @@ class EL_Bookkeeping_Module {
                 }
             }
 
+            // Auto-match client for income transactions via bank_patterns
+            $client_id = 0;
+            if ( $type === 'income' ) {
+                $matched_client = $this->match_client_by_pattern( $merchant );
+                if ( $matched_client ) {
+                    $client_id = (int) $matched_client->id;
+                    $auto_matched++;
+                }
+            }
+
             $wpdb->insert( $table, [
                 'type'             => $type,
                 'date'             => $date,
@@ -936,6 +981,7 @@ class EL_Bookkeeping_Module {
                 'tax_year'         => $txn_year,
                 'travel_period_id' => $travel_period_id,
                 'receipt_id'       => 0,
+                'client_id'        => $client_id,
             ] );
 
             if ( $type === 'income' ) {
@@ -949,11 +995,12 @@ class EL_Bookkeeping_Module {
 
         $total_imported = $income_imported + $expense_imported;
         $message = sprintf(
-            __( 'Import complete: %1$d income, %2$d expenses (%3$d auto-classified), %4$d skipped.', 'el-core' ),
+            __( 'Import complete: %1$d income (%5$d auto-matched), %2$d expenses (%3$d auto-classified), %4$d skipped.', 'el-core' ),
             $income_imported,
             $expense_imported,
             $classified,
-            $skipped
+            $skipped,
+            $auto_matched
         );
 
         EL_AJAX_Handler::success( [
@@ -961,6 +1008,7 @@ class EL_Bookkeeping_Module {
             'income_imported'  => $income_imported,
             'expense_imported' => $expense_imported,
             'classified'       => $classified,
+            'auto_matched'     => $auto_matched,
             'skipped'          => $skipped,
         ], $message );
     }
