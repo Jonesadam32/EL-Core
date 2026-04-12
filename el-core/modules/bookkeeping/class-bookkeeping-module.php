@@ -2721,24 +2721,39 @@ class EL_Bookkeeping_Module {
             }
         }
 
+        // Handle supporting document upload (bank deposits, check stubs, etc.)
+        $supporting_doc_attachment_id = absint( $data['supporting_doc_attachment_id'] ?? 0 );
+        if ( ! empty( $_FILES['supporting_doc_file'] ) && $_FILES['supporting_doc_file']['error'] === UPLOAD_ERR_OK ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+            $attachment_id = media_handle_upload( 'supporting_doc_file', 0 );
+            if ( ! is_wp_error( $attachment_id ) ) {
+                $supporting_doc_attachment_id = $attachment_id;
+            }
+        }
+        $supporting_doc_title = sanitize_text_field( $data['supporting_doc_title'] ?? '' );
+
         // date_received is only relevant for "received" status
         $date_val = ( $date_received && $document_status === 'received' ) ? $date_received : null;
 
         global $wpdb;
         $table = $this->table( 'el_bk_1099_nec' );
         $row   = [
-            'client_id'              => $client_id,
-            'tax_year'               => $tax_year,
-            'document_status'        => $document_status,
-            'box1_amount'            => $box1_amount,
-            'date_received'          => $date_val,
-            'document_attachment_id' => $document_attachment_id,
-            'form_4852_attachment_id' => $form_4852_attachment_id,
-            'substitute_docs'        => $substitute_docs,
-            'reconciliation_status'  => $reconciliation_status,
-            'notes'                  => $notes,
+            'client_id'                    => $client_id,
+            'tax_year'                     => $tax_year,
+            'document_status'              => $document_status,
+            'box1_amount'                  => $box1_amount,
+            'date_received'                => $date_val,
+            'document_attachment_id'       => $document_attachment_id,
+            'form_4852_attachment_id'      => $form_4852_attachment_id,
+            'supporting_doc_attachment_id' => $supporting_doc_attachment_id,
+            'supporting_doc_title'         => $supporting_doc_title,
+            'substitute_docs'              => $substitute_docs,
+            'reconciliation_status'        => $reconciliation_status,
+            'notes'                        => $notes,
         ];
-        $formats = [ '%d', '%d', '%s', '%f', '%s', '%d', '%d', '%s', '%s', '%s' ];
+        $formats = [ '%d', '%d', '%s', '%f', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s' ];
 
         if ( $id ) {
             $wpdb->update( $table, $row, [ 'id' => $id ], $formats );
@@ -2747,10 +2762,11 @@ class EL_Bookkeeping_Module {
             $id = $wpdb->insert_id;
         }
 
-        $doc_url      = $document_attachment_id  ? wp_get_attachment_url( $document_attachment_id )  : '';
-        $form4852_url = $form_4852_attachment_id ? wp_get_attachment_url( $form_4852_attachment_id ) : '';
+        $doc_url          = $document_attachment_id         ? wp_get_attachment_url( $document_attachment_id )         : '';
+        $form4852_url     = $form_4852_attachment_id        ? wp_get_attachment_url( $form_4852_attachment_id )        : '';
+        $supporting_url   = $supporting_doc_attachment_id   ? wp_get_attachment_url( $supporting_doc_attachment_id )   : '';
         EL_AJAX_Handler::success(
-            [ 'id' => $id, 'doc_url' => $doc_url, 'form4852_url' => $form4852_url ],
+            [ 'id' => $id, 'doc_url' => $doc_url, 'form4852_url' => $form4852_url, 'supporting_url' => $supporting_url ],
             __( '1099-NEC record saved.', 'el-core' )
         );
     }

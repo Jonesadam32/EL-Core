@@ -1792,6 +1792,8 @@
         $('#el-bk-nec-id').val('');
         $('#el-bk-nec-doc-attachment-id').val('');
         $('#el-bk-nec-form4852-attachment-id').val('');
+        $('#el-bk-nec-supporting-doc-attachment-id').val('');
+        $('#el-bk-nec-supporting-doc-title').val('');
         $('#el-bk-nec-client-id').val('');
         $('#el-bk-nec-tax-year').val(new Date().getFullYear());
         $('input[name="el-bk-nec-doc-status"][value="received"]').prop('checked', true);
@@ -1801,6 +1803,8 @@
         $('#el-bk-nec-doc-current').hide().empty();
         $('#el-bk-nec-form4852-file').val('');
         $('#el-bk-nec-form4852-current').hide().empty();
+        $('#el-bk-nec-supporting-doc-file').val('');
+        $('#el-bk-nec-supporting-doc-current').hide().empty();
         $('#el-bk-nec-substitute-docs').val('');
         $('#el-bk-nec-reconciliation-status').val('pending');
         $('#el-bk-nec-notes').val('');
@@ -1842,6 +1846,8 @@
         $('#el-bk-nec-id').val($btn.attr('data-id'));
         $('#el-bk-nec-doc-attachment-id').val($btn.attr('data-document-attachment-id') || '');
         $('#el-bk-nec-form4852-attachment-id').val($btn.attr('data-form-4852-attachment-id') || '');
+        $('#el-bk-nec-supporting-doc-attachment-id').val($btn.attr('data-supporting-doc-attachment-id') || '');
+        $('#el-bk-nec-supporting-doc-title').val($btn.attr('data-supporting-doc-title') || '');
         $('#el-bk-nec-client-id').val($btn.attr('data-client-id'));
         $('#el-bk-nec-tax-year').val($btn.attr('data-tax-year'));
         $('input[name="el-bk-nec-doc-status"][value="' + $btn.attr('data-document-status') + '"]').prop('checked', true);
@@ -1861,6 +1867,13 @@
         if (form4852Url) {
             $('#el-bk-nec-form4852-current')
                 .html('Current Form 4852: <a href="' + form4852Url + '" target="_blank">View</a> — upload a new file to replace')
+                .show();
+        }
+        var supportingUrl = $btn.attr('data-supporting-url') || '';
+        if (supportingUrl) {
+            var supportingTitle = $btn.attr('data-supporting-doc-title') || 'Supporting Doc';
+            $('#el-bk-nec-supporting-doc-current')
+                .html('Current: <a href="' + supportingUrl + '" target="_blank">' + $('<span>').text(supportingTitle).html() + '</a> — upload a new file to replace')
                 .show();
         }
         $('#el-bk-nec-form-title').text('Edit 1099-NEC Record');
@@ -1903,6 +1916,8 @@
         fd.append('id',                      $('#el-bk-nec-id').val());
         fd.append('document_attachment_id',  $('#el-bk-nec-doc-attachment-id').val());
         fd.append('form_4852_attachment_id', $('#el-bk-nec-form4852-attachment-id').val());
+        fd.append('supporting_doc_attachment_id', $('#el-bk-nec-supporting-doc-attachment-id').val());
+        fd.append('supporting_doc_title',    $('#el-bk-nec-supporting-doc-title').val());
         fd.append('client_id',               $('#el-bk-nec-client-id').val());
         fd.append('tax_year',                $('#el-bk-nec-tax-year').val());
         fd.append('document_status',         $('input[name="el-bk-nec-doc-status"]:checked').val());
@@ -1918,6 +1933,10 @@
         var file4852 = document.getElementById('el-bk-nec-form4852-file');
         if (file4852 && file4852.files && file4852.files.length > 0) {
             fd.append('form_4852_file', file4852.files[0]);
+        }
+        var fileSupportingDoc = document.getElementById('el-bk-nec-supporting-doc-file');
+        if (fileSupportingDoc && fileSupportingDoc.files && fileSupportingDoc.files.length > 0) {
+            fd.append('supporting_doc_file', fileSupportingDoc.files[0]);
         }
         $.ajax({
             url: ajax, type: 'POST', data: fd, processData: false, contentType: false,

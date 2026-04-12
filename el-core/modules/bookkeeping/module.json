@@ -23,7 +23,7 @@
     },
 
     "database": {
-        "version": 7,
+        "version": 8,
         "tables": {
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -135,6 +135,8 @@
                 "document_status": "enum('received','missing','substitute') NOT NULL DEFAULT 'received'",
                 "document_attachment_id": "bigint(20) NOT NULL DEFAULT 0",
                 "form_4852_attachment_id": "bigint(20) NOT NULL DEFAULT 0",
+                "supporting_doc_attachment_id": "bigint(20) NOT NULL DEFAULT 0",
+                "supporting_doc_title": "varchar(255) NOT NULL DEFAULT ''",
                 "substitute_docs": "text NOT NULL DEFAULT ''",
                 "reconciliation_status": "enum('pending','reconciled','discrepancy') NOT NULL DEFAULT 'pending'",
                 "verified_at": "datetime DEFAULT NULL",
@@ -153,7 +155,8 @@
             "4": "ALTER TABLE el_bk_receipts ADD COLUMN match_source varchar(20) NOT NULL DEFAULT ''",
             "5": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS receipt_id bigint(20) NOT NULL DEFAULT 0",
             "6": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS client_id bigint(20) NOT NULL DEFAULT 0",
-            "7": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS form_4852_attachment_id bigint(20) NOT NULL DEFAULT 0"
+            "7": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS form_4852_attachment_id bigint(20) NOT NULL DEFAULT 0",
+            "8": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS supporting_doc_attachment_id bigint(20) NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS supporting_doc_title varchar(255) NOT NULL DEFAULT ''"
         }
     },
 

@@ -20,6 +20,7 @@ $contract_types = [
     'Curriculum Development',
     'Coaching',
     'Facilitation',
+    'Web Design/License',
     'Other',
 ];
 
@@ -282,6 +283,30 @@ $status_labels = [
                 </label>
                 <div id="el-bk-nec-form4852-current" class="el-bk-nec-doc-current" style="display:none;"></div>
             </div>
+
+            <div style="margin-top:16px;">
+                <label class="el-bk-form-label">
+                    <?php esc_html_e( 'Supporting Document Title', 'el-core' ); ?>
+                    <span class="description" style="font-weight:normal;font-size:12px;display:block;margin-bottom:6px;">
+                        <?php esc_html_e( 'Describe what you are uploading (e.g. "Chase Bank Deposits Jan–Dec", "Check Stubs Q1–Q4").', 'el-core' ); ?>
+                    </span>
+                    <input type="text" id="el-bk-nec-supporting-doc-title" class="el-input el-bk-voice-input"
+                        placeholder="<?php esc_attr_e( 'e.g. Chase Bank Deposits Jan–Dec 2024', 'el-core' ); ?>">
+                </label>
+            </div>
+
+            <div style="margin-top:12px;">
+                <label class="el-bk-form-label">
+                    <?php esc_html_e( 'Supporting Document Upload (PDF, JPG, PNG)', 'el-core' ); ?>
+                    <span class="description" style="font-weight:normal;font-size:12px;display:block;margin-bottom:6px;">
+                        <?php esc_html_e( 'Upload bank deposits, check stubs, or any other supporting documentation.', 'el-core' ); ?>
+                    </span>
+                    <input type="file" id="el-bk-nec-supporting-doc-file" class="el-input"
+                        accept=".pdf,.jpg,.jpeg,.png">
+                </label>
+                <input type="hidden" id="el-bk-nec-supporting-doc-attachment-id" value="">
+                <div id="el-bk-nec-supporting-doc-current" class="el-bk-nec-doc-current" style="display:none;"></div>
+            </div>
         </div>
 
         <div class="el-bk-nec-form-col">
@@ -440,13 +465,15 @@ $rec_status_labels = [
                 <th><?php esc_html_e( 'Reconciliation', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Document', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Form 4852', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Supporting Doc', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Actions', 'el-core' ); ?></th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ( $prefetch_1099s as $n ) :
-                $doc_url      = $n->document_attachment_id  ? wp_get_attachment_url( (int) $n->document_attachment_id )  : '';
-                $form4852_url = $n->form_4852_attachment_id ? wp_get_attachment_url( (int) $n->form_4852_attachment_id ) : '';
+                $doc_url          = $n->document_attachment_id         ? wp_get_attachment_url( (int) $n->document_attachment_id )         : '';
+                $form4852_url     = $n->form_4852_attachment_id        ? wp_get_attachment_url( (int) $n->form_4852_attachment_id )        : '';
+                $supporting_url   = $n->supporting_doc_attachment_id   ? wp_get_attachment_url( (int) $n->supporting_doc_attachment_id )   : '';
             ?>
             <tr class="el-bk-nec-row"
                 data-id="<?php echo esc_attr( $n->id ); ?>"
@@ -494,6 +521,15 @@ $rec_status_labels = [
                         <span class="el-bk-muted">—</span>
                     <?php endif; ?>
                 </td>
+                <td>
+                    <?php if ( $supporting_url ) : ?>
+                        <a href="<?php echo esc_url( $supporting_url ); ?>" target="_blank" class="el-bk-doc-link">
+                            <?php echo esc_html( $n->supporting_doc_title ?: 'View' ); ?>
+                        </a>
+                    <?php else : ?>
+                        <span class="el-bk-muted">—</span>
+                    <?php endif; ?>
+                </td>
                 <td class="el-bk-actions">
                     <button class="el-btn el-btn-outline el-bk-edit-nec-btn"
                         data-id="<?php echo esc_attr( $n->id ); ?>"
@@ -506,6 +542,9 @@ $rec_status_labels = [
                         data-doc-url="<?php echo esc_attr( $doc_url ); ?>"
                         data-form-4852-attachment-id="<?php echo esc_attr( $n->form_4852_attachment_id ); ?>"
                         data-form4852-url="<?php echo esc_attr( $form4852_url ); ?>"
+                        data-supporting-doc-attachment-id="<?php echo esc_attr( $n->supporting_doc_attachment_id ); ?>"
+                        data-supporting-doc-title="<?php echo esc_attr( $n->supporting_doc_title ); ?>"
+                        data-supporting-url="<?php echo esc_attr( $supporting_url ); ?>"
                         data-substitute-docs="<?php echo esc_attr( $n->substitute_docs ); ?>"
                         data-reconciliation-status="<?php echo esc_attr( $n->reconciliation_status ); ?>"
                         data-notes="<?php echo esc_attr( $n->notes ); ?>">
