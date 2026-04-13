@@ -3045,9 +3045,9 @@ class EL_Bookkeeping_Module {
         global $wpdb;
 
         $nec = $wpdb->get_row( $wpdb->prepare(
-            "SELECT n.*, c.client_name, c.short_name
+            "SELECT n.*, COALESCE(c.client_name, CONCAT('Client #', n.client_id)) as client_name, c.short_name
              FROM {$this->table('el_bk_1099_nec')} n
-             JOIN {$this->table('el_bk_clients')} c ON n.client_id = c.id
+             LEFT JOIN {$this->table('el_bk_clients')} c ON c.id = n.client_id
              WHERE n.id = %d",
             $nec_id
         ) );
@@ -3172,7 +3172,7 @@ class EL_Bookkeeping_Module {
             "SELECT
                 n.id as nec_id,
                 n.client_id,
-                c.client_name,
+                COALESCE(c.client_name, CONCAT('Client #', n.client_id)) as client_name,
                 c.short_name,
                 n.box1_amount,
                 n.document_status,
@@ -3187,7 +3187,7 @@ class EL_Bookkeeping_Module {
                     0
                 ) as deposits_total
              FROM {$this->table('el_bk_1099_nec')} n
-             JOIN {$this->table('el_bk_clients')} c ON n.client_id = c.id
+             LEFT JOIN {$this->table('el_bk_clients')} c ON c.id = n.client_id
              WHERE n.tax_year = %d
              ORDER BY c.client_name ASC",
             $tax_year
