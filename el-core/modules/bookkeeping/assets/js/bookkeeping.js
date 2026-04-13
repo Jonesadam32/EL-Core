@@ -2064,9 +2064,14 @@
                     alert('Error: ' + msg);
                 }
             },
-            error: function () {
+            error: function (xhr) {
                 $btn.prop('disabled', false).text('Save 1099-NEC Record');
-                alert('Request failed. Please try again.');
+                var msg = 'Request failed. Please try again.';
+                try {
+                    var errRes = JSON.parse(xhr.responseText);
+                    if (errRes && errRes.data && errRes.data.message) msg = errRes.data.message;
+                } catch (e) {}
+                alert('Error: ' + msg);
             }
         });
     });
