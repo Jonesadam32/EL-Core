@@ -3486,9 +3486,8 @@ class EL_Bookkeeping_Module {
 
         if ( $this->core && $this->core->ai && $this->core->ai->is_configured() ) {
             $file_path = get_attached_file( $attachment_id );
-            $is_image  = in_array( $ext, [ 'jpg', 'jpeg', 'png' ], true );
 
-            if ( $is_image && $file_path && file_exists( $file_path ) ) {
+            if ( $file_path && file_exists( $file_path ) ) {
                 // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
                 $image_b64 = base64_encode( file_get_contents( $file_path ) );
 

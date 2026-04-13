@@ -244,15 +244,18 @@ class EL_AI_Client {
         $model      = $args['model']      ?? 'claude-opus-4-5';
         $max_tokens = $args['max_tokens'] ?? max( 1024, (int) $this->settings->get( 'ai', 'max_tokens', 1024 ) );
         $mime       = $args['image_mime'] ?? 'image/jpeg';
+        $is_pdf     = ( $mime === 'application/pdf' );
+
+        $source_block = [
+            'type'       => 'base64',
+            'media_type' => $mime,
+            'data'       => $args['image_base64'],
+        ];
 
         $user_content = [
             [
-                'type'   => 'image',
-                'source' => [
-                    'type'       => 'base64',
-                    'media_type' => $mime,
-                    'data'       => $args['image_base64'],
-                ],
+                'type'   => $is_pdf ? 'document' : 'image',
+                'source' => $source_block,
             ],
         ];
 
@@ -272,14 +275,19 @@ class EL_AI_Client {
             $body['system'] = $args['system'];
         }
 
+        $headers = [
+            'Content-Type'      => 'application/json',
+            'x-api-key'         => $api_key,
+            'anthropic-version' => '2023-06-01',
+        ];
+        if ( $is_pdf ) {
+            $headers['anthropic-beta'] = 'pdfs-2024-09-25';
+        }
+
         $response = wp_remote_post( 'https://api.anthropic.com/v1/messages', [
             'timeout' => 90,
-            'headers' => [
-                'Content-Type'      => 'application/json',
-                'x-api-key'         => $api_key,
-                'anthropic-version' => '2023-06-01',
-            ],
-            'body' => wp_json_encode( $body ),
+            'headers' => $headers,
+            'body'    => wp_json_encode( $body ),
         ] );
 
         if ( is_wp_error( $response ) ) {
