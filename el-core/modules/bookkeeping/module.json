@@ -23,7 +23,7 @@
     },
 
     "database": {
-        "version": 8,
+        "version": 9,
         "tables": {
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -147,6 +147,29 @@
                 "UNIQUE KEY unique_client_year": "(client_id, tax_year)",
                 "KEY idx_tax_year": "(tax_year)",
                 "KEY idx_reconciliation": "(reconciliation_status)"
+            },
+            "el_bk_invoices": {
+                "id": "bigint(20) NOT NULL AUTO_INCREMENT",
+                "client_id": "bigint(20) NOT NULL DEFAULT 0",
+                "invoice_number": "varchar(50) NOT NULL DEFAULT ''",
+                "invoice_date": "date NOT NULL",
+                "amount": "decimal(12,2) NOT NULL DEFAULT 0.00",
+                "description": "text NOT NULL DEFAULT ''",
+                "status": "enum('unpaid','paid','partial','void') NOT NULL DEFAULT 'unpaid'",
+                "document_attachment_id": "bigint(20) NOT NULL DEFAULT 0",
+                "transaction_id": "bigint(20) NOT NULL DEFAULT 0",
+                "withholding_amount": "decimal(10,2) NOT NULL DEFAULT 0.00",
+                "withholding_type": "varchar(50) NOT NULL DEFAULT ''",
+                "ai_extracted_data": "text NOT NULL DEFAULT ''",
+                "notes": "text NOT NULL DEFAULT ''",
+                "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                "PRIMARY KEY": "(id)",
+                "UNIQUE KEY unique_invoice_number": "(invoice_number)",
+                "KEY idx_client": "(client_id)",
+                "KEY idx_status": "(status)",
+                "KEY idx_transaction": "(transaction_id)",
+                "KEY idx_date": "(invoice_date)"
             }
         },
         "migrations": {
@@ -156,7 +179,8 @@
             "5": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS receipt_id bigint(20) NOT NULL DEFAULT 0",
             "6": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS client_id bigint(20) NOT NULL DEFAULT 0",
             "7": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS form_4852_attachment_id bigint(20) NOT NULL DEFAULT 0",
-            "8": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS supporting_doc_attachment_id bigint(20) NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS supporting_doc_title varchar(255) NOT NULL DEFAULT ''"
+            "8": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS supporting_doc_attachment_id bigint(20) NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS supporting_doc_title varchar(255) NOT NULL DEFAULT ''",
+            "9": "CREATE TABLE IF NOT EXISTS {prefix}el_bk_invoices ( id bigint(20) NOT NULL AUTO_INCREMENT, client_id bigint(20) NOT NULL DEFAULT 0, invoice_number varchar(50) NOT NULL DEFAULT '', invoice_date date NOT NULL, amount decimal(12,2) NOT NULL DEFAULT 0.00, description text NOT NULL DEFAULT '', status enum('unpaid','paid','partial','void') NOT NULL DEFAULT 'unpaid', document_attachment_id bigint(20) NOT NULL DEFAULT 0, transaction_id bigint(20) NOT NULL DEFAULT 0, withholding_amount decimal(10,2) NOT NULL DEFAULT 0.00, withholding_type varchar(50) NOT NULL DEFAULT '', ai_extracted_data text NOT NULL DEFAULT '', notes text NOT NULL DEFAULT '', created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (id), UNIQUE KEY unique_invoice_number (invoice_number), KEY idx_client (client_id), KEY idx_status (status), KEY idx_transaction (transaction_id), KEY idx_date (invoice_date) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         }
     },
 

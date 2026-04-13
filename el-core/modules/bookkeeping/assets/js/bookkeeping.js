@@ -2445,4 +2445,200 @@
         }
     });
 
+    // ── INVOICES (Phase A.7) ──────────────────────────────────────────────────
+
+    // Reset invoice form
+    function elBkResetInvoiceForm() {
+        $('#el-bk-invoice-id').val('');
+        $('#el-bk-invoice-doc-attachment-id').val('');
+        $('#el-bk-invoice-client-id').val('');
+        $('#el-bk-invoice-number').val('');
+        $('#el-bk-invoice-date').val(new Date().toISOString().split('T')[0]);
+        $('#el-bk-invoice-amount').val('');
+        $('#el-bk-invoice-status').val('unpaid');
+        $('#el-bk-invoice-withholding-type').val('');
+        $('#el-bk-invoice-withholding-amount').val('');
+        $('#el-bk-invoice-withholding-amount-row').hide();
+        $('#el-bk-invoice-description').val('');
+        $('#el-bk-invoice-doc-file').val('');
+        $('#el-bk-invoice-doc-current').hide().empty();
+        $('#el-bk-invoice-notes').val('');
+        $('#el-bk-invoice-form-title').text('Add Invoice');
+    }
+    window.elBkResetInvoiceForm = elBkResetInvoiceForm;
+
+    // Show/hide withholding amount based on type
+    $('#el-bk-invoice-withholding-type').on('change', function () {
+        var type = $(this).val();
+        if (type) {
+            $('#el-bk-invoice-withholding-amount-row').show();
+        } else {
+            $('#el-bk-invoice-withholding-amount-row').hide();
+            $('#el-bk-invoice-withholding-amount').val('');
+        }
+    });
+
+    // Add invoice button
+    $('#el-bk-add-invoice-btn').on('click', function () {
+        elBkResetInvoiceForm();
+        $('#el-bk-invoice-form').slideDown(200);
+        $('#el-bk-invoice-client-id').focus();
+    });
+
+    // Cancel invoice form
+    $('#el-bk-cancel-invoice-btn').on('click', function () {
+        $('#el-bk-invoice-form').slideUp(200);
+        elBkResetInvoiceForm();
+    });
+
+    // Edit invoice button
+    $(document).on('click', '.el-bk-edit-invoice-btn', function () {
+        var $btn = $(this);
+        elBkResetInvoiceForm();
+
+        $('#el-bk-invoice-id').val($btn.attr('data-id'));
+        $('#el-bk-invoice-client-id').val($btn.attr('data-client-id'));
+        $('#el-bk-invoice-number').val($btn.attr('data-invoice-number'));
+        $('#el-bk-invoice-date').val($btn.attr('data-invoice-date'));
+        $('#el-bk-invoice-amount').val($btn.attr('data-amount'));
+        $('#el-bk-invoice-status').val($btn.attr('data-status'));
+        $('#el-bk-invoice-withholding-type').val($btn.attr('data-withholding-type'));
+        $('#el-bk-invoice-withholding-amount').val($btn.attr('data-withholding-amount'));
+        $('#el-bk-invoice-description').val($btn.attr('data-description'));
+        $('#el-bk-invoice-doc-attachment-id').val($btn.attr('data-document-attachment-id'));
+        $('#el-bk-invoice-notes').val($btn.attr('data-notes'));
+
+        if ($btn.attr('data-withholding-type')) {
+            $('#el-bk-invoice-withholding-amount-row').show();
+        }
+
+        var docUrl = $btn.attr('data-doc-url');
+        if (docUrl) {
+            $('#el-bk-invoice-doc-current')
+                .html('<a href="' + docUrl + '" target="_blank">View current document</a>')
+                .show();
+        }
+
+        $('#el-bk-invoice-form-title').text('Edit Invoice');
+        $('#el-bk-invoice-form').slideDown(200);
+        $('html, body').animate({ scrollTop: $('#el-bk-invoice-form').offset().top - 100 }, 300);
+    });
+
+    // Save invoice (shared function)
+    function elBkSaveInvoice(saveAndAdd) {
+        var $saveBtn    = $('#el-bk-save-invoice-btn');
+        var $saveAddBtn = $('#el-bk-save-invoice-add-btn');
+        $saveBtn.prop('disabled', true).text('Saving…');
+        $saveAddBtn.prop('disabled', true);
+
+        var fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_save_invoice');
+        fd.append('nonce', elBookkeeping.nonce);
+        fd.append('id', $('#el-bk-invoice-id').val());
+        fd.append('document_attachment_id', $('#el-bk-invoice-doc-attachment-id').val());
+        fd.append('client_id', $('#el-bk-invoice-client-id').val());
+        fd.append('invoice_number', $('#el-bk-invoice-number').val());
+        fd.append('invoice_date', $('#el-bk-invoice-date').val());
+        fd.append('amount', $('#el-bk-invoice-amount').val());
+        fd.append('status', $('#el-bk-invoice-status').val());
+        fd.append('withholding_type', $('#el-bk-invoice-withholding-type').val());
+        fd.append('withholding_amount', $('#el-bk-invoice-withholding-amount').val());
+        fd.append('description', $('#el-bk-invoice-description').val());
+        fd.append('notes', $('#el-bk-invoice-notes').val());
+        fd.append('save_and_add', saveAndAdd ? '1' : '');
+
+        var fileInput = document.getElementById('el-bk-invoice-doc-file');
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            fd.append('invoice_doc_file', fileInput.files[0]);
+        }
+
+        $.ajax({
+            url: elBookkeeping.ajaxUrl,
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            success: function (res) {
+                $saveBtn.prop('disabled', false).text('Save Invoice');
+                $saveAddBtn.prop('disabled', false);
+                if (res && res.success) {
+                    if (saveAndAdd) {
+                        elBkResetInvoiceForm();
+                        $('#el-bk-invoice-form').show();
+                        $('#el-bk-invoice-client-id').focus();
+                        alert('Invoice saved! Ready for next entry.');
+                    } else {
+                        location.reload();
+                    }
+                } else {
+                    var msg = (res && res.data && res.data.message) ? res.data.message : 'Unknown error';
+                    alert('Error: ' + msg);
+                }
+            },
+            error: function (xhr) {
+                $saveBtn.prop('disabled', false).text('Save Invoice');
+                $saveAddBtn.prop('disabled', false);
+                var msg = 'Request failed. Please try again.';
+                try {
+                    var errRes = JSON.parse(xhr.responseText);
+                    if (errRes && errRes.data && errRes.data.message) msg = errRes.data.message;
+                } catch (e) {}
+                alert('Error: ' + msg);
+            }
+        });
+    }
+    window.elBkSaveInvoice = elBkSaveInvoice;
+
+    // Save invoice button
+    $('#el-bk-save-invoice-btn').on('click', function () {
+        elBkSaveInvoice(false);
+    });
+
+    // Save & Add Another button
+    $('#el-bk-save-invoice-add-btn').on('click', function () {
+        elBkSaveInvoice(true);
+    });
+
+    // Delete invoice
+    $(document).on('click', '.el-bk-delete-invoice-btn', function () {
+        var num  = $(this).attr('data-number') || 'this invoice';
+        if (!confirm('Delete invoice ' + num + '? This cannot be undone.')) return;
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('Deleting…');
+        elBkAjax('bk_delete_invoice', { id: $btn.attr('data-id') }, function () {
+            $btn.closest('tr').fadeOut(300, function () { $(this).remove(); });
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Delete');
+            alert('Error: ' + msg);
+        });
+    });
+
+    // Invoice search filter
+    $('#el-bk-invoice-search').on('input', function () {
+        var q = $(this).val().toLowerCase();
+        $('#el-bk-invoice-table tbody tr.el-bk-invoice-row').each(function () {
+            var searchText = $(this).attr('data-search') || '';
+            $(this).toggle(q === '' || searchText.indexOf(q) !== -1);
+        });
+    });
+
+    // Client filter
+    $('#el-bk-invoice-client-filter').on('change', function () {
+        var clientId = $(this).val();
+        $('#el-bk-invoice-table tbody tr.el-bk-invoice-row').each(function () {
+            var rowClientId = $(this).attr('data-client-id') || '';
+            $(this).toggle(clientId === '' || rowClientId === clientId);
+        });
+    });
+
+    // Status filter
+    $('#el-bk-invoice-status-filter').on('change', function () {
+        var status = $(this).val();
+        $('#el-bk-invoice-table tbody tr.el-bk-invoice-row').each(function () {
+            var rowStatus = $(this).attr('data-status') || '';
+            $(this).toggle(status === '' || rowStatus === status);
+        });
+    });
+
 }(jQuery));

@@ -106,6 +106,12 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_get_reconciliation',    [ $this, 'handle_get_reconciliation' ] );
         add_action( 'el_core_ajax_bk_verify_reconciliation', [ $this, 'handle_verify_reconciliation' ] );
         add_action( 'el_core_ajax_bk_get_annual_summary',    [ $this, 'handle_get_annual_summary' ] );
+
+        // ── Invoices (Phase A.7) ──────────────────────────────────
+        add_action( 'el_core_ajax_bk_get_invoices',   [ $this, 'handle_get_invoices' ] );
+        add_action( 'el_core_ajax_bk_save_invoice',   [ $this, 'handle_save_invoice' ] );
+        add_action( 'el_core_ajax_bk_delete_invoice', [ $this, 'handle_delete_invoice' ] );
+        add_action( 'el_core_ajax_bk_get_invoice',    [ $this, 'handle_get_invoice' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -185,7 +191,7 @@ class EL_Bookkeeping_Module {
         // Validate tab; gate settings.
         $valid_tabs = [
             'dashboard', 'expenses', 'income', 'profit-loss', 'contractors',
-            'known-expenses', 'travel-dates', 'receipts', 'clients', 'settings',
+            'known-expenses', 'travel-dates', 'receipts', 'clients', 'invoices', 'settings',
         ];
         if ( ! in_array( $active_tab, $valid_tabs, true ) ) {
             $active_tab = 'dashboard';
@@ -218,6 +224,12 @@ class EL_Bookkeeping_Module {
         $prefetch_1099s       = ( $active_tab === 'clients' )
                                     ? $this->get_1099s()
                                     : [];
+        $prefetch_invoices    = ( $active_tab === 'invoices' )
+                                    ? $this->get_invoices( 0, '', $tax_year )
+                                    : [];
+        $prefetch_clients_for_invoices = ( $active_tab === 'invoices' )
+                                    ? $this->get_clients()
+                                    : [];
 
         $base_url = admin_url( 'admin.php?page=els-bookkeeping&year=' . $selected_year );
 
@@ -236,6 +248,7 @@ class EL_Bookkeeping_Module {
             'dashboard'      => __( 'Dashboard', 'el-core' ),
             'expenses'       => __( 'Expenses', 'el-core' ),
             'income'         => __( 'Income & Deposits', 'el-core' ),
+            'invoices'       => __( 'Invoices', 'el-core' ),
             'profit-loss'    => __( 'Profit & Loss', 'el-core' ),
             'contractors'    => __( 'Contractors', 'el-core' ),
             'known-expenses' => __( 'Known Expenses', 'el-core' ),
@@ -3237,5 +3250,194 @@ class EL_Bookkeeping_Module {
             'total_variance' => round( $total_deposits - $total_1099, 2 ),
             'count'          => count( $records ),
         ] );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AJAX HANDLERS — INVOICES (Phase A.7)
+    // ─────────────────────────────────────────────────────────────
+
+    public function handle_get_invoices( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $client_id = absint( $data['client_id'] ?? 0 );
+        $status    = sanitize_text_field( $data['status'] ?? '' );
+        $tax_year  = absint( $data['tax_year'] ?? 0 );
+        EL_AJAX_Handler::success( $this->get_invoices( $client_id, $status, $tax_year ) );
+    }
+
+    public function handle_get_invoice( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid invoice ID.', 'el-core' ) );
+            return;
+        }
+        global $wpdb;
+        $invoice = $wpdb->get_row( $wpdb->prepare(
+            "SELECT i.*, c.client_name, c.short_name
+             FROM {$this->table('el_bk_invoices')} i
+             LEFT JOIN {$this->table('el_bk_clients')} c ON i.client_id = c.id
+             WHERE i.id = %d",
+            $id
+        ) );
+        if ( ! $invoice ) {
+            EL_AJAX_Handler::error( __( 'Invoice not found.', 'el-core' ) );
+            return;
+        }
+        EL_AJAX_Handler::success( $invoice );
+    }
+
+    public function handle_save_invoice( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id               = absint( $data['id'] ?? 0 );
+        $client_id        = absint( $data['client_id'] ?? 0 );
+        $invoice_number   = sanitize_text_field( wp_unslash( $data['invoice_number'] ?? '' ) );
+        $invoice_date     = sanitize_text_field( $data['invoice_date'] ?? '' );
+        $amount_raw       = str_replace( [ '$', ',', ' ' ], '', $data['amount'] ?? '' );
+        $amount           = is_numeric( $amount_raw ) ? round( (float) $amount_raw, 2 ) : 0.00;
+        $description      = sanitize_textarea_field( wp_unslash( $data['description'] ?? '' ) );
+        $status           = in_array( $data['status'] ?? '', [ 'unpaid', 'paid', 'partial', 'void' ], true )
+                                ? $data['status'] : 'unpaid';
+        $withholding_raw  = str_replace( [ '$', ',', ' ' ], '', $data['withholding_amount'] ?? '' );
+        $withholding_amount = is_numeric( $withholding_raw ) ? round( (float) $withholding_raw, 2 ) : 0.00;
+        $withholding_type = sanitize_text_field( wp_unslash( $data['withholding_type'] ?? '' ) );
+        $notes            = sanitize_textarea_field( wp_unslash( $data['notes'] ?? '' ) );
+        $save_and_add     = ! empty( $data['save_and_add'] );
+
+        if ( ! $client_id ) {
+            EL_AJAX_Handler::error( __( 'Client is required.', 'el-core' ) );
+            return;
+        }
+        if ( ! $invoice_date ) {
+            EL_AJAX_Handler::error( __( 'Invoice date is required.', 'el-core' ) );
+            return;
+        }
+        if ( $amount <= 0 ) {
+            EL_AJAX_Handler::error( __( 'Amount must be greater than zero.', 'el-core' ) );
+            return;
+        }
+
+        // Handle file upload
+        $document_attachment_id = absint( $data['document_attachment_id'] ?? 0 );
+        if ( ! empty( $_FILES['invoice_doc_file'] ) && $_FILES['invoice_doc_file']['error'] === UPLOAD_ERR_OK ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+            $attachment_id = media_handle_upload( 'invoice_doc_file', 0 );
+            if ( ! is_wp_error( $attachment_id ) ) {
+                $document_attachment_id = $attachment_id;
+            }
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_invoices' );
+        $row   = [
+            'client_id'              => $client_id,
+            'invoice_number'         => $invoice_number,
+            'invoice_date'           => $invoice_date,
+            'amount'                 => $amount,
+            'description'            => $description,
+            'status'                 => $status,
+            'document_attachment_id' => $document_attachment_id,
+            'withholding_amount'     => $withholding_amount,
+            'withholding_type'       => $withholding_type,
+            'notes'                  => $notes,
+        ];
+        $formats = [ '%d', '%s', '%s', '%f', '%s', '%s', '%d', '%f', '%s', '%s' ];
+
+        if ( $id ) {
+            $result = $wpdb->update( $table, $row, [ 'id' => $id ], $formats );
+            if ( $result === false ) {
+                $db_error = $wpdb->last_error;
+                if ( $db_error && stripos( $db_error, 'Duplicate' ) !== false ) {
+                    EL_AJAX_Handler::error( __( 'An invoice with this number already exists.', 'el-core' ) );
+                } else {
+                    EL_AJAX_Handler::error( __( 'Failed to save invoice. Please try again.', 'el-core' ) );
+                }
+                return;
+            }
+        } else {
+            $result = $wpdb->insert( $table, $row, $formats );
+            if ( $result === false ) {
+                $db_error = $wpdb->last_error;
+                if ( $db_error && stripos( $db_error, 'Duplicate' ) !== false ) {
+                    EL_AJAX_Handler::error( __( 'An invoice with this number already exists.', 'el-core' ) );
+                } else {
+                    EL_AJAX_Handler::error( __( 'Failed to create invoice. Please try again.', 'el-core' ) );
+                }
+                return;
+            }
+            $id = $wpdb->insert_id;
+        }
+
+        $doc_url = $document_attachment_id ? wp_get_attachment_url( $document_attachment_id ) : '';
+        EL_AJAX_Handler::success(
+            [ 'id' => $id, 'doc_url' => $doc_url, 'save_and_add' => $save_and_add ],
+            __( 'Invoice saved.', 'el-core' )
+        );
+    }
+
+    public function handle_delete_invoice( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid invoice ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->delete( $this->table( 'el_bk_invoices' ), [ 'id' => $id ] );
+
+        EL_AJAX_Handler::success( null, __( 'Invoice deleted.', 'el-core' ) );
+    }
+
+    /**
+     * Get invoices with optional filters.
+     */
+    private function get_invoices( int $client_id = 0, string $status = '', int $tax_year = 0 ): array {
+        global $wpdb;
+
+        $where = [ '1=1' ];
+        $args  = [];
+
+        if ( $client_id ) {
+            $where[] = 'i.client_id = %d';
+            $args[]  = $client_id;
+        }
+        if ( $status ) {
+            $where[] = 'i.status = %s';
+            $args[]  = $status;
+        }
+        if ( $tax_year ) {
+            $where[] = 'YEAR(i.invoice_date) = %d';
+            $args[]  = $tax_year;
+        }
+
+        $where_sql = implode( ' AND ', $where );
+
+        $sql = "SELECT i.*, c.client_name, c.short_name
+                FROM {$this->table('el_bk_invoices')} i
+                LEFT JOIN {$this->table('el_bk_clients')} c ON i.client_id = c.id
+                WHERE {$where_sql}
+                ORDER BY i.invoice_date DESC, i.id DESC";
+
+        if ( $args ) {
+            $sql = $wpdb->prepare( $sql, ...$args );
+        }
+
+        return $wpdb->get_results( $sql ) ?: [];
     }
 }

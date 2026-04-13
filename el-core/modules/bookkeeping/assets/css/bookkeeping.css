@@ -1922,3 +1922,123 @@
     font-weight: 600;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   INVOICES TAB (Phase A.7)
+   ───────────────────────────────────────────────────────────── */
+
+/* Summary Cards */
+.el-bk-invoice-summary-cards {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.el-bk-invoice-summary-card {
+    background: var(--el-card-bg, #fff);
+    border: 1px solid var(--el-border, #ddd);
+    border-radius: 8px;
+    padding: 16px 24px;
+    min-width: 160px;
+}
+
+.el-bk-invoice-summary-card--paid {
+    border-left: 4px solid #28a745;
+}
+
+.el-bk-invoice-summary-card--unpaid {
+    border-left: 4px solid #dc3545;
+}
+
+.el-bk-invoice-summary-label {
+    font-size: 13px;
+    color: var(--el-text-muted, #666);
+    margin-bottom: 4px;
+}
+
+.el-bk-invoice-summary-amount {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--el-text, #333);
+}
+
+/* Invoice Form */
+.el-bk-invoice-form-card {
+    background: var(--el-card-bg, #fff);
+    border: 1px solid var(--el-border, #ddd);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.el-bk-invoice-form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.el-bk-invoice-form-col--wide {
+    grid-column: span 3;
+}
+
+@media (max-width: 900px) {
+    .el-bk-invoice-form-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .el-bk-invoice-form-col--wide {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 600px) {
+    .el-bk-invoice-form-grid {
+        grid-template-columns: 1fr;
+    }
+    .el-bk-invoice-form-col--wide {
+        grid-column: span 1;
+    }
+}
+
+.el-bk-invoice-doc-current {
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+.el-bk-invoice-doc-current a {
+    color: var(--el-link, #0073aa);
+}
+
+/* Invoice Table */
+.el-bk-invoice-table {
+    width: 100%;
+}
+
+.el-bk-invoice-table .el-bk-description-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Status badges */
+.el-bk-invoice-status--unpaid {
+    background: #ffc107;
+    color: #000;
+}
+
+.el-bk-invoice-status--paid {
+    background: #28a745;
+    color: #fff;
+}
+
+.el-bk-invoice-status--partial {
+    background: #17a2b8;
+    color: #fff;
+}
+
+.el-bk-invoice-status--void {
+    background: #6c757d;
+    color: #fff;
+}
+
