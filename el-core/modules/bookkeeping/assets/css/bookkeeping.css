@@ -1751,3 +1751,132 @@
     transition: width 0.3s ease;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   PHASE A.6: RECONCILIATION VIEWS
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   A.6.1: Reconciliation Detail Panel
+   ───────────────────────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-reconciliation-detail-row td {
+    padding: 0 !important;
+    background: #f8f9fa;
+}
+
+.el-admin-wrap .el-bk-reconciliation-panel {
+    padding: 20px 24px;
+    border-top: 2px solid #dee2e6;
+}
+
+.el-admin-wrap .el-bk-reconciliation-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.el-admin-wrap .el-bk-reconciliation-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #212529;
+}
+
+.el-admin-wrap .el-bk-reconciliation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.el-admin-wrap .el-bk-reconciliation-stat {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+}
+
+.el-admin-wrap .el-bk-stat-label {
+    display: block;
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.el-admin-wrap .el-bk-stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 600;
+    color: #212529;
+}
+
+/* Variance colors */
+.el-admin-wrap .el-bk-variance--zero {
+    color: #198754 !important;
+}
+
+.el-admin-wrap .el-bk-variance--positive {
+    color: #0d6efd !important;
+}
+
+.el-admin-wrap .el-bk-variance--negative {
+    color: #dc3545 !important;
+}
+
+/* Deposits table */
+.el-admin-wrap .el-bk-reconciliation-deposits {
+    margin-bottom: 20px;
+}
+
+.el-admin-wrap .el-bk-reconciliation-deposits h5 {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: #495057;
+}
+
+.el-admin-wrap .el-bk-deposits-table {
+    font-size: 13px;
+}
+
+.el-admin-wrap .el-bk-deposits-table th,
+.el-admin-wrap .el-bk-deposits-table td {
+    padding: 8px 12px !important;
+}
+
+.el-admin-wrap .el-bk-deposits-table tbody tr:nth-child(even) {
+    background: #fff;
+}
+
+.el-admin-wrap .el-bk-deposits-table tbody tr:nth-child(odd) {
+    background: #f8f9fa;
+}
+
+.el-admin-wrap .el-bk-deposits-table tfoot td {
+    background: #e9ecef;
+    font-weight: 600;
+}
+
+/* Actions row */
+.el-admin-wrap .el-bk-reconciliation-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #dee2e6;
+}
+
+.el-admin-wrap .el-bk-verified-info {
+    color: #198754;
+    font-size: 14px;
+}
+
+.el-admin-wrap .el-bk-loading {
+    color: #6c757d;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+

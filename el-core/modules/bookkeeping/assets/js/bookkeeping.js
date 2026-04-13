@@ -2151,3 +2151,129 @@
     });
 
 }(jQuery));
+
+// ═══════════════════════════════════════════════════════════════════
+// PHASE A.6.1: RECONCILIATION DETAIL PANEL
+// ═══════════════════════════════════════════════════════════════════
+
+(function ($) {
+    'use strict';
+
+    // Toggle detail panel open/closed
+    $(document).on('click', '.el-bk-view-reconciliation-btn', function () {
+        var $btn = $(this);
+        var necId = $btn.attr('data-id');
+        var $row = $btn.closest('tr');
+        var $existingDetail = $row.next('.el-bk-reconciliation-detail-row');
+
+        // If already open for this row, close it
+        if ($existingDetail.length && $existingDetail.attr('data-nec-id') === necId) {
+            $existingDetail.remove();
+            $btn.text('Details');
+            return;
+        }
+
+        // Close any other open detail rows
+        $('.el-bk-reconciliation-detail-row').remove();
+        $('.el-bk-view-reconciliation-btn').text('Details');
+
+        $btn.text('Loading\u2026').prop('disabled', true);
+
+        elBkAjax('bk_get_reconciliation', { nec_id: necId }, function (res) {
+            $btn.text('Hide').prop('disabled', false);
+            $row.after(buildReconciliationPanel(res));
+        }, function (msg) {
+            $btn.text('Details').prop('disabled', false);
+            alert('Error: ' + msg);
+        });
+    });
+
+    function buildReconciliationPanel(data) {
+        var clientDisplay = data.short_name || data.client_name;
+
+        var varianceClass = 'el-bk-variance--zero';
+        var varianceDisplay = '$0.00 \u2713';
+        if (Math.abs(data.variance) >= 0.01) {
+            varianceClass = data.variance > 0 ? 'el-bk-variance--positive' : 'el-bk-variance--negative';
+            varianceDisplay = (data.variance > 0 ? '+' : '') + '$' +
+                Math.abs(data.variance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        var depositsHtml = '';
+        if (data.deposits && data.deposits.length > 0) {
+            data.deposits.forEach(function (d) {
+                depositsHtml += '<tr>' +
+                    '<td>' + escapeHtmlRec(d.date) + '</td>' +
+                    '<td>$' + parseFloat(d.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+                    '<td>' + escapeHtmlRec(d.merchant || '') + '</td>' +
+                    '<td>' + escapeHtmlRec(d.bank_account || '') + '</td>' +
+                    '</tr>';
+            });
+        } else {
+            depositsHtml = '<tr><td colspan="4" style="text-align:center;color:#6c757d;">No deposits matched to this client for ' + data.tax_year + '</td></tr>';
+        }
+
+        var verifiedInfo = '';
+        if (data.verified_at) {
+            var vDate = new Date(data.verified_at);
+            verifiedInfo = '<span class="el-bk-verified-info">Verified on <strong>' +
+                vDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                '</strong></span>';
+        }
+
+        var statusBadge = '<span class="el-bk-status-badge el-bk-rec-status--' + data.reconciliation_status + '">' +
+            data.reconciliation_status.charAt(0).toUpperCase() + data.reconciliation_status.slice(1) +
+            '</span>';
+
+        return '<tr class="el-bk-reconciliation-detail-row" data-nec-id="' + data.nec_id + '">' +
+            '<td colspan="10">' +
+                '<div class="el-bk-reconciliation-panel">' +
+                    '<div class="el-bk-reconciliation-header">' +
+                        '<h4>' + escapeHtmlRec(clientDisplay) + ' \u2014 ' + data.tax_year + ' Reconciliation</h4>' +
+                        statusBadge +
+                    '</div>' +
+                    '<div class="el-bk-reconciliation-grid">' +
+                        '<div class="el-bk-reconciliation-stat">' +
+                            '<span class="el-bk-stat-label">1099-NEC Amount</span>' +
+                            '<span class="el-bk-stat-value">$' +
+                                data.box1_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+                            '</span>' +
+                        '</div>' +
+                        '<div class="el-bk-reconciliation-stat">' +
+                            '<span class="el-bk-stat-label">Matched Deposits (' + data.deposits_count + ')</span>' +
+                            '<span class="el-bk-stat-value">$' +
+                                data.deposits_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+                            '</span>' +
+                        '</div>' +
+                        '<div class="el-bk-reconciliation-stat">' +
+                            '<span class="el-bk-stat-label">Variance</span>' +
+                            '<span class="el-bk-stat-value ' + varianceClass + '">' + varianceDisplay + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="el-bk-reconciliation-deposits">' +
+                        '<h5>Matched Deposits</h5>' +
+                        '<table class="el-bk-deposits-table widefat">' +
+                            '<thead><tr><th>Date</th><th>Amount</th><th>Description</th><th>Bank Account</th></tr></thead>' +
+                            '<tbody>' + depositsHtml + '</tbody>' +
+                            '<tfoot><tr>' +
+                                '<td><strong>Total</strong></td>' +
+                                '<td><strong>$' + data.deposits_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong></td>' +
+                                '<td colspan="2"></td>' +
+                            '</tr></tfoot>' +
+                        '</table>' +
+                    '</div>' +
+                    '<div class="el-bk-reconciliation-actions">' +
+                        '<button class="el-btn el-btn-primary el-bk-verify-reconciliation-btn" data-nec-id="' + data.nec_id + '">Mark as Verified</button>' +
+                        verifiedInfo +
+                    '</div>' +
+                '</div>' +
+            '</td>' +
+        '</tr>';
+    }
+
+    function escapeHtmlRec(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+}(jQuery));

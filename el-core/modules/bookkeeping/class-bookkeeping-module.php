@@ -101,6 +101,9 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_unassign_client',              [ $this, 'handle_unassign_client' ] );
         add_action( 'el_core_ajax_bk_get_income_summary',           [ $this, 'handle_get_income_summary' ] );
         add_action( 'el_core_ajax_bk_clear_income',                 [ $this, 'handle_clear_income' ] );
+
+        // ── Reconciliation Views (Phase A.6) ──────────────────────
+        add_action( 'el_core_ajax_bk_get_reconciliation',  [ $this, 'handle_get_reconciliation' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -3015,5 +3018,76 @@ class EL_Bookkeeping_Module {
             [ 'deleted' => (int) $deleted ],
             sprintf( __( 'Cleared %d income transactions for %d. Re-import your bank statements to rebuild.', 'el-core' ), (int) $deleted, $tax_year )
         );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PHASE A.6: RECONCILIATION VIEWS
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Get reconciliation detail for a specific 1099-NEC record.
+     * Returns: 1099 data + matched deposits + variance calculation.
+     */
+    public function handle_get_reconciliation( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $nec_id = absint( $data['nec_id'] ?? 0 );
+        if ( ! $nec_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid 1099-NEC record.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+
+        $nec = $wpdb->get_row( $wpdb->prepare(
+            "SELECT n.*, c.client_name, c.short_name
+             FROM {$this->table('el_bk_1099_nec')} n
+             JOIN {$this->table('el_bk_clients')} c ON n.client_id = c.id
+             WHERE n.id = %d",
+            $nec_id
+        ) );
+
+        if ( ! $nec ) {
+            EL_AJAX_Handler::error( __( '1099-NEC record not found.', 'el-core' ) );
+            return;
+        }
+
+        $deposits = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, date, amount, merchant, bank_account, comments
+             FROM {$this->table('el_bk_transactions')}
+             WHERE client_id = %d AND tax_year = %d AND type = 'income'
+             ORDER BY date ASC",
+            $nec->client_id,
+            $nec->tax_year
+        ) );
+
+        $deposits_total  = array_sum( array_map( fn( $d ) => (float) $d->amount, $deposits ) );
+        $box1_amount     = (float) $nec->box1_amount;
+        $variance        = round( $deposits_total - $box1_amount, 2 );
+
+        $expected_status = ( abs( $variance ) < 0.01 ) ? 'reconciled' : 'discrepancy';
+        if ( empty( $deposits ) && $box1_amount > 0 ) {
+            $expected_status = 'pending';
+        }
+
+        EL_AJAX_Handler::success( [
+            'nec_id'                 => $nec_id,
+            'client_id'              => (int) $nec->client_id,
+            'client_name'            => $nec->client_name,
+            'short_name'             => $nec->short_name,
+            'tax_year'               => (int) $nec->tax_year,
+            'box1_amount'            => $box1_amount,
+            'document_status'        => $nec->document_status,
+            'reconciliation_status'  => $nec->reconciliation_status,
+            'verified_at'            => $nec->verified_at,
+            'deposits'               => $deposits,
+            'deposits_total'         => round( $deposits_total, 2 ),
+            'deposits_count'         => count( $deposits ),
+            'variance'               => $variance,
+            'expected_status'        => $expected_status,
+        ] );
     }
 }

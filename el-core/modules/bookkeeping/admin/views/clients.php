@@ -550,6 +550,13 @@ $rec_status_labels = [
                         data-notes="<?php echo esc_attr( $n->notes ); ?>">
                         <?php esc_html_e( 'Edit', 'el-core' ); ?>
                     </button>
+                    <button class="el-btn el-btn-outline el-bk-view-reconciliation-btn"
+                        data-id="<?php echo esc_attr( $n->id ); ?>"
+                        data-client-id="<?php echo esc_attr( $n->client_id ); ?>"
+                        data-tax-year="<?php echo esc_attr( $n->tax_year ); ?>"
+                        data-box1-amount="<?php echo esc_attr( $n->box1_amount ); ?>">
+                        <?php esc_html_e( 'Details', 'el-core' ); ?>
+                    </button>
                     <button class="el-btn el-btn-outline el-btn-danger el-bk-delete-nec-btn"
                         data-id="<?php echo esc_attr( $n->id ); ?>"
                         data-client="<?php echo esc_attr( $n->client_name ); ?>"
