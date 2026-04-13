@@ -112,6 +112,9 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_save_invoice',   [ $this, 'handle_save_invoice' ] );
         add_action( 'el_core_ajax_bk_delete_invoice', [ $this, 'handle_delete_invoice' ] );
         add_action( 'el_core_ajax_bk_get_invoice',    [ $this, 'handle_get_invoice' ] );
+
+        // ── Invoice AI Upload (Phase A.8) ─────────────────────────
+        add_action( 'el_core_ajax_bk_upload_invoice', [ $this, 'handle_upload_invoice' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -3309,9 +3312,10 @@ class EL_Bookkeeping_Module {
                                 ? $data['status'] : 'unpaid';
         $withholding_raw  = str_replace( [ '$', ',', ' ' ], '', $data['withholding_amount'] ?? '' );
         $withholding_amount = is_numeric( $withholding_raw ) ? round( (float) $withholding_raw, 2 ) : 0.00;
-        $withholding_type = sanitize_text_field( wp_unslash( $data['withholding_type'] ?? '' ) );
-        $notes            = sanitize_textarea_field( wp_unslash( $data['notes'] ?? '' ) );
-        $save_and_add     = ! empty( $data['save_and_add'] );
+        $withholding_type    = sanitize_text_field( wp_unslash( $data['withholding_type'] ?? '' ) );
+        $notes               = sanitize_textarea_field( wp_unslash( $data['notes'] ?? '' ) );
+        $ai_extracted_data   = sanitize_textarea_field( wp_unslash( $data['ai_extracted_data'] ?? '' ) );
+        $save_and_add        = ! empty( $data['save_and_add'] );
 
         if ( ! $client_id ) {
             EL_AJAX_Handler::error( __( 'Client is required.', 'el-core' ) );
@@ -3351,8 +3355,9 @@ class EL_Bookkeeping_Module {
             'withholding_amount'     => $withholding_amount,
             'withholding_type'       => $withholding_type,
             'notes'                  => $notes,
+            'ai_extracted_data'      => $ai_extracted_data,
         ];
-        $formats = [ '%d', '%s', '%s', '%f', '%s', '%s', '%d', '%f', '%s', '%s' ];
+        $formats = [ '%d', '%s', '%s', '%f', '%s', '%s', '%d', '%f', '%s', '%s', '%s' ];
 
         if ( $id ) {
             $result = $wpdb->update( $table, $row, [ 'id' => $id ], $formats );
@@ -3402,6 +3407,284 @@ class EL_Bookkeeping_Module {
         $wpdb->delete( $this->table( 'el_bk_invoices' ), [ 'id' => $id ] );
 
         EL_AJAX_Handler::success( null, __( 'Invoice deleted.', 'el-core' ) );
+    }
+
+    // ── Invoice AI Upload (Phase A.8) ─────────────────────────────────────────
+
+    /**
+     * Handle invoice file upload with AI extraction.
+     * Mirrors handle_upload_receipt() pattern but extracts invoice-specific fields.
+     */
+    public function handle_upload_invoice( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $file_data = $_FILES['invoice_file'] ?? null;
+
+        if ( ! $file_data ) {
+            EL_AJAX_Handler::error( __( 'No file received.', 'el-core' ) );
+            return;
+        }
+
+        if ( $file_data['error'] === UPLOAD_ERR_INI_SIZE || $file_data['error'] === UPLOAD_ERR_FORM_SIZE ) {
+            EL_AJAX_Handler::error( __( 'File exceeds the maximum allowed upload size.', 'el-core' ) );
+            return;
+        }
+
+        if ( $file_data['error'] !== UPLOAD_ERR_OK ) {
+            EL_AJAX_Handler::error( __( 'Upload error. Please try again.', 'el-core' ) );
+            return;
+        }
+
+        $ext = strtolower( pathinfo( $file_data['name'], PATHINFO_EXTENSION ) );
+        if ( ! in_array( $ext, [ 'jpg', 'jpeg', 'png', 'pdf' ], true ) ) {
+            EL_AJAX_Handler::error( __( 'Only JPG, PNG, and PDF files are accepted.', 'el-core' ) );
+            return;
+        }
+
+        if ( $file_data['size'] > 10 * 1024 * 1024 ) {
+            EL_AJAX_Handler::error( __( 'File exceeds the 10 MB limit.', 'el-core' ) );
+            return;
+        }
+
+        // ── Save file to WP Media Library ────────────────────────────────────
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+
+        $attachment_id = media_handle_upload( 'invoice_file', 0 );
+        if ( is_wp_error( $attachment_id ) ) {
+            EL_AJAX_Handler::error( __( 'Could not save the uploaded file.', 'el-core' ) );
+            return;
+        }
+
+        $file_url = wp_get_attachment_url( $attachment_id );
+
+        // ── AI extraction ────────────────────────────────────────────────────
+        $ai_data = [
+            'invoice_number'     => '',
+            'invoice_date'       => null,
+            'amount'             => null,
+            'client_name'        => '',
+            'description'        => '',
+            'withholding_amount' => null,
+            'withholding_type'   => '',
+        ];
+        $ai_raw              = '';
+        $ai_extracted        = false;
+        $matched_client_id   = 0;
+        $matched_client_name = '';
+
+        $mime_map = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+            'pdf'  => 'application/pdf',
+        ];
+
+        if ( $this->core && $this->core->ai && $this->core->ai->is_configured() ) {
+            $file_path = get_attached_file( $attachment_id );
+            $is_image  = in_array( $ext, [ 'jpg', 'jpeg', 'png' ], true );
+
+            if ( $is_image && $file_path && file_exists( $file_path ) ) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+                $image_b64 = base64_encode( file_get_contents( $file_path ) );
+
+                $result = $this->core->ai->complete_with_image( [
+                    'system'       => "You are an invoice data extraction assistant. Analyze invoice images and extract key billing information.\n"
+                                   . "Return ONLY a valid JSON object with exactly these keys:\n"
+                                   . "  \"invoice_number\": string (invoice number, PO number, or reference number, or null)\n"
+                                   . "  \"invoice_date\": string (invoice date in YYYY-MM-DD format, or null)\n"
+                                   . "  \"amount\": number (total invoice amount as a positive number, or null)\n"
+                                   . "  \"client_name\": string (the organization/company being billed TO or that will PAY this invoice — this is the PAYER, not the service provider, or null)\n"
+                                   . "  \"description\": string (brief summary of work performed or line items, max 200 chars, or null)\n"
+                                   . "  \"withholding_amount\": number (any tax withholding amount shown, e.g. CA state withholding, or null if none)\n"
+                                   . "  \"withholding_type\": string (type of withholding like 'CA Withholding' or 'Federal', or null if none)\n"
+                                   . "IMPORTANT: The 'client_name' should be the PAYER — the organization that owes money or will pay this invoice. Not the vendor/service provider.\n"
+                                   . "Return ONLY the JSON object — no explanation, no markdown.",
+                    'prompt'       => 'Extract the invoice data from this image. Identify who is being billed (the payer/client).',
+                    'image_base64' => $image_b64,
+                    'image_mime'   => $mime_map[ $ext ],
+                    'max_tokens'   => 512,
+                ] );
+
+                if ( $result['success'] ) {
+                    $ai_raw       = $result['content'];
+                    $parsed       = $this->parse_ai_invoice_response( $ai_raw );
+                    $ai_extracted = true;
+
+                    $ai_data['invoice_number']     = $parsed['invoice_number']     ?? '';
+                    $ai_data['invoice_date']        = $parsed['invoice_date']       ?? null;
+                    $ai_data['amount']              = $parsed['amount']             ?? null;
+                    $ai_data['client_name']         = $parsed['client_name']        ?? '';
+                    $ai_data['description']         = $parsed['description']        ?? '';
+                    $ai_data['withholding_amount']  = $parsed['withholding_amount'] ?? null;
+                    $ai_data['withholding_type']    = $parsed['withholding_type']   ?? '';
+
+                    // ── Fuzzy match client ───────────────────────────────────
+                    if ( ! empty( $ai_data['client_name'] ) ) {
+                        $match = $this->fuzzy_match_client( $ai_data['client_name'] );
+                        if ( $match ) {
+                            $matched_client_id   = (int) $match->id;
+                            $matched_client_name = $match->client_name;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Return extracted data for review — user confirms before invoice is saved.
+        EL_AJAX_Handler::success( [
+            'attachment_id'       => $attachment_id,
+            'file_url'            => $file_url,
+            'file_type'           => $ext,
+            'is_image'            => in_array( $ext, [ 'jpg', 'jpeg', 'png' ], true ),
+            'ai_extracted'        => $ai_extracted,
+            'invoice_number'      => $ai_data['invoice_number'],
+            'invoice_date'        => $ai_data['invoice_date'],
+            'amount'              => $ai_data['amount'] !== null ? number_format( (float) $ai_data['amount'], 2, '.', '' ) : null,
+            'client_name'         => $ai_data['client_name'],
+            'description'         => $ai_data['description'],
+            'withholding_amount'  => $ai_data['withholding_amount'] !== null ? number_format( (float) $ai_data['withholding_amount'], 2, '.', '' ) : null,
+            'withholding_type'    => $ai_data['withholding_type'],
+            'matched_client_id'   => $matched_client_id,
+            'matched_client_name' => $matched_client_name,
+            'ai_raw'              => $ai_raw,
+        ], __( 'Invoice uploaded and processed.', 'el-core' ) );
+    }
+
+    /**
+     * Parse AI response for invoice extraction.
+     */
+    private function parse_ai_invoice_response( string $raw ): array {
+        $raw = trim( $raw );
+
+        // Strip markdown code fences if present
+        if ( preg_match( '/```(?:json)?\s*([\s\S]*?)\s*```/', $raw, $m ) ) {
+            $raw = $m[1];
+        }
+
+        $decoded = json_decode( $raw, true );
+        if ( ! is_array( $decoded ) ) {
+            return [];
+        }
+
+        $result = [];
+
+        if ( isset( $decoded['invoice_number'] ) && is_string( $decoded['invoice_number'] ) ) {
+            $result['invoice_number'] = sanitize_text_field( $decoded['invoice_number'] );
+        }
+
+        if ( isset( $decoded['invoice_date'] ) && is_string( $decoded['invoice_date'] ) ) {
+            $d = \DateTime::createFromFormat( 'Y-m-d', $decoded['invoice_date'] );
+            if ( $d && $d->format( 'Y-m-d' ) === $decoded['invoice_date'] ) {
+                $result['invoice_date'] = $decoded['invoice_date'];
+            }
+        }
+
+        if ( isset( $decoded['amount'] ) && is_numeric( $decoded['amount'] ) ) {
+            $result['amount'] = round( (float) $decoded['amount'], 2 );
+        }
+
+        if ( isset( $decoded['client_name'] ) && is_string( $decoded['client_name'] ) ) {
+            $result['client_name'] = sanitize_text_field( $decoded['client_name'] );
+        }
+
+        if ( isset( $decoded['description'] ) && is_string( $decoded['description'] ) ) {
+            $result['description'] = sanitize_text_field( substr( $decoded['description'], 0, 500 ) );
+        }
+
+        if ( isset( $decoded['withholding_amount'] ) && is_numeric( $decoded['withholding_amount'] ) ) {
+            $result['withholding_amount'] = round( (float) $decoded['withholding_amount'], 2 );
+        }
+
+        if ( isset( $decoded['withholding_type'] ) && is_string( $decoded['withholding_type'] ) ) {
+            $result['withholding_type'] = sanitize_text_field( $decoded['withholding_type'] );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Fuzzy match extracted client name against el_bk_clients.
+     * Returns the best match (score ≥ 50) or null.
+     */
+    private function fuzzy_match_client( string $extracted_name ): ?object {
+        if ( empty( $extracted_name ) ) {
+            return null;
+        }
+
+        global $wpdb;
+        $clients = $wpdb->get_results(
+            "SELECT id, client_name, short_name, bank_patterns
+             FROM {$this->table('el_bk_clients')}
+             ORDER BY client_name"
+        );
+
+        if ( empty( $clients ) ) {
+            return null;
+        }
+
+        $extracted_lower = strtolower( trim( $extracted_name ) );
+        $best_match      = null;
+        $best_score      = 0;
+
+        foreach ( $clients as $client ) {
+            $score = 0;
+
+            // Exact match — return immediately
+            if ( strtolower( $client->client_name ) === $extracted_lower ) {
+                return $client;
+            }
+            if ( $client->short_name && strtolower( $client->short_name ) === $extracted_lower ) {
+                return $client;
+            }
+
+            // Contains match on client_name
+            if ( stripos( $client->client_name, $extracted_name ) !== false ) {
+                $score = 80;
+            } elseif ( stripos( $extracted_name, $client->client_name ) !== false ) {
+                $score = 75;
+            }
+
+            // Contains match on short_name
+            if ( $client->short_name ) {
+                if ( stripos( $client->short_name, $extracted_name ) !== false ) {
+                    $score = max( $score, 70 );
+                } elseif ( stripos( $extracted_name, $client->short_name ) !== false ) {
+                    $score = max( $score, 65 );
+                }
+            }
+
+            // Check bank_patterns (pipe-delimited)
+            if ( $client->bank_patterns ) {
+                $patterns = array_filter( array_map( 'trim', explode( '|', $client->bank_patterns ) ) );
+                foreach ( $patterns as $pattern ) {
+                    if ( stripos( $extracted_name, $pattern ) !== false || stripos( $pattern, $extracted_name ) !== false ) {
+                        $score = max( $score, 60 );
+                        break;
+                    }
+                }
+            }
+
+            // Word overlap scoring
+            $client_words    = preg_split( '/\s+/', strtolower( $client->client_name ) );
+            $extracted_words = preg_split( '/\s+/', $extracted_lower );
+            $common          = array_intersect( $client_words, $extracted_words );
+            $common          = array_diff( $common, [ 'the', 'of', 'and', 'inc', 'llc', 'ltd', 'co', 'corp', 'county', 'office' ] );
+            if ( count( $common ) >= 2 ) {
+                $score = max( $score, 50 + count( $common ) * 5 );
+            }
+
+            if ( $score > $best_score ) {
+                $best_score = $score;
+                $best_match = $client;
+            }
+        }
+
+        return $best_score >= 50 ? $best_match : null;
     }
 
     /**

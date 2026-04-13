@@ -2042,3 +2042,179 @@
     color: #fff;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   INVOICE UPLOAD & REVIEW QUEUE (Phase A.8)
+   ───────────────────────────────────────────────────────────── */
+
+/* Review Queue Container */
+.el-bk-invoice-review-queue {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* Review Card */
+.el-bk-invoice-review-card {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: var(--el-card-bg, #fff);
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    position: relative;
+}
+
+.el-bk-invoice-review-card--no-ai {
+    border-color: #ffc107;
+}
+
+/* Thumbnail */
+.el-bk-invoice-review-thumb {
+    flex: 0 0 120px;
+    max-height: 160px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #f5f5f5;
+}
+
+.el-bk-invoice-review-thumb img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.el-bk-invoice-review-thumb-placeholder {
+    width: 120px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: #999;
+}
+
+/* Body */
+.el-bk-invoice-review-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.el-bk-invoice-review-filename {
+    font-size: 12px;
+    color: var(--el-text-muted, #666);
+    margin-bottom: 8px;
+}
+
+/* Fields Grid */
+.el-bk-invoice-review-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.el-bk-invoice-review-field label {
+    display: block;
+    font-size: 11px;
+    color: var(--el-text-muted, #666);
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.el-bk-invoice-review-field input,
+.el-bk-invoice-review-field select {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 14px;
+    border: 1px solid var(--el-border, #ddd);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.el-bk-invoice-review-field input:focus,
+.el-bk-invoice-review-field select:focus {
+    border-color: var(--el-primary, #0073aa);
+    outline: none;
+}
+
+.el-bk-invoice-review-field--wide {
+    grid-column: span 2;
+}
+
+/* Badges */
+.el-bk-invoice-review-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.el-bk-invoice-review-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.el-bk-invoice-review-badge--ai {
+    background: #d4edda;
+    color: #155724;
+}
+
+.el-bk-invoice-review-badge--matched {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.el-bk-invoice-review-badge--no-match {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* Actions */
+.el-bk-invoice-review-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* Dismiss button */
+.el-bk-invoice-review-dismiss {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #999;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+}
+
+.el-bk-invoice-review-dismiss:hover {
+    color: #333;
+}
+
+@media (max-width: 600px) {
+    .el-bk-invoice-review-card {
+        flex-direction: column;
+    }
+
+    .el-bk-invoice-review-thumb {
+        flex: none;
+        max-width: 200px;
+    }
+
+    .el-bk-invoice-review-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .el-bk-invoice-review-field--wide {
+        grid-column: span 1;
+    }
+}
+

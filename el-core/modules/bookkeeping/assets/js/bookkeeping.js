@@ -2451,6 +2451,7 @@
     function elBkResetInvoiceForm() {
         $('#el-bk-invoice-id').val('');
         $('#el-bk-invoice-doc-attachment-id').val('');
+        $('#el-bk-invoice-ai-extracted-data').val('');
         $('#el-bk-invoice-client-id').val('');
         $('#el-bk-invoice-number').val('');
         $('#el-bk-invoice-date').val(new Date().toISOString().split('T')[0]);
@@ -2546,6 +2547,7 @@
         fd.append('withholding_amount', $('#el-bk-invoice-withholding-amount').val());
         fd.append('description', $('#el-bk-invoice-description').val());
         fd.append('notes', $('#el-bk-invoice-notes').val());
+        fd.append('ai_extracted_data', $('#el-bk-invoice-ai-extracted-data').val());
         fd.append('save_and_add', saveAndAdd ? '1' : '');
 
         var fileInput = document.getElementById('el-bk-invoice-doc-file');
@@ -2638,6 +2640,297 @@
         $('#el-bk-invoice-table tbody tr.el-bk-invoice-row').each(function () {
             var rowStatus = $(this).attr('data-status') || '';
             $(this).toggle(status === '' || rowStatus === status);
+        });
+    });
+
+    // ── INVOICE UPLOAD (Phase A.8) ────────────────────────────────────────────────
+
+    var INVOICE_MAX_BYTES = 10 * 1024 * 1024;
+    var INVOICE_EXTS = ['jpg', 'jpeg', 'png', 'pdf'];
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return $('<span>').text(str).html();
+    }
+    function escapeAttr(str) {
+        if (!str) return '';
+        return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Upload a single invoice file to bk_upload_invoice.
+     */
+    function uploadInvoiceFile(file, onDone) {
+        var fd = new FormData();
+        fd.append('action', 'el_core_action');
+        fd.append('el_action', 'bk_upload_invoice');
+        fd.append('nonce', elBookkeeping.nonce);
+        fd.append('invoice_file', file);
+
+        $.ajax({
+            url: elBookkeeping.ajaxUrl,
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            success: function (res) {
+                if (res && res.success) {
+                    onDone(null, res.data.data || res.data || {});
+                } else {
+                    onDone((res && res.data && res.data.message) || 'Upload failed.');
+                }
+            },
+            error: function () {
+                onDone('Network error — please try again.');
+            }
+        });
+    }
+
+    /**
+     * Build a review card and append it to the review queue.
+     */
+    function addInvoiceToReviewQueue(data, filename) {
+        var $queue = $('#el-bk-invoice-review-queue');
+
+        var thumbHtml;
+        if (data.is_image && data.file_url) {
+            thumbHtml = '<img src="' + escapeAttr(data.file_url) + '" alt="invoice">';
+        } else {
+            thumbHtml = '<div class="el-bk-invoice-review-thumb-placeholder">📄</div>';
+        }
+
+        var clientOptions = '<option value="">— Select Client —</option>';
+        (window.elBkInvoiceClients || []).forEach(function (c) {
+            var selected = (data.matched_client_id && data.matched_client_id == c.id) ? ' selected' : '';
+            var label = c.name + (c.short ? ' (' + c.short + ')' : '');
+            clientOptions += '<option value="' + c.id + '"' + selected + '>' + escapeHtml(label) + '</option>';
+        });
+
+        var badges = '';
+        if (data.ai_extracted) {
+            badges += '<span class="el-bk-invoice-review-badge el-bk-invoice-review-badge--ai">✓ AI Extracted</span>';
+        }
+        if (data.matched_client_id) {
+            badges += '<span class="el-bk-invoice-review-badge el-bk-invoice-review-badge--matched">Client Matched: ' + escapeHtml(data.matched_client_name) + '</span>';
+        } else if (data.client_name) {
+            badges += '<span class="el-bk-invoice-review-badge el-bk-invoice-review-badge--no-match">Client Not Found: ' + escapeHtml(data.client_name) + '</span>';
+        }
+
+        var cardClass = 'el-bk-invoice-review-card' + (data.ai_extracted ? '' : ' el-bk-invoice-review-card--no-ai');
+
+        var $card = $('<div>').addClass(cardClass).attr('data-attachment-id', data.attachment_id).html(
+            '<div class="el-bk-invoice-review-thumb">' + thumbHtml + '</div>' +
+            '<div class="el-bk-invoice-review-body">' +
+                '<div class="el-bk-invoice-review-filename">' + escapeHtml(filename) + '</div>' +
+                '<div class="el-bk-invoice-review-badges">' + badges + '</div>' +
+                '<div class="el-bk-invoice-review-fields">' +
+                    '<div class="el-bk-invoice-review-field">' +
+                        '<label>Client</label>' +
+                        '<select class="el-bk-review-client">' + clientOptions + '</select>' +
+                    '</div>' +
+                    '<div class="el-bk-invoice-review-field">' +
+                        '<label>Invoice #</label>' +
+                        '<input type="text" class="el-bk-review-invoice-number" value="' + escapeAttr(data.invoice_number || '') + '">' +
+                    '</div>' +
+                    '<div class="el-bk-invoice-review-field">' +
+                        '<label>Date</label>' +
+                        '<input type="date" class="el-bk-review-invoice-date" value="' + escapeAttr(data.invoice_date || '') + '">' +
+                    '</div>' +
+                    '<div class="el-bk-invoice-review-field">' +
+                        '<label>Amount ($)</label>' +
+                        '<input type="text" class="el-bk-review-amount" value="' + escapeAttr(data.amount || '') + '" inputmode="decimal">' +
+                    '</div>' +
+                    '<div class="el-bk-invoice-review-field">' +
+                        '<label>Withholding ($)</label>' +
+                        '<input type="text" class="el-bk-review-withholding" value="' + escapeAttr(data.withholding_amount || '') + '" placeholder="0.00" inputmode="decimal">' +
+                    '</div>' +
+                    '<div class="el-bk-invoice-review-field el-bk-invoice-review-field--wide">' +
+                        '<label>Description</label>' +
+                        '<input type="text" class="el-bk-review-description" value="' + escapeAttr(data.description || '') + '">' +
+                    '</div>' +
+                '</div>' +
+                '<input type="hidden" class="el-bk-review-ai-raw" value="' + escapeAttr(data.ai_raw || '') + '">' +
+                '<input type="hidden" class="el-bk-review-withholding-type" value="' + escapeAttr(data.withholding_type || '') + '">' +
+                '<div class="el-bk-invoice-review-actions">' +
+                    '<button class="el-btn el-btn-primary el-bk-review-confirm-btn">Save Invoice</button>' +
+                    '<button class="el-btn el-btn-outline el-bk-review-another-btn">Save & Upload Another</button>' +
+                '</div>' +
+            '</div>' +
+            '<button class="el-bk-invoice-review-dismiss" title="Dismiss">✕</button>'
+        );
+
+        $queue.append($card);
+    }
+
+    /**
+     * Validate and upload an array of files; build review cards as each completes.
+     */
+    function processInvoiceUploads(files) {
+        if (!files || !files.length) return;
+
+        var $zone   = $('#el-bk-invoice-upload-zone');
+        var $status = $('#el-bk-invoice-upload-status');
+        var fileArr = Array.from(files);
+        var total   = fileArr.length;
+        var done    = 0;
+        var uploaded = 0;
+        var errors   = 0;
+
+        $zone.addClass('el-bk-upload-zone--uploading');
+        $status.text('Uploading 1 of ' + total + '…');
+
+        fileArr.forEach(function (file) {
+            var ext = (file.name.split('.').pop() || '').toLowerCase();
+
+            if (INVOICE_EXTS.indexOf(ext) === -1) {
+                $status.append(' | Skipped "' + escapeHtml(file.name) + '": unsupported type.');
+                done++; errors++;
+                if (done === total) finishInvoiceUploads();
+                return;
+            }
+            if (file.size > INVOICE_MAX_BYTES) {
+                $status.append(' | Skipped "' + escapeHtml(file.name) + '": exceeds 10 MB.');
+                done++; errors++;
+                if (done === total) finishInvoiceUploads();
+                return;
+            }
+
+            uploadInvoiceFile(file, function (err, data) {
+                done++;
+                if (err) {
+                    errors++;
+                    $status.append(' | Error: ' + escapeHtml(err));
+                } else {
+                    uploaded++;
+                    addInvoiceToReviewQueue(data, file.name);
+                    if (done < total) {
+                        $status.text('Uploading ' + (done + 1) + ' of ' + total + '…');
+                    }
+                }
+                if (done === total) finishInvoiceUploads();
+            });
+        });
+
+        function finishInvoiceUploads() {
+            $zone.removeClass('el-bk-upload-zone--uploading');
+            $('#el-bk-invoice-file-input').val('');
+
+            if (errors === 0 && uploaded > 0) {
+                $status.text(uploaded + (uploaded === 1 ? ' invoice' : ' invoices') + ' uploaded. Review and confirm below.');
+            } else if (uploaded > 0) {
+                $status.prepend(uploaded + ' uploaded, ' + errors + ' skipped. ');
+            } else {
+                $status.text(errors + ' file(s) could not be uploaded.');
+            }
+        }
+    }
+
+    // Browse button
+    $('#el-bk-invoice-browse-btn').on('click', function () {
+        $('#el-bk-invoice-file-input').trigger('click');
+    });
+
+    // File picker change
+    $('#el-bk-invoice-file-input').on('change', function () {
+        processInvoiceUploads(this.files);
+    });
+
+    // "Add Manually" button (replaces old #el-bk-add-invoice-btn)
+    $('#el-bk-invoice-manual-btn').on('click', function () {
+        elBkResetInvoiceForm();
+        $('#el-bk-invoice-form').slideDown(200);
+        $('#el-bk-invoice-client-id').focus();
+    });
+
+    // Drag-and-drop onto upload zone
+    $('#el-bk-invoice-upload-zone')
+        .on('dragover', function (e) {
+            e.preventDefault();
+            $(this).addClass('el-bk-upload-zone--drag');
+        })
+        .on('dragleave', function (e) {
+            e.preventDefault();
+            $(this).removeClass('el-bk-upload-zone--drag');
+        })
+        .on('drop', function (e) {
+            e.preventDefault();
+            $(this).removeClass('el-bk-upload-zone--drag');
+            var dt = e.originalEvent.dataTransfer;
+            if (dt && dt.files) {
+                processInvoiceUploads(dt.files);
+            }
+        });
+
+    // Dismiss a review card
+    $(document).on('click', '.el-bk-invoice-review-dismiss', function () {
+        $(this).closest('.el-bk-invoice-review-card').fadeOut(200, function () {
+            $(this).remove();
+        });
+    });
+
+    // Confirm (save) from a review card
+    $(document).on('click', '.el-bk-review-confirm-btn, .el-bk-review-another-btn', function () {
+        var $btn        = $(this);
+        var $card       = $btn.closest('.el-bk-invoice-review-card');
+        var saveAnother = $btn.hasClass('el-bk-review-another-btn');
+
+        var clientId        = $card.find('.el-bk-review-client').val();
+        var invoiceNumber   = $card.find('.el-bk-review-invoice-number').val();
+        var invoiceDate     = $card.find('.el-bk-review-invoice-date').val();
+        var amount          = $card.find('.el-bk-review-amount').val();
+        var withholding     = $card.find('.el-bk-review-withholding').val();
+        var withholdingType = $card.find('.el-bk-review-withholding-type').val();
+        var description     = $card.find('.el-bk-review-description').val();
+        var attachmentId    = $card.attr('data-attachment-id');
+        var aiRaw           = $card.find('.el-bk-review-ai-raw').val();
+
+        if (!clientId) {
+            alert('Please select a client.');
+            $card.find('.el-bk-review-client').focus();
+            return;
+        }
+        if (!invoiceDate) {
+            alert('Please enter an invoice date.');
+            $card.find('.el-bk-review-invoice-date').focus();
+            return;
+        }
+        if (!amount || parseFloat(amount) <= 0) {
+            alert('Please enter an amount greater than zero.');
+            $card.find('.el-bk-review-amount').focus();
+            return;
+        }
+
+        $btn.prop('disabled', true).text('Saving…');
+        $card.find('button').prop('disabled', true);
+
+        // Auto-set withholding type if amount entered but type missing
+        if (withholding && parseFloat(withholding) > 0 && !withholdingType) {
+            withholdingType = 'CA Withholding';
+        }
+
+        elBkAjax('bk_save_invoice', {
+            client_id:              clientId,
+            invoice_number:         invoiceNumber,
+            invoice_date:           invoiceDate,
+            amount:                 amount,
+            status:                 'unpaid',
+            withholding_amount:     withholding,
+            withholding_type:       withholdingType,
+            description:            description,
+            document_attachment_id: attachmentId,
+            ai_extracted_data:      aiRaw,
+            notes:                  ''
+        }, function () {
+            $card.fadeOut(200, function () { $(this).remove(); });
+            if (saveAnother) {
+                $('#el-bk-invoice-upload-status').text('Invoice saved! Upload another or click "Add Manually".');
+            } else {
+                location.reload();
+            }
+        }, function (msg) {
+            $btn.prop('disabled', false).text($btn.hasClass('el-bk-review-another-btn') ? 'Save & Upload Another' : 'Save Invoice');
+            $card.find('button').prop('disabled', false);
+            alert('Error: ' + msg);
         });
     });
 
