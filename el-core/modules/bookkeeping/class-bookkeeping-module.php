@@ -2851,9 +2851,33 @@ class EL_Bookkeeping_Module {
         $formats = [ '%d', '%d', '%s', '%f', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s' ];
 
         if ( $id ) {
-            $wpdb->update( $table, $row, [ 'id' => $id ], $formats );
+            $result = $wpdb->update( $table, $row, [ 'id' => $id ], $formats );
+            if ( $result === false ) {
+                $db_error = $wpdb->last_error;
+                if ( $db_error && stripos( $db_error, 'Duplicate' ) !== false ) {
+                    EL_AJAX_Handler::error( sprintf(
+                        __( 'Cannot change tax year to %d — a 1099-NEC record for this client already exists for that year. Delete the duplicate first.', 'el-core' ),
+                        $tax_year
+                    ) );
+                } else {
+                    EL_AJAX_Handler::error( __( 'Failed to save 1099-NEC record. Please try again.', 'el-core' ) );
+                }
+                return;
+            }
         } else {
-            $wpdb->insert( $table, $row, $formats );
+            $result = $wpdb->insert( $table, $row, $formats );
+            if ( $result === false ) {
+                $db_error = $wpdb->last_error;
+                if ( $db_error && stripos( $db_error, 'Duplicate' ) !== false ) {
+                    EL_AJAX_Handler::error( sprintf(
+                        __( 'A 1099-NEC record for this client and tax year %d already exists.', 'el-core' ),
+                        $tax_year
+                    ) );
+                } else {
+                    EL_AJAX_Handler::error( __( 'Failed to create 1099-NEC record. Please try again.', 'el-core' ) );
+                }
+                return;
+            }
             $id = $wpdb->insert_id;
         }
 
