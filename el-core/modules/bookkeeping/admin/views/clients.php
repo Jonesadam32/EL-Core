@@ -40,6 +40,19 @@ $status_labels = [
     </div>
 </div>
 
+<!-- ── Annual Income Summary ─────────────────────────────────────── -->
+<div class="el-bk-annual-summary-section">
+    <div class="el-bk-section-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <h3 style="margin:0;"><?php echo esc_html( sprintf( __( '%d Income Summary', 'el-core' ), $tax_year ) ); ?></h3>
+        <button class="el-btn el-btn-outline" id="el-bk-refresh-summary-btn">
+            <?php esc_html_e( 'Refresh', 'el-core' ); ?>
+        </button>
+    </div>
+    <div id="el-bk-annual-summary-table-wrap">
+        <p class="el-bk-loading"><?php esc_html_e( 'Loading summary…', 'el-core' ); ?></p>
+    </div>
+</div>
+
 <!-- Action row -->
 <div class="el-bk-action-row" style="margin-bottom:20px;">
     <button class="el-btn el-btn-primary" id="el-bk-add-client-btn">

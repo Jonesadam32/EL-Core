@@ -103,7 +103,9 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_clear_income',                 [ $this, 'handle_clear_income' ] );
 
         // ── Reconciliation Views (Phase A.6) ──────────────────────
-        add_action( 'el_core_ajax_bk_get_reconciliation',  [ $this, 'handle_get_reconciliation' ] );
+        add_action( 'el_core_ajax_bk_get_reconciliation',    [ $this, 'handle_get_reconciliation' ] );
+        add_action( 'el_core_ajax_bk_verify_reconciliation', [ $this, 'handle_verify_reconciliation' ] );
+        add_action( 'el_core_ajax_bk_get_annual_summary',    [ $this, 'handle_get_annual_summary' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -3088,6 +3090,128 @@ class EL_Bookkeeping_Module {
             'deposits_count'         => count( $deposits ),
             'variance'               => $variance,
             'expected_status'        => $expected_status,
+        ] );
+    }
+
+    /**
+     * Mark a 1099-NEC record as verified.
+     * Sets verified_at timestamp and updates reconciliation_status based on variance.
+     */
+    public function handle_verify_reconciliation( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $nec_id = absint( $data['nec_id'] ?? 0 );
+        if ( ! $nec_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid 1099-NEC record.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+
+        $nec = $wpdb->get_row( $wpdb->prepare(
+            "SELECT client_id, tax_year, box1_amount FROM {$this->table('el_bk_1099_nec')} WHERE id = %d",
+            $nec_id
+        ) );
+
+        if ( ! $nec ) {
+            EL_AJAX_Handler::error( __( '1099-NEC record not found.', 'el-core' ) );
+            return;
+        }
+
+        $deposits_total = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM {$this->table('el_bk_transactions')}
+             WHERE client_id = %d AND tax_year = %d AND type = 'income'",
+            $nec->client_id,
+            $nec->tax_year
+        ) );
+
+        $variance   = round( $deposits_total - (float) $nec->box1_amount, 2 );
+        $status     = ( abs( $variance ) < 0.01 ) ? 'reconciled' : 'discrepancy';
+        $verified_at = current_time( 'mysql' );
+
+        $wpdb->update(
+            $this->table( 'el_bk_1099_nec' ),
+            [
+                'reconciliation_status' => $status,
+                'verified_at'           => $verified_at,
+            ],
+            [ 'id' => $nec_id ],
+            [ '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        EL_AJAX_Handler::success(
+            [
+                'nec_id'      => $nec_id,
+                'status'      => $status,
+                'verified_at' => $verified_at,
+                'variance'    => $variance,
+            ],
+            $status === 'reconciled'
+                ? __( 'Reconciliation verified — amounts match!', 'el-core' )
+                : sprintf( __( 'Verified with $%s discrepancy.', 'el-core' ), number_format( abs( $variance ), 2 ) )
+        );
+    }
+
+    /**
+     * Get annual income summary for all clients with 1099s in a tax year.
+     */
+    public function handle_get_annual_summary( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $tax_year = absint( $data['tax_year'] ?? gmdate( 'Y' ) );
+        global $wpdb;
+
+        $records = $wpdb->get_results( $wpdb->prepare(
+            "SELECT
+                n.id as nec_id,
+                n.client_id,
+                c.client_name,
+                c.short_name,
+                n.box1_amount,
+                n.document_status,
+                n.reconciliation_status,
+                n.verified_at,
+                COALESCE(
+                    (SELECT SUM(t.amount)
+                     FROM {$this->table('el_bk_transactions')} t
+                     WHERE t.client_id = n.client_id
+                       AND t.tax_year = n.tax_year
+                       AND t.type = 'income'),
+                    0
+                ) as deposits_total
+             FROM {$this->table('el_bk_1099_nec')} n
+             JOIN {$this->table('el_bk_clients')} c ON n.client_id = c.id
+             WHERE n.tax_year = %d
+             ORDER BY c.client_name ASC",
+            $tax_year
+        ) );
+
+        $total_1099     = 0;
+        $total_deposits = 0;
+
+        foreach ( $records as &$r ) {
+            $r->box1_amount    = (float) $r->box1_amount;
+            $r->deposits_total = (float) $r->deposits_total;
+            $r->variance       = round( $r->deposits_total - $r->box1_amount, 2 );
+            $total_1099       += $r->box1_amount;
+            $total_deposits   += $r->deposits_total;
+        }
+        unset( $r );
+
+        EL_AJAX_Handler::success( [
+            'tax_year'       => $tax_year,
+            'records'        => $records,
+            'total_1099'     => round( $total_1099, 2 ),
+            'total_deposits' => round( $total_deposits, 2 ),
+            'total_variance' => round( $total_deposits - $total_1099, 2 ),
+            'count'          => count( $records ),
         ] );
     }
 }

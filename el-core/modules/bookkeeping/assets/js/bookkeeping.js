@@ -2277,3 +2277,161 @@
     }
 
 }(jQuery));
+
+// ═══════════════════════════════════════════════════════════════════
+// PHASE A.6.2: VERIFY RECONCILIATION
+// ═══════════════════════════════════════════════════════════════════
+
+(function ($) {
+    'use strict';
+
+    $(document).on('click', '.el-bk-verify-reconciliation-btn', function () {
+        var $btn = $(this);
+        var necId = $btn.attr('data-nec-id');
+
+        if (!confirm('Mark this reconciliation as verified? This confirms you have reviewed the deposits against the 1099-NEC.')) {
+            return;
+        }
+
+        $btn.prop('disabled', true).text('Verifying\u2026');
+
+        elBkAjax('bk_verify_reconciliation', { nec_id: necId }, function (res) {
+            var $panel = $btn.closest('.el-bk-reconciliation-panel');
+
+            // Update status badge in the detail panel header
+            $panel.find('.el-bk-status-badge')
+                .removeClass('el-bk-rec-status--pending el-bk-rec-status--discrepancy el-bk-rec-status--reconciled')
+                .addClass('el-bk-rec-status--' + res.status)
+                .text(res.status.charAt(0).toUpperCase() + res.status.slice(1));
+
+            // Replace button with verified date
+            var vDate = new Date(res.verified_at);
+            var verifiedHtml = '<span class="el-bk-verified-info">Verified on <strong>' +
+                vDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+                '</strong></span>';
+            $btn.after(verifiedHtml);
+            $btn.remove();
+
+            // Update the main 1099 table row status badge
+            var $mainRow = $('.el-bk-nec-row[data-id="' + necId + '"]');
+            $mainRow.find('.el-bk-status-badge[class*="el-bk-rec-status--"]')
+                .removeClass('el-bk-rec-status--pending el-bk-rec-status--discrepancy el-bk-rec-status--reconciled')
+                .addClass('el-bk-rec-status--' + res.status)
+                .text(res.status.charAt(0).toUpperCase() + res.status.slice(1));
+
+            // Refresh the annual summary and income widget
+            if (typeof loadAnnualSummary === 'function') {
+                loadAnnualSummary();
+            }
+            if (typeof refreshIncomeSummaryWidget === 'function') {
+                refreshIncomeSummaryWidget();
+            }
+        }, function (msg) {
+            $btn.prop('disabled', false).text('Mark as Verified');
+            alert('Error: ' + msg);
+        });
+    });
+
+}(jQuery));
+
+// ═══════════════════════════════════════════════════════════════════
+// PHASE A.6.3: ANNUAL INCOME SUMMARY
+// ═══════════════════════════════════════════════════════════════════
+
+(function ($) {
+    'use strict';
+
+    window.loadAnnualSummary = function () {
+        var $wrap = $('#el-bk-annual-summary-table-wrap');
+        if (!$wrap.length) return;
+
+        $wrap.html('<p class="el-bk-loading">Loading summary\u2026</p>');
+
+        elBkAjax('bk_get_annual_summary', { tax_year: elBookkeeping.taxYear }, function (res) {
+            if (!res.records || res.records.length === 0) {
+                $wrap.html('<p style="color:#6c757d;">No 1099-NEC records for ' + res.tax_year + '. Create one using the \u201c+ 1099\u201d button on a client row.</p>');
+                return;
+            }
+            $wrap.html(buildAnnualSummaryTable(res));
+        }, function (msg) {
+            $wrap.html('<p style="color:#dc3545;">Error loading summary: ' + msg + '</p>');
+        });
+    };
+
+    function buildAnnualSummaryTable(data) {
+        var rowsHtml = '';
+
+        data.records.forEach(function (r) {
+            var clientDisplay = r.short_name || r.client_name;
+
+            var varianceClass = 'el-bk-variance--zero';
+            var varianceDisplay = '$0.00 \u2713';
+            if (Math.abs(r.variance) >= 0.01) {
+                varianceClass = r.variance > 0 ? 'el-bk-variance--positive' : 'el-bk-variance--negative';
+                varianceDisplay = (r.variance > 0 ? '+' : '-') + '$' +
+                    Math.abs(r.variance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            var verifiedDisplay = r.verified_at
+                ? new Date(r.verified_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : '\u2014';
+
+            rowsHtml += '<tr data-nec-id="' + r.nec_id + '">' +
+                '<td><strong>' + escHtml(r.short_name || r.client_name) + '</strong></td>' +
+                '<td><span class="el-bk-status-badge el-bk-nec-status--' + r.document_status + '">' + cap(r.document_status) + '</span></td>' +
+                '<td>$' + r.box1_amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+                '<td>$' + r.deposits_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</td>' +
+                '<td class="' + varianceClass + '">' + varianceDisplay + '</td>' +
+                '<td><span class="el-bk-status-badge el-bk-rec-status--' + r.reconciliation_status + '">' + cap(r.reconciliation_status) + '</span></td>' +
+                '<td>' + verifiedDisplay + '</td>' +
+            '</tr>';
+        });
+
+        var tvClass = 'el-bk-variance--zero';
+        var tvDisplay = '$0.00 \u2713';
+        if (Math.abs(data.total_variance) >= 0.01) {
+            tvClass = data.total_variance > 0 ? 'el-bk-variance--positive' : 'el-bk-variance--negative';
+            tvDisplay = (data.total_variance > 0 ? '+' : '-') + '$' +
+                Math.abs(data.total_variance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        return '<table class="el-bk-annual-summary-table widefat">' +
+            '<thead><tr>' +
+                '<th>Client</th><th>1099 Status</th><th>1099 Amount</th>' +
+                '<th>Deposits Total</th><th>Variance</th><th>Reconciliation</th><th>Verified</th>' +
+            '</tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+            '<tfoot><tr class="el-bk-summary-totals">' +
+                '<td><strong>Totals (' + data.count + ' clients)</strong></td>' +
+                '<td></td>' +
+                '<td><strong>$' + data.total_1099.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong></td>' +
+                '<td><strong>$' + data.total_deposits.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong></td>' +
+                '<td><strong class="' + tvClass + '">' + tvDisplay + '</strong></td>' +
+                '<td colspan="2"></td>' +
+            '</tr></tfoot>' +
+        '</table>';
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function cap(str) {
+        if (!str) return '';
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Refresh button
+    $(document).on('click', '#el-bk-refresh-summary-btn', function () {
+        loadAnnualSummary();
+    });
+
+    // Auto-load when the Clients tab is active
+    $(document).ready(function () {
+        if ($('#el-bk-annual-summary-table-wrap').length) {
+            loadAnnualSummary();
+        }
+    });
+
+}(jQuery));
