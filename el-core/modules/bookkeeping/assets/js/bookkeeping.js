@@ -2150,6 +2150,10 @@
         refreshIncomeSummaryWidget();
     });
 
+    // Expose shared utilities for Phase A.6 IIFEs
+    window.elBkAjax = elBkAjax;
+    window.elBkRefreshIncomeSummary = refreshIncomeSummaryWidget;
+
 }(jQuery));
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2323,8 +2327,8 @@
             if (typeof loadAnnualSummary === 'function') {
                 loadAnnualSummary();
             }
-            if (typeof refreshIncomeSummaryWidget === 'function') {
-                refreshIncomeSummaryWidget();
+            if (typeof window.elBkRefreshIncomeSummary === 'function') {
+                window.elBkRefreshIncomeSummary();
             }
         }, function (msg) {
             $btn.prop('disabled', false).text('Mark as Verified');
