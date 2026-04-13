@@ -2185,7 +2185,7 @@
 
         elBkAjax('bk_get_reconciliation', { nec_id: necId }, function (res) {
             $btn.text('Hide').prop('disabled', false);
-            $row.after(buildReconciliationPanel(res));
+            $row.after(buildReconciliationPanel(res.data));
         }, function (msg) {
             $btn.text('Details').prop('disabled', false);
             alert('Error: ' + msg);
@@ -2300,16 +2300,17 @@
         $btn.prop('disabled', true).text('Verifying\u2026');
 
         elBkAjax('bk_verify_reconciliation', { nec_id: necId }, function (res) {
+            var d = res.data;
             var $panel = $btn.closest('.el-bk-reconciliation-panel');
 
             // Update status badge in the detail panel header
             $panel.find('.el-bk-status-badge')
                 .removeClass('el-bk-rec-status--pending el-bk-rec-status--discrepancy el-bk-rec-status--reconciled')
-                .addClass('el-bk-rec-status--' + res.status)
-                .text(res.status.charAt(0).toUpperCase() + res.status.slice(1));
+                .addClass('el-bk-rec-status--' + d.status)
+                .text(d.status.charAt(0).toUpperCase() + d.status.slice(1));
 
             // Replace button with verified date
-            var vDate = new Date(res.verified_at);
+            var vDate = new Date(d.verified_at);
             var verifiedHtml = '<span class="el-bk-verified-info">Verified on <strong>' +
                 vDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
                 '</strong></span>';
@@ -2320,8 +2321,8 @@
             var $mainRow = $('.el-bk-nec-row[data-id="' + necId + '"]');
             $mainRow.find('.el-bk-status-badge[class*="el-bk-rec-status--"]')
                 .removeClass('el-bk-rec-status--pending el-bk-rec-status--discrepancy el-bk-rec-status--reconciled')
-                .addClass('el-bk-rec-status--' + res.status)
-                .text(res.status.charAt(0).toUpperCase() + res.status.slice(1));
+                .addClass('el-bk-rec-status--' + d.status)
+                .text(d.status.charAt(0).toUpperCase() + d.status.slice(1));
 
             // Refresh the annual summary and income widget
             if (typeof loadAnnualSummary === 'function') {
@@ -2352,11 +2353,12 @@
         $wrap.html('<p class="el-bk-loading">Loading summary\u2026</p>');
 
         elBkAjax('bk_get_annual_summary', { tax_year: elBookkeeping.taxYear }, function (res) {
-            if (!res.records || res.records.length === 0) {
-                $wrap.html('<p style="color:#6c757d;">No 1099-NEC records for ' + res.tax_year + '. Create one using the \u201c+ 1099\u201d button on a client row.</p>');
+            var d = res.data;
+            if (!d.records || d.records.length === 0) {
+                $wrap.html('<p style="color:#6c757d;">No 1099-NEC records for ' + d.tax_year + '. Create one using the \u201c+ 1099\u201d button on a client row.</p>');
                 return;
             }
-            $wrap.html(buildAnnualSummaryTable(res));
+            $wrap.html(buildAnnualSummaryTable(d));
         }, function (msg) {
             $wrap.html('<p style="color:#dc3545;">Error loading summary: ' + msg + '</p>');
         });
