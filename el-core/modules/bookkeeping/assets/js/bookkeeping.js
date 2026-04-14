@@ -2139,6 +2139,158 @@
         });
     });
 
+    // Clear all expenses for the current tax year
+    $(document).on('click', '.el-bk-clear-expenses-btn', function () {
+        var taxYear = $(this).attr('data-tax-year');
+        if (!confirm('Delete ALL expense transactions for ' + taxYear + '?\n\nThis cannot be undone. Your income will not be affected.\n\nClick OK to continue, then re-import your expense statements.')) {
+            return;
+        }
+        var $btn = $(this).prop('disabled', true).text('Clearing…');
+        elBkAjax('bk_clear_expenses', { tax_year: taxYear }, function (res) {
+            alert(res.message || 'Expenses cleared. Re-import your expense statements.');
+            location.reload();
+        }, function (msg) {
+            alert('Error: ' + msg);
+            $btn.prop('disabled', false).text('Clear All Expenses');
+        });
+    });
+
+    // ── Split Transaction ──────────────────────────────────────────────────────
+
+    var splitTxnId     = 0;
+    var splitTxnAmount = 0;
+
+    function escapeHtmlSplit(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function addSplitPiece(amount, category) {
+        var $pieces = $('#el-bk-split-pieces');
+        var idx     = $pieces.children().length;
+        var catHtml = $('#el-bk-split-cat-template').html();
+        var $row    = $(
+            '<div class="el-bk-split-piece-input" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">' +
+                '<label style="flex:0 0 60px;font-size:12px;color:#666;">$</label>' +
+                '<input type="number" class="el-bk-split-amount-input" min="0.01" step="0.01" placeholder="0.00" style="width:110px;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;">' +
+                '<select class="el-bk-split-cat-select" style="flex:1;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;">' + catHtml + '</select>' +
+                '<button type="button" class="el-bk-split-remove-piece" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:18px;line-height:1;padding:0 4px;" title="Remove">×</button>' +
+            '</div>'
+        );
+        if (amount) $row.find('.el-bk-split-amount-input').val(amount);
+        if (category) $row.find('.el-bk-split-cat-select').val(category);
+        $pieces.append($row);
+        updateSplitTally();
+    }
+
+    function updateSplitTally() {
+        var total = 0;
+        $('#el-bk-split-pieces .el-bk-split-amount-input').each(function () {
+            var v = parseFloat($(this).val()) || 0;
+            total += v;
+        });
+        total = Math.round(total * 100) / 100;
+        var orig    = Math.round(splitTxnAmount * 100) / 100;
+        var diff    = Math.round((orig - total) * 100) / 100;
+        var $tally  = $('#el-bk-split-tally');
+        var $btn    = $('#el-bk-split-confirm-btn');
+        var match   = Math.abs(diff) < 0.02;
+
+        if (match) {
+            $tally.html('<span style="color:#16a34a;font-weight:600;">✓ Fully allocated: $' + total.toFixed(2) + '</span>');
+            $btn.prop('disabled', false);
+        } else if (diff > 0) {
+            $tally.html('<span style="color:#b45309;">Remaining: $' + diff.toFixed(2) + ' of $' + orig.toFixed(2) + ' to allocate</span>');
+            $btn.prop('disabled', true);
+        } else {
+            $tally.html('<span style="color:#dc2626;">Over by $' + Math.abs(diff).toFixed(2) + ' — reduce piece amounts</span>');
+            $btn.prop('disabled', true);
+        }
+    }
+
+    function openSplitModal($btn) {
+        splitTxnId     = parseInt($btn.data('id'), 10);
+        splitTxnAmount = parseFloat($btn.data('amount'));
+        var merchant   = $btn.data('merchant') || '';
+        var date       = $btn.data('date') || '';
+
+        $('#el-bk-split-modal-title').text('Split Expense');
+        $('#el-bk-split-info').html(
+            '<strong>' + escapeHtmlSplit(merchant) + '</strong>' +
+            ' &nbsp;·&nbsp; ' + escapeHtmlSplit(date) +
+            ' &nbsp;·&nbsp; <strong>$' + splitTxnAmount.toFixed(2) + '</strong>'
+        );
+        $('#el-bk-split-pieces').empty();
+        addSplitPiece('', '');
+        addSplitPiece('', '');
+        updateSplitTally();
+        $('#el-bk-split-modal').fadeIn(150);
+    }
+
+    $(document).on('click', '.el-bk-split-btn', function () {
+        openSplitModal($(this));
+    });
+
+    $(document).on('click', '.el-bk-split-modal-close', function () {
+        $('#el-bk-split-modal').fadeOut(150);
+    });
+
+    $(document).on('click', '#el-bk-split-add-piece', function () {
+        addSplitPiece('', '');
+    });
+
+    $(document).on('click', '.el-bk-split-remove-piece', function () {
+        if ($('#el-bk-split-pieces .el-bk-split-piece-input').length <= 2) {
+            alert('A split requires at least 2 pieces.');
+            return;
+        }
+        $(this).closest('.el-bk-split-piece-input').remove();
+        updateSplitTally();
+    });
+
+    $(document).on('input', '.el-bk-split-amount-input', function () {
+        updateSplitTally();
+    });
+
+    $(document).on('click', '#el-bk-split-confirm-btn', function () {
+        var pieces = [];
+        var valid  = true;
+        $('#el-bk-split-pieces .el-bk-split-piece-input').each(function () {
+            var amount   = parseFloat($(this).find('.el-bk-split-amount-input').val()) || 0;
+            var category = $(this).find('.el-bk-split-cat-select').val();
+            if (amount <= 0) { valid = false; }
+            pieces.push({ amount: amount, category: category });
+        });
+        if (!valid) { alert('Each piece must have an amount greater than zero.'); return; }
+
+        var $btn = $(this).prop('disabled', true).text('Saving…');
+        elBkAjax('bk_split_transaction', { transaction_id: splitTxnId, pieces: pieces }, function (res) {
+            alert(res.message || 'Transaction split successfully.');
+            location.reload();
+        }, function (msg) {
+            alert('Error: ' + msg);
+            $btn.prop('disabled', false).text('Confirm Split');
+        });
+    });
+
+    // Unsplit — restore parent row
+    $(document).on('click', '.el-bk-unsplit-btn', function (e) {
+        e.stopPropagation();
+        var txnId = $(this).data('id');
+        if (!confirm('Remove the split? This will delete the split pieces and restore the original transaction.')) return;
+        var $btn = $(this).prop('disabled', true);
+        elBkAjax('bk_unsplit_transaction', { transaction_id: txnId }, function (res) {
+            alert(res.message || 'Split removed.');
+            location.reload();
+        }, function (msg) {
+            alert('Error: ' + msg);
+            $btn.prop('disabled', false);
+        });
+    });
+
     // Refresh reconciliation summary widget
     function refreshIncomeSummaryWidget() {
         if (!$('.el-bk-income-summary-widget').length) return;
@@ -3207,5 +3359,138 @@ $(document).on('click', '.el-bk-unmatch-btn', function(e) {
         alert('Error: ' + msg);
     });
 });
+
+// ── Phase C.1 — Settings Calculations & Toggles ───────────────────────────────
+
+function updateHomeOfficeCalculation() {
+    var enabled    = $('#el-bk-home-office-enabled').is(':checked');
+    var method     = $('input[name="home_office_method"]:checked').val();
+    var officeSqft = parseFloat($('#el-bk-home-office-sqft').val()) || 0;
+    var totalSqft  = parseFloat($('#el-bk-home-total-sqft').val()) || 0;
+
+    var pct = totalSqft > 0 ? (officeSqft / totalSqft * 100) : 0;
+    $('#el-bk-home-office-pct').text(pct.toFixed(1) + '%');
+
+    if (!enabled) {
+        $('#el-bk-home-calc-result').text('—');
+        return;
+    }
+
+    var deduction = 0;
+    if (method === 'simplified') {
+        var clampedSqft = Math.min(officeSqft, 300);
+        deduction = clampedSqft * 5;
+        $('#el-bk-home-calc-result').html(
+            clampedSqft + ' sq ft &times; $5.00 = <strong>$' + deduction.toFixed(2) + '</strong> deduction'
+        );
+    } else if (method === 'actual') {
+        var mortgage     = parseFloat($('#el-bk-home-mortgage-rent').val()) || 0;
+        var taxes        = parseFloat($('#el-bk-home-real-estate-taxes').val()) || 0;
+        var utilities    = parseFloat($('#el-bk-home-utilities').val()) || 0;
+        var insurance    = parseFloat($('#el-bk-home-insurance').val()) || 0;
+        var repairs      = parseFloat($('#el-bk-home-repairs').val()) || 0;
+        var depreciation = parseFloat($('#el-bk-home-depreciation').val()) || 0;
+
+        var totalExpenses = mortgage + taxes + utilities + insurance + repairs + depreciation;
+        deduction = totalExpenses * (pct / 100);
+        $('#el-bk-home-calc-result').html(
+            '$' + totalExpenses.toFixed(2) + ' &times; ' + pct.toFixed(1) + '% = <strong>$' + deduction.toFixed(2) + '</strong> deduction'
+        );
+    }
+}
+
+function updateVehicleCalculation() {
+    var enabled       = $('#el-bk-vehicle-enabled').is(':checked');
+    var method        = $('input[name="vehicle_method"]:checked').val();
+    var totalMilesStd = parseFloat($('#el-bk-vehicle-total-miles').val()) || 0;
+    var bizMilesStd   = parseFloat($('#el-bk-vehicle-business-miles').val()) || 0;
+    var totalMilesAct = parseFloat($('#el-bk-vehicle-actual-total-miles').val()) || 0;
+    var bizMilesAct   = parseFloat($('#el-bk-vehicle-actual-business-miles').val()) || 0;
+
+    var totalMiles  = method === 'actual' ? totalMilesAct : totalMilesStd;
+    var bizMiles    = method === 'actual' ? bizMilesAct   : bizMilesStd;
+    var pct         = totalMiles > 0 ? (bizMiles / totalMiles * 100) : 0;
+
+    $('#el-bk-vehicle-pct').text(pct.toFixed(1) + '%');
+    $('#el-bk-vehicle-actual-pct').text(pct.toFixed(1) + '%');
+
+    if (!enabled) {
+        $('#el-bk-vehicle-calc-result').text('—');
+        return;
+    }
+
+    var deduction = 0;
+    if (method === 'standard') {
+        var rate = parseFloat($('#el-bk-vehicle-mileage-rate').val()) || 0.70;
+        deduction = bizMiles * rate;
+        $('#el-bk-vehicle-calc-result').html(
+            bizMiles.toLocaleString() + ' miles &times; $' + rate.toFixed(2) + ' = <strong>$' + deduction.toFixed(2) + '</strong> deduction'
+        );
+    } else if (method === 'actual') {
+        var gas          = parseFloat($('#el-bk-vehicle-gas').val()) || 0;
+        var insurance    = parseFloat($('#el-bk-vehicle-insurance').val()) || 0;
+        var repairs      = parseFloat($('#el-bk-vehicle-repairs').val()) || 0;
+        var registration = parseFloat($('#el-bk-vehicle-registration').val()) || 0;
+        var lease        = parseFloat($('#el-bk-vehicle-lease').val()) || 0;
+        var depreciation = parseFloat($('#el-bk-vehicle-depreciation').val()) || 0;
+
+        var totalExpenses = gas + insurance + repairs + registration + lease + depreciation;
+        deduction = totalExpenses * (pct / 100);
+        $('#el-bk-vehicle-calc-result').html(
+            '$' + totalExpenses.toFixed(2) + ' &times; ' + pct.toFixed(1) + '% = <strong>$' + deduction.toFixed(2) + '</strong> deduction'
+        );
+    }
+}
+
+// Toggle section collapse/expand
+$(document).on('click', '.el-bk-settings-toggle', function() {
+    var targetId = $(this).data('target');
+    var $body    = $('#' + targetId);
+    var $icon    = $(this).find('.el-bk-settings-toggle-icon');
+    var isOpen   = $body.is(':visible');
+
+    $body.toggle(!isOpen);
+    $icon.html(isOpen ? '&#9654;' : '&#9660;');
+    $(this).toggleClass('el-bk-settings-toggle--collapsed', isOpen);
+});
+
+// Home office enable/disable
+$('#el-bk-home-office-enabled').on('change', function() {
+    $('#el-bk-home-office-fields').toggle(this.checked);
+    updateHomeOfficeCalculation();
+});
+
+// Vehicle enable/disable
+$('#el-bk-vehicle-enabled').on('change', function() {
+    $('#el-bk-vehicle-fields').toggle(this.checked);
+    updateVehicleCalculation();
+});
+
+// Home office method toggle
+$('input[name="home_office_method"]').on('change', function() {
+    var method = $(this).val();
+    $('#el-bk-home-office-actual-fields').toggle(method === 'actual');
+    updateHomeOfficeCalculation();
+});
+
+// Vehicle method toggle
+$('input[name="vehicle_method"]').on('change', function() {
+    var method = $(this).val();
+    $('#el-bk-vehicle-standard-fields').toggle(method === 'standard');
+    $('#el-bk-vehicle-actual-fields').toggle(method === 'actual');
+    updateVehicleCalculation();
+});
+
+// Recalculate on input — home office
+$(document).on('input', '#el-bk-home-office-sqft, #el-bk-home-total-sqft, #el-bk-home-mortgage-rent, #el-bk-home-real-estate-taxes, #el-bk-home-utilities, #el-bk-home-insurance, #el-bk-home-repairs, #el-bk-home-depreciation', updateHomeOfficeCalculation);
+
+// Recalculate on input — vehicle
+$(document).on('input', '#el-bk-vehicle-total-miles, #el-bk-vehicle-business-miles, #el-bk-vehicle-mileage-rate, #el-bk-vehicle-gas, #el-bk-vehicle-insurance, #el-bk-vehicle-repairs, #el-bk-vehicle-registration, #el-bk-vehicle-lease, #el-bk-vehicle-depreciation, #el-bk-vehicle-actual-total-miles, #el-bk-vehicle-actual-business-miles', updateVehicleCalculation);
+
+// Run on page load if on settings tab
+if ($('#el-bk-home-office-sqft').length) {
+    updateHomeOfficeCalculation();
+    updateVehicleCalculation();
+}
 
 }(jQuery));

@@ -23,7 +23,7 @@
     },
 
     "database": {
-        "version": 10,
+        "version": 11,
         "tables": {
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -50,7 +50,9 @@
                 "KEY idx_date": "(date)",
                 "KEY idx_client_id": "(client_id)",
                 "invoice_id": "bigint(20) NOT NULL DEFAULT 0",
-                "KEY idx_invoice_id": "(invoice_id)"
+                "KEY idx_invoice_id": "(invoice_id)",
+                "parent_id": "bigint(20) NOT NULL DEFAULT 0",
+                "KEY idx_parent_id": "(parent_id)"
             },
             "el_bk_rules": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -183,16 +185,59 @@
             "7": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS form_4852_attachment_id bigint(20) NOT NULL DEFAULT 0",
             "8": "ALTER TABLE el_bk_1099_nec ADD COLUMN IF NOT EXISTS supporting_doc_attachment_id bigint(20) NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS supporting_doc_title varchar(255) NOT NULL DEFAULT ''",
             "9": "CREATE TABLE IF NOT EXISTS {prefix}el_bk_invoices ( id bigint(20) NOT NULL AUTO_INCREMENT, client_id bigint(20) NOT NULL DEFAULT 0, invoice_number varchar(50) NOT NULL DEFAULT '', invoice_date date NOT NULL, amount decimal(12,2) NOT NULL DEFAULT 0.00, description text NOT NULL DEFAULT '', status enum('unpaid','paid','partial','void') NOT NULL DEFAULT 'unpaid', document_attachment_id bigint(20) NOT NULL DEFAULT 0, transaction_id bigint(20) NOT NULL DEFAULT 0, withholding_amount decimal(10,2) NOT NULL DEFAULT 0.00, withholding_type varchar(50) NOT NULL DEFAULT '', ai_extracted_data text NOT NULL DEFAULT '', notes text NOT NULL DEFAULT '', created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (id), UNIQUE KEY unique_invoice_number (invoice_number), KEY idx_client (client_id), KEY idx_status (status), KEY idx_transaction (transaction_id), KEY idx_date (invoice_date) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-            "10": "ALTER TABLE {prefix}el_bk_transactions ADD COLUMN IF NOT EXISTS invoice_id bigint(20) NOT NULL DEFAULT 0"
+            "10": "ALTER TABLE {prefix}el_bk_transactions ADD COLUMN IF NOT EXISTS invoice_id bigint(20) NOT NULL DEFAULT 0",
+            "11": "ALTER TABLE {prefix}el_bk_transactions ADD COLUMN IF NOT EXISTS parent_id bigint(20) NOT NULL DEFAULT 0"
         }
     },
 
     "shortcodes": [],
 
     "settings": [
-        { "key": "business_name",        "label": "Business Name",              "type": "string", "default": "Expanded Learning Solutions LLC" },
-        { "key": "tax_year",             "label": "Default Tax Year",           "type": "number", "default": 2025 },
-        { "key": "home_office_pct",      "label": "Home Office % (Indirect)",   "type": "number", "default": 0 },
-        { "key": "vehicle_mileage_rate", "label": "Vehicle Mileage Rate",       "type": "number", "default": 0.67 }
+        { "key": "business_name",             "label": "Business Name",              "type": "string",  "default": "Expanded Learning Solutions LLC" },
+        { "key": "owner_legal_name",          "label": "Owner Legal Name",           "type": "string",  "default": "" },
+        { "key": "ein",                       "label": "EIN",                        "type": "string",  "default": "" },
+        { "key": "business_address",          "label": "Business Address",           "type": "string",  "default": "" },
+        { "key": "business_type",             "label": "Business Type",              "type": "string",  "default": "sole_proprietor" },
+        { "key": "business_start_date",       "label": "Business Start Date",        "type": "string",  "default": "" },
+        { "key": "accounting_method",         "label": "Accounting Method",          "type": "string",  "default": "cash" },
+        { "key": "naics_code",                "label": "Principal Business Code",    "type": "string",  "default": "" },
+        { "key": "tax_year",                  "label": "Default Tax Year",           "type": "number",  "default": 2025 },
+
+        { "key": "home_office_enabled",       "label": "Claim Home Office",          "type": "boolean", "default": false },
+        { "key": "home_office_method",        "label": "Home Office Method",         "type": "string",  "default": "simplified" },
+        { "key": "home_office_sqft",          "label": "Office Square Footage",      "type": "number",  "default": 0 },
+        { "key": "home_total_sqft",           "label": "Total Home Square Footage",  "type": "number",  "default": 0 },
+        { "key": "home_office_pct",           "label": "Home Office % (Indirect)",   "type": "number",  "default": 0 },
+        { "key": "home_mortgage_rent",        "label": "Mortgage/Rent",              "type": "number",  "default": 0 },
+        { "key": "home_real_estate_taxes",    "label": "Real Estate Taxes",          "type": "number",  "default": 0 },
+        { "key": "home_utilities",            "label": "Utilities",                  "type": "number",  "default": 0 },
+        { "key": "home_insurance",            "label": "Homeowners Insurance",       "type": "number",  "default": 0 },
+        { "key": "home_repairs",              "label": "Repairs & Maintenance",      "type": "number",  "default": 0 },
+        { "key": "home_depreciation",         "label": "Depreciation",               "type": "number",  "default": 0 },
+
+        { "key": "vehicle_enabled",           "label": "Claim Vehicle Deduction",    "type": "boolean", "default": false },
+        { "key": "vehicle_description",       "label": "Vehicle Description",        "type": "string",  "default": "" },
+        { "key": "vehicle_service_date",      "label": "Date Placed in Service",     "type": "string",  "default": "" },
+        { "key": "vehicle_method",            "label": "Vehicle Method",             "type": "string",  "default": "standard" },
+        { "key": "vehicle_total_miles",       "label": "Total Miles Driven",         "type": "number",  "default": 0 },
+        { "key": "vehicle_business_miles",    "label": "Business Miles Driven",      "type": "number",  "default": 0 },
+        { "key": "vehicle_mileage_rate",      "label": "Mileage Rate",               "type": "number",  "default": 0.70 },
+        { "key": "vehicle_gas",               "label": "Gas & Oil",                  "type": "number",  "default": 0 },
+        { "key": "vehicle_insurance",         "label": "Auto Insurance",             "type": "number",  "default": 0 },
+        { "key": "vehicle_repairs",           "label": "Repairs & Maintenance",      "type": "number",  "default": 0 },
+        { "key": "vehicle_registration",      "label": "Registration & Licenses",    "type": "number",  "default": 0 },
+        { "key": "vehicle_lease",             "label": "Lease Payments",             "type": "number",  "default": 0 },
+        { "key": "vehicle_depreciation",      "label": "Depreciation",               "type": "number",  "default": 0 },
+
+        { "key": "health_insurance_premium",  "label": "Health Insurance Premium",   "type": "number",  "default": 0 },
+        { "key": "retirement_sep_ira",        "label": "SEP-IRA Contributions",      "type": "number",  "default": 0 },
+        { "key": "retirement_solo_401k",      "label": "Solo 401(k) Contributions",  "type": "number",  "default": 0 },
+        { "key": "retirement_simple_ira",     "label": "SIMPLE IRA Contributions",   "type": "number",  "default": 0 },
+        { "key": "professional_licenses",     "label": "Professional Licenses",      "type": "number",  "default": 0 },
+        { "key": "professional_memberships",  "label": "Professional Memberships",   "type": "number",  "default": 0 },
+        { "key": "continuing_education",      "label": "Continuing Education",       "type": "number",  "default": 0 },
+        { "key": "business_insurance",        "label": "Business Insurance",         "type": "number",  "default": 0 },
+        { "key": "bank_merchant_fees",        "label": "Bank/Merchant Fees",         "type": "number",  "default": 0 },
+        { "key": "software_subscriptions",    "label": "Software Subscriptions",     "type": "number",  "default": 0 }
     ]
 }
