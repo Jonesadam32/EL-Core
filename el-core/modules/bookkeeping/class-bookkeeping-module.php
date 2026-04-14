@@ -3850,10 +3850,6 @@ class EL_Bookkeeping_Module {
                 (int) $deposit->client_id
             );
 
-            if ( $result['score'] <= 0 ) {
-                continue;
-            }
-
             $suggestions[] = [
                 'transaction_id'        => (int) $deposit->id,
                 'date'                  => $deposit->date,
@@ -3934,10 +3930,6 @@ class EL_Bookkeeping_Module {
                 $transaction->date,
                 (int) $transaction->client_id
             );
-
-            if ( $result['score'] <= 0 ) {
-                continue;
-            }
 
             $suggestions[] = [
                 'invoice_id'            => (int) $invoice->id,
