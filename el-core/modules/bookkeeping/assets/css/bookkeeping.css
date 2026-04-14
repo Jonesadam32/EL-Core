@@ -2745,7 +2745,20 @@
     min-height: 60px;
 }
 
-/* ── ACCOUNTANT EXPORT (Phase C.2) ─────────────────────────────────────────── */
+/* ── MULTI-INVOICE DEPOSIT MATCHING (Phase A.9 fix v1.38.74) ─────────────────── */
+
+.el-admin-wrap .el-bk-match-suggestion--linked {
+    border-left: 3px solid #f59e0b;
+    background: #fffbeb;
+}
+
+.el-admin-wrap .el-bk-match-already-linked {
+    display: block;
+    font-size: 11px;
+    color: #b45309;
+    font-style: italic;
+    margin-top: 2px;
+}
 
 .el-admin-wrap .el-bk-export-section {
     margin-top: 24px;

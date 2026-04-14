@@ -27,6 +27,23 @@ if ( ! empty( $prefetch_clients ) ) {
         $client_map[ (int) $c->id ] = $c->short_name ?: $c->client_name;
     }
 }
+
+// Build map of transaction_id → linked invoice count (for multi-invoice deposits).
+$linked_invoice_counts = [];
+if ( $transactions ) {
+    global $wpdb;
+    $txn_ids = implode( ',', array_map( 'intval', array_column( (array) $transactions, 'id' ) ) );
+    if ( $txn_ids ) {
+        $tbl_inv = $wpdb->prefix . 'el_bk_invoices';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $rows = $wpdb->get_results(
+            "SELECT transaction_id, COUNT(*) AS cnt FROM {$tbl_inv} WHERE transaction_id IN ({$txn_ids}) GROUP BY transaction_id"
+        ) ?: [];
+        foreach ( $rows as $r ) {
+            $linked_invoice_counts[ (int) $r->transaction_id ] = (int) $r->cnt;
+        }
+    }
+}
 ?>
 
 <div class="el-bk-tab-header">
@@ -168,15 +185,25 @@ if ( ! empty( $prefetch_clients ) ) {
                         value="<?php echo esc_attr( $t->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">
                 </td>
                 <td>
-                    <?php if ( empty( $t->invoice_id ) ) : ?>
+                    <?php
+                    $linked_count = $linked_invoice_counts[ (int) $t->id ] ?? 0;
+                    if ( $linked_count > 0 ) : ?>
+                        <span class="el-bk-invoice-linked-badge">
+                            <?php echo esc_html( $linked_count === 1
+                                ? __( 'Invoice Linked', 'el-core' )
+                                : sprintf( __( '%d Invoices Linked', 'el-core' ), $linked_count )
+                            ); ?>
+                        </span>
+                        <button class="el-btn el-btn-outline el-btn-sm el-bk-link-invoice-btn"
+                            data-transaction-id="<?php echo esc_attr( $t->id ); ?>"
+                            style="margin-top:4px;">
+                            <?php esc_html_e( '+ Link Another', 'el-core' ); ?>
+                        </button>
+                    <?php else : ?>
                         <button class="el-btn el-btn-outline el-btn-sm el-bk-link-invoice-btn"
                             data-transaction-id="<?php echo esc_attr( $t->id ); ?>">
                             <?php esc_html_e( 'Link Invoice', 'el-core' ); ?>
                         </button>
-                    <?php else : ?>
-                        <span class="el-bk-invoice-linked-badge">
-                            <?php esc_html_e( 'Invoice Linked', 'el-core' ); ?>
-                        </span>
                     <?php endif; ?>
                 </td>
             </tr>

@@ -3179,8 +3179,10 @@ function renderMatchSuggestions(suggestions, type) {
     suggestions.forEach(function(s) {
         var scoreClass = s.score >= 100 ? 'high' : (s.score >= 50 ? 'medium' : 'low');
         var id = type === 'deposit' ? s.transaction_id : s.invoice_id;
+        var alreadyLinked = s.already_linked || false;
 
-        html += '<div class="el-bk-match-suggestion" data-id="' + id + '" data-type="' + type + '"';
+        html += '<div class="el-bk-match-suggestion' + (alreadyLinked ? ' el-bk-match-suggestion--linked' : '') + '"';
+        html += ' data-id="' + id + '" data-type="' + type + '"';
         html += ' data-amount="' + s.amount + '"';
         html += ' data-suggested-withholding="' + (s.suggested_withholding || 0) + '"';
         html += ' data-match-type="' + (s.match_type || '') + '">';
@@ -3191,6 +3193,10 @@ function renderMatchSuggestions(suggestions, type) {
             html += '<div class="el-bk-match-suggestion-details">';
             html += '<span>' + escapeHtmlMatch(s.date) + '</span>';
             html += '<span>' + escapeHtmlMatch(s.merchant) + '</span>';
+            if (alreadyLinked) {
+                var invoiceWord = s.linked_count === 1 ? 'invoice' : 'invoices';
+                html += '<span class="el-bk-match-already-linked">&#8627; already linked to ' + s.linked_count + ' ' + invoiceWord + '</span>';
+            }
             html += '</div>';
         } else {
             html += '<div class="el-bk-match-suggestion-amount">' + escapeHtmlMatch(s.invoice_number || 'No #') + '</div>';

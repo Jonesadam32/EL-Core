@@ -3992,14 +3992,13 @@ class EL_Bookkeeping_Module {
         $has_invoice_id_col = (bool) $wpdb->get_var(
             "SHOW COLUMNS FROM {$this->table('el_bk_transactions')} LIKE 'invoice_id'"
         );
-        $invoice_id_filter = $has_invoice_id_col ? "AND t.invoice_id = 0" : '';
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $deposits = $wpdb->get_results( $wpdb->prepare(
             "SELECT t.*, c.client_name, c.short_name
              FROM {$this->table('el_bk_transactions')} t
              LEFT JOIN {$this->table('el_bk_clients')} c ON t.client_id = c.id
              WHERE t.type = 'income'
-               {$invoice_id_filter}
                AND t.tax_year = %d",
             $invoice_year
         ) ) ?: [];
@@ -4015,6 +4014,13 @@ class EL_Bookkeeping_Module {
                 (int) $deposit->client_id
             );
 
+            // Count how many invoices already reference this deposit.
+            $linked_count = $has_invoice_id_col ? (int) $wpdb->get_var( $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                "SELECT COUNT(*) FROM {$this->table('el_bk_invoices')} WHERE transaction_id = %d",
+                (int) $deposit->id
+            ) ) : 0;
+
             $suggestions[] = [
                 'transaction_id'        => (int) $deposit->id,
                 'date'                  => $deposit->date,
@@ -4025,6 +4031,8 @@ class EL_Bookkeeping_Module {
                 'score'                 => $result['score'],
                 'match_type'            => $result['match_type'],
                 'suggested_withholding' => $result['suggested_withholding'],
+                'already_linked'        => $linked_count > 0,
+                'linked_count'          => $linked_count,
             ];
         }
 
@@ -4166,10 +4174,8 @@ class EL_Bookkeeping_Module {
             EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
             return;
         }
-        if ( (int) $transaction->invoice_id ) {
-            EL_AJAX_Handler::error( __( 'Deposit is already matched to an invoice.', 'el-core' ) );
-            return;
-        }
+        // Allow multiple invoices per deposit (e.g. one $10k check covering two $5k invoices).
+        // We only block if THIS invoice is already matched to a DIFFERENT deposit.
 
         if ( $withholding_amount > 0 && ! $withholding_type ) {
             $withholding_type = 'CA Withholding';
@@ -4188,16 +4194,29 @@ class EL_Bookkeeping_Module {
             [ '%d' ]
         );
 
-        $wpdb->update(
-            $this->table( 'el_bk_transactions' ),
-            [
-                'invoice_id' => $invoice_id,
-                'client_id'  => (int) $invoice->client_id,
-            ],
-            [ 'id' => $transaction_id ],
-            [ '%d', '%d' ],
-            [ '%d' ]
-        );
+        // Set transaction.invoice_id only if it isn't already pointing at another invoice
+        // (first invoice linked becomes the "primary"; subsequent ones don't overwrite it).
+        if ( ! (int) $transaction->invoice_id ) {
+            $wpdb->update(
+                $this->table( 'el_bk_transactions' ),
+                [
+                    'invoice_id' => $invoice_id,
+                    'client_id'  => (int) $invoice->client_id,
+                ],
+                [ 'id' => $transaction_id ],
+                [ '%d', '%d' ],
+                [ '%d' ]
+            );
+        } elseif ( ! (int) $transaction->client_id && (int) $invoice->client_id ) {
+            // At minimum keep client_id populated.
+            $wpdb->update(
+                $this->table( 'el_bk_transactions' ),
+                [ 'client_id' => (int) $invoice->client_id ],
+                [ 'id' => $transaction_id ],
+                [ '%d' ],
+                [ '%d' ]
+            );
+        }
 
         EL_AJAX_Handler::success( [
             'invoice_id'     => $invoice_id,
@@ -4246,13 +4265,42 @@ class EL_Bookkeeping_Module {
         );
 
         if ( $transaction_id ) {
-            $wpdb->update(
-                $this->table( 'el_bk_transactions' ),
-                [ 'invoice_id' => 0 ],
-                [ 'id' => $transaction_id ],
-                [ '%d' ],
-                [ '%d' ]
-            );
+            // Check whether other invoices still reference this deposit.
+            $remaining = (int) $wpdb->get_var( $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                "SELECT COUNT(*) FROM {$this->table('el_bk_invoices')} WHERE transaction_id = %d AND id != %d",
+                $transaction_id,
+                $invoice_id
+            ) );
+
+            if ( $remaining === 0 ) {
+                // No other invoices — clear the deposit's invoice_id entirely.
+                $wpdb->update(
+                    $this->table( 'el_bk_transactions' ),
+                    [ 'invoice_id' => 0 ],
+                    [ 'id' => $transaction_id ],
+                    [ '%d' ],
+                    [ '%d' ]
+                );
+            } else {
+                // Other invoices still reference this deposit — update transaction.invoice_id
+                // to point at the next remaining one (keep deposit marked as linked).
+                $next_invoice_id = (int) $wpdb->get_var( $wpdb->prepare(
+                    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                    "SELECT id FROM {$this->table('el_bk_invoices')} WHERE transaction_id = %d AND id != %d LIMIT 1",
+                    $transaction_id,
+                    $invoice_id
+                ) );
+                if ( $next_invoice_id ) {
+                    $wpdb->update(
+                        $this->table( 'el_bk_transactions' ),
+                        [ 'invoice_id' => $next_invoice_id ],
+                        [ 'id' => $transaction_id ],
+                        [ '%d' ],
+                        [ '%d' ]
+                    );
+                }
+            }
         }
 
         EL_AJAX_Handler::success( [
