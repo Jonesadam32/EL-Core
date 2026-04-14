@@ -2937,6 +2937,7 @@
 }(jQuery));
 
 // ── INVOICE-DEPOSIT MATCHING (Phase A.9) ──────────────────────────────────────
+(function($) {
 
 var matchModalMode = null; // 'invoice' or 'deposit'
 var matchSourceId = null;
@@ -3202,3 +3203,5 @@ $(document).on('click', '.el-bk-unmatch-btn', function(e) {
         alert('Error: ' + msg);
     });
 });
+
+}(jQuery));
