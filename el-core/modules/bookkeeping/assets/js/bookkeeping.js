@@ -2934,10 +2934,12 @@
         });
     });
 
-}(jQuery));
-
 // ── INVOICE-DEPOSIT MATCHING (Phase A.9) ──────────────────────────────────────
-(function($) {
+
+function escapeHtmlMatch(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 var matchModalMode = null; // 'invoice' or 'deposit'
 var matchSourceId = null;
@@ -2962,7 +2964,7 @@ function openInvoiceMatchModal(invoiceId) {
         renderMatchSource(res.invoice, 'invoice');
         renderMatchSuggestions(res.suggestions, 'deposit');
     }, function(msg) {
-        $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtml(msg) + '</p>');
+        $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtmlMatch(msg) + '</p>');
     });
 }
 
@@ -2983,7 +2985,7 @@ function openDepositMatchModal(transactionId) {
         renderMatchSource(res.transaction, 'deposit');
         renderMatchSuggestions(res.suggestions, 'invoice');
     }, function(msg) {
-        $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtml(msg) + '</p>');
+        $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtmlMatch(msg) + '</p>');
     });
 }
 
@@ -2992,21 +2994,21 @@ function renderMatchSource(data, type) {
     if (type === 'invoice') {
         html += '<div class="el-bk-match-source-label">Invoice</div>';
         html += '<div class="el-bk-match-source-main">';
-        html += '<strong>' + escapeHtml(data.invoice_number || 'No Number') + '</strong>';
-        html += ' \u2014 $' + escapeHtml(formatMatchNumber(data.amount));
+        html += '<strong>' + escapeHtmlMatch(data.invoice_number || 'No Number') + '</strong>';
+        html += ' \u2014 $' + escapeHtmlMatch(formatMatchNumber(data.amount));
         html += '</div>';
         html += '<div class="el-bk-match-source-meta">';
-        html += escapeHtml(data.client_name || 'No Client') + ' \u2022 ' + escapeHtml(data.invoice_date);
+        html += escapeHtmlMatch(data.client_name || 'No Client') + ' \u2022 ' + escapeHtmlMatch(data.invoice_date);
         html += '</div>';
     } else {
         html += '<div class="el-bk-match-source-label">Deposit</div>';
         html += '<div class="el-bk-match-source-main">';
-        html += '<strong>$' + escapeHtml(formatMatchNumber(data.amount)) + '</strong>';
-        html += ' \u2014 ' + escapeHtml(data.date);
+        html += '<strong>$' + escapeHtmlMatch(formatMatchNumber(data.amount)) + '</strong>';
+        html += ' \u2014 ' + escapeHtmlMatch(data.date);
         html += '</div>';
         html += '<div class="el-bk-match-source-meta">';
-        html += escapeHtml(data.merchant);
-        if (data.client_name) html += ' \u2022 ' + escapeHtml(data.client_name);
+        html += escapeHtmlMatch(data.merchant);
+        if (data.client_name) html += ' \u2022 ' + escapeHtmlMatch(data.client_name);
         html += '</div>';
     }
     html += '</div>';
@@ -3031,24 +3033,24 @@ function renderMatchSuggestions(suggestions, type) {
 
         html += '<div class="el-bk-match-suggestion-main">';
         if (type === 'deposit') {
-            html += '<div class="el-bk-match-suggestion-amount">$' + escapeHtml(formatMatchNumber(s.amount)) + '</div>';
+            html += '<div class="el-bk-match-suggestion-amount">$' + escapeHtmlMatch(formatMatchNumber(s.amount)) + '</div>';
             html += '<div class="el-bk-match-suggestion-details">';
-            html += '<span>' + escapeHtml(s.date) + '</span>';
-            html += '<span>' + escapeHtml(s.merchant) + '</span>';
+            html += '<span>' + escapeHtmlMatch(s.date) + '</span>';
+            html += '<span>' + escapeHtmlMatch(s.merchant) + '</span>';
             html += '</div>';
         } else {
-            html += '<div class="el-bk-match-suggestion-amount">' + escapeHtml(s.invoice_number || 'No #') + '</div>';
+            html += '<div class="el-bk-match-suggestion-amount">' + escapeHtmlMatch(s.invoice_number || 'No #') + '</div>';
             html += '<div class="el-bk-match-suggestion-details">';
-            html += '<span>$' + escapeHtml(formatMatchNumber(s.amount)) + '</span>';
-            html += '<span>' + escapeHtml(s.invoice_date) + '</span>';
-            html += '<span>' + escapeHtml(s.client_name || '') + '</span>';
+            html += '<span>$' + escapeHtmlMatch(formatMatchNumber(s.amount)) + '</span>';
+            html += '<span>' + escapeHtmlMatch(s.invoice_date) + '</span>';
+            html += '<span>' + escapeHtmlMatch(s.client_name || '') + '</span>';
             html += '</div>';
         }
         html += '</div>';
 
         html += '<div class="el-bk-match-suggestion-meta">';
         html += '<span class="el-bk-match-score el-bk-match-score--' + scoreClass + '">' + s.score + '</span>';
-        html += '<span class="el-bk-match-type">' + escapeHtml(formatMatchType(s.match_type)) + '</span>';
+        html += '<span class="el-bk-match-type">' + escapeHtmlMatch(formatMatchType(s.match_type)) + '</span>';
         html += '</div>';
 
         html += '<button class="el-btn el-btn-outline el-btn-sm el-bk-select-match-btn">Select</button>';
