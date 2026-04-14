@@ -316,7 +316,7 @@ foreach ( $clients as $c ) {
 					<?php endif; ?>
 				</td>
 				<td class="el-bk-actions">
-					<?php if ( $inv->status === 'unpaid' && empty( $inv->transaction_id ) ) : ?>
+					<?php if ( empty( $inv->transaction_id ) && $inv->status !== 'void' ) : ?>
 						<button class="el-btn el-btn-outline el-btn-sm el-bk-match-deposit-btn"
 							data-invoice-id="<?php echo esc_attr( $inv->id ); ?>">
 							<?php esc_html_e( 'Match Deposit', 'el-core' ); ?>
