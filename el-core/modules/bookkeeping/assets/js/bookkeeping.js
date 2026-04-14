@@ -3493,4 +3493,29 @@ if ($('#el-bk-home-office-sqft').length) {
     updateVehicleCalculation();
 }
 
+// ── ACCOUNTANT EXPORT (Phase C.2) ─────────────────────────────────────────────
+
+$('#el-bk-export-accountant-btn').on('click', function() {
+    var $btn    = $(this).prop('disabled', true).text('Generating…');
+    var $status = $('#el-bk-export-status').text('');
+
+    elBkAjax('bk_export_accountant', {
+        tax_year: elBookkeeping.taxYear
+    }, function(res) {
+        $btn.prop('disabled', false).text('Download Tax Export (.xlsx)');
+
+        var link = document.createElement('a');
+        link.href     = res.download_url;
+        link.download = res.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        $status.html('<span class="el-bk-success">&#10003; Export ready — downloading now</span>');
+    }, function(msg) {
+        $btn.prop('disabled', false).text('Download Tax Export (.xlsx)');
+        $status.html('<span class="el-bk-error">Error: ' + msg + '</span>');
+    });
+});
+
 }(jQuery));

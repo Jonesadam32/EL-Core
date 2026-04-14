@@ -101,6 +101,9 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_unassign_client',              [ $this, 'handle_unassign_client' ] );
         add_action( 'el_core_ajax_bk_get_income_summary',           [ $this, 'handle_get_income_summary' ] );
         add_action( 'el_core_ajax_bk_clear_income',                 [ $this, 'handle_clear_income' ] );
+        add_action( 'el_core_ajax_bk_clear_expenses',               [ $this, 'handle_clear_expenses' ] );
+        add_action( 'el_core_ajax_bk_split_transaction',            [ $this, 'handle_split_transaction' ] );
+        add_action( 'el_core_ajax_bk_unsplit_transaction',          [ $this, 'handle_unsplit_transaction' ] );
 
         // ── Reconciliation Views (Phase A.6) ──────────────────────
         add_action( 'el_core_ajax_bk_get_reconciliation',    [ $this, 'handle_get_reconciliation' ] );
@@ -121,6 +124,9 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_suggest_deposit_matches',  [ $this, 'handle_suggest_deposit_matches' ] );
         add_action( 'el_core_ajax_bk_match_invoice_to_deposit', [ $this, 'handle_match_invoice_to_deposit' ] );
         add_action( 'el_core_ajax_bk_unmatch_invoice',          [ $this, 'handle_unmatch_invoice' ] );
+
+        // ── Accountant Export (Phase C.2) ─────────────────────────
+        add_action( 'el_core_ajax_bk_export_accountant', [ $this, 'handle_export_accountant' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -416,6 +422,7 @@ class EL_Bookkeeping_Module {
                 'Owner Draw - Cleaners',
                 'Owner Draw - Entertainment',
                 'Owner Draw - Groceries',
+                'Owner Draw - House Repair',
                 'Owner Draw - Personal Meals',
                 'Owner Draw - Pet',
                 'SBA Loan',
@@ -979,10 +986,11 @@ class EL_Bookkeeping_Module {
 
             $txn_year = (int) substr( $date, 0, 4 );
 
-            // Duplicate detection
+            // Duplicate detection — bank_account intentionally excluded so the
+            // same transaction in two different bank exports doesn't slip through.
             $exists = $wpdb->get_var( $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE date = %s AND amount = %f AND merchant = %s AND bank_account = %s AND type = %s",
-                $date, $store_amt, $merchant, $bank_account, $type
+                "SELECT COUNT(*) FROM {$table} WHERE date = %s AND amount = %f AND merchant = %s AND type = %s",
+                $date, $store_amt, $merchant, $type
             ) );
 
             if ( (int) $exists > 0 ) {
@@ -3068,9 +3076,166 @@ class EL_Bookkeeping_Module {
         );
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // PHASE A.6: RECONCILIATION VIEWS
-    // ─────────────────────────────────────────────────────────────
+    /**
+     * Delete all expense transactions for a given tax year.
+     * Used for clean re-import when duplicates or bad data were uploaded.
+     */
+    public function handle_clear_expenses( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $tax_year = absint( $data['tax_year'] ?? 0 );
+        if ( ! $tax_year ) {
+            EL_AJAX_Handler::error( __( 'Tax year is required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $deleted = $wpdb->delete(
+            $this->table( 'el_bk_transactions' ),
+            [ 'type' => 'expense', 'tax_year' => $tax_year ],
+            [ '%s', '%d' ]
+        );
+
+        EL_AJAX_Handler::success(
+            [ 'deleted' => (int) $deleted ],
+            sprintf( __( 'Cleared %d expense transactions for %d. Re-import your expense statements to rebuild.', 'el-core' ), (int) $deleted, $tax_year )
+        );
+    }
+
+    /**
+     * Split one expense transaction into N pieces, each with its own amount and category.
+     * The original row becomes a 'split' parent (excluded from totals).
+     * Child rows are inserted referencing the parent via parent_id.
+     */
+    public function handle_split_transaction( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $transaction_id = absint( $data['transaction_id'] ?? 0 );
+        $pieces         = $data['pieces'] ?? [];
+
+        if ( ! $transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction.', 'el-core' ) );
+            return;
+        }
+
+        if ( ! is_array( $pieces ) || count( $pieces ) < 2 ) {
+            EL_AJAX_Handler::error( __( 'At least 2 pieces are required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table  = $this->table( 'el_bk_transactions' );
+        $parent = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $transaction_id ) );
+
+        if ( ! $parent ) {
+            EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
+            return;
+        }
+
+        if ( $parent->status === 'split' ) {
+            EL_AJAX_Handler::error( __( 'Transaction is already split.', 'el-core' ) );
+            return;
+        }
+
+        // Validate pieces and sum
+        $piece_total = 0.0;
+        $sanitized   = [];
+        foreach ( $pieces as $piece ) {
+            $amount   = round( (float) ( $piece['amount'] ?? 0 ), 2 );
+            $category = sanitize_text_field( $piece['category'] ?? '' );
+            if ( $amount <= 0 ) {
+                EL_AJAX_Handler::error( __( 'Each piece must have an amount greater than zero.', 'el-core' ) );
+                return;
+            }
+            $piece_total += $amount;
+            $sanitized[] = [ 'amount' => $amount, 'category' => $category ];
+        }
+
+        if ( abs( $piece_total - (float) $parent->amount ) > 0.02 ) {
+            EL_AJAX_Handler::error( sprintf(
+                __( 'Pieces total $%s but transaction is $%s. They must match.', 'el-core' ),
+                number_format( $piece_total, 2 ),
+                number_format( (float) $parent->amount, 2 )
+            ) );
+            return;
+        }
+
+        // Mark parent as split
+        $wpdb->update(
+            $table,
+            [ 'status' => 'split', 'category' => '' ],
+            [ 'id' => $transaction_id ],
+            [ '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        // Delete any existing children (re-split scenario)
+        $wpdb->delete( $table, [ 'parent_id' => $transaction_id ], [ '%d' ] );
+
+        // Insert child rows
+        foreach ( $sanitized as $piece ) {
+            $cat_status = $piece['category'] ? 'confirmed' : 'unclassified';
+            $wpdb->insert( $table, [
+                'type'             => $parent->type,
+                'date'             => $parent->date,
+                'merchant'         => $parent->merchant,
+                'amount'           => $piece['amount'],
+                'category'         => $piece['category'],
+                'bank_account'     => $parent->bank_account,
+                'business'         => $parent->business,
+                'status'           => $cat_status,
+                'comments'         => '',
+                'source_file'      => $parent->source_file,
+                'tax_year'         => $parent->tax_year,
+                'travel_period_id' => (int) $parent->travel_period_id,
+                'receipt_id'       => 0,
+                'client_id'        => 0,
+                'parent_id'        => $transaction_id,
+            ] );
+        }
+
+        EL_AJAX_Handler::success(
+            [ 'pieces' => count( $sanitized ) ],
+            sprintf( __( 'Transaction split into %d pieces.', 'el-core' ), count( $sanitized ) )
+        );
+    }
+
+    /**
+     * Undo a split: delete child rows and restore the parent to unclassified.
+     */
+    public function handle_unsplit_transaction( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $transaction_id = absint( $data['transaction_id'] ?? 0 );
+        if ( ! $transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        $wpdb->delete( $table, [ 'parent_id' => $transaction_id ], [ '%d' ] );
+
+        $wpdb->update(
+            $table,
+            [ 'status' => 'unclassified', 'category' => '' ],
+            [ 'id' => $transaction_id ],
+            [ '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        EL_AJAX_Handler::success( [], __( 'Split removed. Transaction restored.', 'el-core' ) );
+    }
 
     /**
      * Get reconciliation detail for a specific 1099-NEC record.
@@ -4094,5 +4259,1024 @@ class EL_Bookkeeping_Module {
             'invoice_id'     => $invoice_id,
             'transaction_id' => $transaction_id,
         ] );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ACCOUNTANT EXPORT — Phase C.2
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * AJAX: Generate accountant export Excel workbook.
+     */
+    public function handle_export_accountant( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $tax_year = absint( $data['tax_year'] ?? gmdate( 'Y' ) );
+        if ( $tax_year < 2000 || $tax_year > 2099 ) {
+            $tax_year = (int) gmdate( 'Y' );
+        }
+
+        $autoload = EL_CORE_DIR . 'vendor/autoload.php';
+        if ( ! file_exists( $autoload ) ) {
+            EL_AJAX_Handler::error( __( 'PhpSpreadsheet not installed. Run composer install in the plugin directory.', 'el-core' ) );
+            return;
+        }
+        require_once $autoload;
+
+        $profile         = $this->get_business_profile_for_export();
+        $income_summary  = $this->get_income_summary_for_export( $tax_year );
+        $income_clients  = $this->get_income_by_client_for_export( $tax_year );
+        $expenses_by_cat = $this->get_expenses_by_category_for_export( $tax_year );
+        $expense_detail  = $this->get_expense_detail_for_export( $tax_year );
+        $travel_log      = $this->get_travel_log_for_export( $tax_year );
+        $contractors     = $this->get_contractors_for_export( $tax_year );
+        $home_office     = $this->get_home_office_for_export();
+        $vehicle         = $this->get_vehicle_for_export();
+        $other_ded       = $this->get_other_deductions_for_export();
+        $invoices        = $this->get_invoices_for_export( $tax_year );
+
+        $url = $this->generate_accountant_export(
+            $tax_year,
+            $profile,
+            $income_summary,
+            $income_clients,
+            $expenses_by_cat,
+            $expense_detail,
+            $travel_log,
+            $contractors,
+            $home_office,
+            $vehicle,
+            $other_ded,
+            $invoices
+        );
+
+        EL_AJAX_Handler::success( [
+            'download_url' => $url,
+            'filename'     => basename( $url ),
+        ] );
+    }
+
+    // ── Data Gathering ────────────────────────────────────────────────────────
+
+    private function get_business_profile_for_export(): array {
+        return [
+            'business_name'     => $this->get_setting( 'business_name',     'Expanded Learning Solutions LLC' ),
+            'owner_legal_name'  => $this->get_setting( 'owner_legal_name',  '' ),
+            'ein'               => $this->get_setting( 'ein',               '' ),
+            'business_address'  => $this->get_setting( 'business_address',  '' ),
+            'business_type'     => $this->get_setting( 'business_type',     'sole_proprietor' ),
+            'accounting_method' => $this->get_setting( 'accounting_method', 'cash' ),
+            'naics_code'        => $this->get_setting( 'naics_code',        '' ),
+        ];
+    }
+
+    private function get_income_summary_for_export( int $tax_year ): array {
+        global $wpdb;
+        $tbl      = $this->table( 'el_bk_transactions' );
+        $excluded = [ 'Other', 'Bank Transfer', 'Ignore', 'Distributions', 'Shareholder Loan', 'Refund', 'Travel Credit' ];
+        $holders  = implode( ',', array_fill( 0, count( $excluded ), '%s' ) );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $total_income = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(amount),0) FROM {$tbl} WHERE type='income' AND tax_year=%d AND category NOT IN ({$holders})",
+            array_merge( [ $tax_year ], $excluded )
+        ) );
+
+        $tbl_1099   = $this->table( 'el_bk_1099_nec' );
+        $total_1099 = (float) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(SUM(box1_amount),0) FROM {$tbl_1099} WHERE tax_year=%d",
+            $tax_year
+        ) );
+
+        return [
+            'total'        => $total_income,
+            'total_1099'   => $total_1099,
+            'other_income' => $total_income - $total_1099,
+        ];
+    }
+
+    private function get_income_by_client_for_export( int $tax_year ): array {
+        global $wpdb;
+        $tbl_1099    = $this->table( 'el_bk_1099_nec' );
+        $tbl_clients = $this->table( 'el_bk_clients' );
+        $tbl_txn     = $this->table( 'el_bk_transactions' );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT n.id, n.client_id, n.box1_amount, n.reconciliation_status, n.notes,
+                    c.client_name, c.short_name
+             FROM {$tbl_1099} n
+             LEFT JOIN {$tbl_clients} c ON c.id = n.client_id
+             WHERE n.tax_year = %d
+             ORDER BY c.client_name ASC",
+            $tax_year
+        ) ) ?: [];
+
+        $result = [];
+        foreach ( $rows as $row ) {
+            $deposits = (float) $wpdb->get_var( $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                "SELECT COALESCE(SUM(amount),0) FROM {$tbl_txn} WHERE type='income' AND tax_year=%d AND client_id=%d",
+                $tax_year,
+                (int) $row->client_id
+            ) );
+            $form_amt   = (float) $row->box1_amount;
+            $result[] = [
+                'client_name'           => $row->client_name ?? '(Unknown)',
+                'short_name'            => $row->short_name  ?? '',
+                'form_amount'           => $form_amt,
+                'deposits_matched'      => $deposits,
+                'variance'              => $form_amt - $deposits,
+                'reconciliation_status' => $row->reconciliation_status ?? 'pending',
+                'notes'                 => $row->notes ?? '',
+            ];
+        }
+        return $result;
+    }
+
+    private function get_expenses_by_category_for_export( int $tax_year ): array {
+        global $wpdb;
+        $tbl = $this->table( 'el_bk_transactions' );
+        $map = self::get_schedule_c_line_map();
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT category, COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt
+             FROM {$tbl}
+             WHERE type='expense' AND status != 'split' AND tax_year=%d AND category != ''
+             GROUP BY category
+             ORDER BY total DESC",
+            $tax_year
+        ) ) ?: [];
+
+        $result = [];
+        foreach ( $rows as $row ) {
+            $result[] = [
+                'category'        => $row->category,
+                'schedule_c_line' => $map[ $row->category ] ?? '27a',
+                'total'           => (float) $row->total,
+                'count'           => (int) $row->cnt,
+            ];
+        }
+        return $result;
+    }
+
+    private function get_expense_detail_for_export( int $tax_year ): array {
+        global $wpdb;
+        $tbl = $this->table( 'el_bk_transactions' );
+        $map = self::get_schedule_c_line_map();
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$tbl}
+             WHERE type='expense' AND status != 'split' AND tax_year=%d
+             ORDER BY date ASC, category ASC",
+            $tax_year
+        ) ) ?: [];
+
+        $result = [];
+        foreach ( $rows as $row ) {
+            $result[] = [
+                'date'            => $row->date,
+                'merchant'        => $row->merchant,
+                'amount'          => (float) $row->amount,
+                'category'        => $row->category,
+                'schedule_c_line' => $map[ $row->category ] ?? '',
+                'bank_account'    => $row->bank_account,
+                'receipt_attached'=> ( (int) $row->receipt_id > 0 ) ? 'Yes' : 'No',
+                'notes'           => $row->comments,
+            ];
+        }
+        return $result;
+    }
+
+    private function get_travel_log_for_export( int $tax_year ): array {
+        global $wpdb;
+        $tbl_travel = $this->table( 'el_bk_travel_periods' );
+        $tbl_txn    = $this->table( 'el_bk_transactions' );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $periods = $wpdb->get_results(
+            "SELECT * FROM {$tbl_travel} ORDER BY start_date ASC"
+        ) ?: [];
+
+        $result = [];
+        $i      = 1;
+        foreach ( $periods as $p ) {
+            $days             = (int) ( ( strtotime( $p->end_date ) - strtotime( $p->start_date ) ) / DAY_IN_SECONDS ) + 1;
+            $related_expenses = (float) $wpdb->get_var( $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                "SELECT COALESCE(SUM(amount),0) FROM {$tbl_txn}
+                 WHERE travel_period_id=%d AND type='expense' AND status != 'split' AND tax_year=%d",
+                (int) $p->id,
+                $tax_year
+            ) );
+            $result[] = [
+                'trip_num'         => $i++,
+                'start_date'       => $p->start_date,
+                'end_date'         => $p->end_date,
+                'days'             => $days,
+                'destination'      => $p->label,
+                'purpose'          => $p->purpose,
+                'related_expenses' => $related_expenses,
+            ];
+        }
+        return $result;
+    }
+
+    private function get_contractors_for_export( int $tax_year ): array {
+        global $wpdb;
+        $tbl_c   = $this->table( 'el_bk_contractors' );
+        $tbl_ca  = $this->table( 'el_bk_contractor_assignments' );
+        $tbl_txn = $this->table( 'el_bk_transactions' );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $contractors = $wpdb->get_results(
+            "SELECT * FROM {$tbl_c} ORDER BY name ASC"
+        ) ?: [];
+
+        $result = [];
+        foreach ( $contractors as $c ) {
+            $total_paid = (float) $wpdb->get_var( $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                "SELECT COALESCE(SUM(t.amount),0)
+                 FROM {$tbl_txn} t
+                 INNER JOIN {$tbl_ca} ca ON ca.transaction_id = t.id
+                 WHERE ca.contractor_id = %d AND t.tax_year = %d AND t.status != 'split'",
+                (int) $c->id,
+                $tax_year
+            ) );
+            $result[] = [
+                'name'          => $c->name,
+                'email'         => $c->email,
+                'address'       => $c->address,
+                'total_paid'    => $total_paid,
+                '1099_required' => $total_paid >= 600 ? 'Yes' : 'No',
+            ];
+        }
+        return $result;
+    }
+
+    private function get_home_office_for_export(): array {
+        $enabled     = (bool) $this->get_setting( 'home_office_enabled', false );
+        $method      = (string) $this->get_setting( 'home_office_method', 'simplified' );
+        $office_sqft = (float) $this->get_setting( 'home_office_sqft', 0 );
+        $total_sqft  = (float) $this->get_setting( 'home_total_sqft', 0 );
+        $pct         = ( $total_sqft > 0 ) ? round( $office_sqft / $total_sqft * 100, 2 ) : 0;
+
+        $deduction = 0.0;
+        if ( $enabled ) {
+            if ( $method === 'simplified' ) {
+                $deduction = min( $office_sqft, 300 ) * 5;
+            } else {
+                $total_home = (float) $this->get_setting( 'home_mortgage_rent', 0 )
+                    + (float) $this->get_setting( 'home_real_estate_taxes', 0 )
+                    + (float) $this->get_setting( 'home_utilities', 0 )
+                    + (float) $this->get_setting( 'home_insurance', 0 )
+                    + (float) $this->get_setting( 'home_repairs', 0 )
+                    + (float) $this->get_setting( 'home_depreciation', 0 );
+                $deduction = $total_home * ( $pct / 100 );
+            }
+        }
+
+        return [
+            'enabled'           => $enabled,
+            'method'            => $method,
+            'office_sqft'       => $office_sqft,
+            'total_sqft'        => $total_sqft,
+            'business_pct'      => $pct,
+            'deduction'         => $deduction,
+            'mortgage_rent'     => (float) $this->get_setting( 'home_mortgage_rent', 0 ),
+            'real_estate_taxes' => (float) $this->get_setting( 'home_real_estate_taxes', 0 ),
+            'utilities'         => (float) $this->get_setting( 'home_utilities', 0 ),
+            'insurance'         => (float) $this->get_setting( 'home_insurance', 0 ),
+            'repairs'           => (float) $this->get_setting( 'home_repairs', 0 ),
+            'depreciation'      => (float) $this->get_setting( 'home_depreciation', 0 ),
+        ];
+    }
+
+    private function get_vehicle_for_export(): array {
+        $enabled        = (bool) $this->get_setting( 'vehicle_enabled', false );
+        $method         = (string) $this->get_setting( 'vehicle_method', 'standard' );
+        $total_miles    = (float) $this->get_setting( 'vehicle_total_miles', 0 );
+        $business_miles = (float) $this->get_setting( 'vehicle_business_miles', 0 );
+        $mileage_rate   = (float) $this->get_setting( 'vehicle_mileage_rate', 0.70 );
+        $pct            = ( $total_miles > 0 ) ? round( $business_miles / $total_miles * 100, 2 ) : 0;
+
+        $deduction = 0.0;
+        if ( $enabled ) {
+            if ( $method === 'standard' ) {
+                $deduction = $business_miles * $mileage_rate;
+            } else {
+                $total_vehicle = (float) $this->get_setting( 'vehicle_gas', 0 )
+                    + (float) $this->get_setting( 'vehicle_insurance', 0 )
+                    + (float) $this->get_setting( 'vehicle_repairs', 0 )
+                    + (float) $this->get_setting( 'vehicle_registration', 0 )
+                    + (float) $this->get_setting( 'vehicle_lease', 0 )
+                    + (float) $this->get_setting( 'vehicle_depreciation', 0 );
+                $deduction = $total_vehicle * ( $pct / 100 );
+            }
+        }
+
+        return [
+            'enabled'        => $enabled,
+            'description'    => (string) $this->get_setting( 'vehicle_description', '' ),
+            'service_date'   => (string) $this->get_setting( 'vehicle_service_date', '' ),
+            'method'         => $method,
+            'total_miles'    => $total_miles,
+            'business_miles' => $business_miles,
+            'mileage_rate'   => $mileage_rate,
+            'business_pct'   => $pct,
+            'deduction'      => $deduction,
+            'gas'            => (float) $this->get_setting( 'vehicle_gas', 0 ),
+            'insurance'      => (float) $this->get_setting( 'vehicle_insurance', 0 ),
+            'repairs'        => (float) $this->get_setting( 'vehicle_repairs', 0 ),
+            'registration'   => (float) $this->get_setting( 'vehicle_registration', 0 ),
+            'lease'          => (float) $this->get_setting( 'vehicle_lease', 0 ),
+            'depreciation'   => (float) $this->get_setting( 'vehicle_depreciation', 0 ),
+        ];
+    }
+
+    private function get_other_deductions_for_export(): array {
+        $sep_ira    = (float) $this->get_setting( 'retirement_sep_ira', 0 );
+        $solo_401k  = (float) $this->get_setting( 'retirement_solo_401k', 0 );
+        $simple_ira = (float) $this->get_setting( 'retirement_simple_ira', 0 );
+        return [
+            'health_insurance_premium' => (float) $this->get_setting( 'health_insurance_premium', 0 ),
+            'sep_ira'                  => $sep_ira,
+            'solo_401k'                => $solo_401k,
+            'simple_ira'               => $simple_ira,
+            'total_retirement'         => $sep_ira + $solo_401k + $simple_ira,
+            'professional_licenses'    => (float) $this->get_setting( 'professional_licenses', 0 ),
+            'professional_memberships' => (float) $this->get_setting( 'professional_memberships', 0 ),
+            'continuing_education'     => (float) $this->get_setting( 'continuing_education', 0 ),
+            'business_insurance'       => (float) $this->get_setting( 'business_insurance', 0 ),
+            'bank_merchant_fees'       => (float) $this->get_setting( 'bank_merchant_fees', 0 ),
+            'software_subscriptions'   => (float) $this->get_setting( 'software_subscriptions', 0 ),
+        ];
+    }
+
+    private function get_invoices_for_export( int $tax_year ): array {
+        global $wpdb;
+        $tbl_inv     = $this->table( 'el_bk_invoices' );
+        $tbl_clients = $this->table( 'el_bk_clients' );
+        $tbl_txn     = $this->table( 'el_bk_transactions' );
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT i.*, c.client_name
+             FROM {$tbl_inv} i
+             LEFT JOIN {$tbl_clients} c ON c.id = i.client_id
+             WHERE YEAR(i.invoice_date) = %d
+             ORDER BY i.invoice_date ASC, i.invoice_number ASC",
+            $tax_year
+        ) ) ?: [];
+
+        $result = [];
+        foreach ( $rows as $inv ) {
+            $deposit_info = '';
+            if ( (int) $inv->transaction_id > 0 ) {
+                $txn = $wpdb->get_row( $wpdb->prepare(
+                    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                    "SELECT date, amount FROM {$tbl_txn} WHERE id = %d",
+                    (int) $inv->transaction_id
+                ) );
+                if ( $txn ) {
+                    $deposit_info = $txn->date . ' $' . number_format( (float) $txn->amount, 2 );
+                }
+            }
+            $amount      = (float) $inv->amount;
+            $withholding = (float) $inv->withholding_amount;
+            $result[] = [
+                'invoice_number'  => $inv->invoice_number,
+                'client_name'     => $inv->client_name ?? '(Unknown)',
+                'invoice_date'    => $inv->invoice_date,
+                'amount'          => $amount,
+                'status'          => $inv->status,
+                'withholding'     => $withholding,
+                'net_received'    => $amount - $withholding,
+                'matched_deposit' => $deposit_info,
+            ];
+        }
+        return $result;
+    }
+
+    // ── Excel Generation ──────────────────────────────────────────────────────
+
+    private function generate_accountant_export(
+        int $tax_year,
+        array $profile,
+        array $income_summary,
+        array $income_clients,
+        array $expenses_by_cat,
+        array $expense_detail,
+        array $travel_log,
+        array $contractors,
+        array $home_office,
+        array $vehicle,
+        array $other_ded,
+        array $invoices
+    ): string {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getProperties()
+            ->setCreator( 'EL Core Bookkeeping' )
+            ->setTitle( "Tax Export {$tax_year}" )
+            ->setSubject( 'Schedule C Preparation' );
+
+        $total_expenses = array_sum( array_column( $expenses_by_cat, 'total' ) );
+
+        $this->create_summary_sheet(            $spreadsheet, $tax_year, $profile, $income_summary, $total_expenses, $home_office, $vehicle, $other_ded );
+        $this->create_income_by_client_sheet(     $spreadsheet, $income_clients );
+        $this->create_expenses_by_category_sheet( $spreadsheet, $expenses_by_cat );
+        $this->create_expense_detail_sheet(       $spreadsheet, $expense_detail );
+        $this->create_travel_log_sheet(           $spreadsheet, $travel_log );
+        $this->create_contractors_sheet(          $spreadsheet, $contractors );
+        $this->create_home_office_sheet(          $spreadsheet, $home_office );
+        $this->create_vehicle_sheet(              $spreadsheet, $vehicle );
+        $this->create_other_deductions_sheet(     $spreadsheet, $other_ded );
+        $this->create_invoices_sheet(             $spreadsheet, $invoices );
+
+        $spreadsheet->setActiveSheetIndex( 0 );
+
+        $upload_dir = wp_upload_dir();
+        $export_dir = $upload_dir['basedir'] . '/el-bk-exports/';
+        wp_mkdir_p( $export_dir );
+
+        $filename = "ELS-Tax-Export-{$tax_year}-" . gmdate( 'Y-m-d-His' ) . '.xlsx';
+        $filepath = $export_dir . $filename;
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx( $spreadsheet );
+        $writer->save( $filepath );
+
+        return $upload_dir['baseurl'] . '/el-bk-exports/' . $filename;
+    }
+
+    // ── Sheet Creators ────────────────────────────────────────────────────────
+
+    private function create_summary_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        int $tax_year,
+        array $profile,
+        array $income,
+        float $total_expenses,
+        array $home_office,
+        array $vehicle,
+        array $other_ded
+    ): void {
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle( 'Summary' );
+
+        $sheet->setCellValue( 'A1', "Tax Summary — {$tax_year}" );
+        $sheet->getStyle( 'A1' )->getFont()->setBold( true )->setSize( 16 );
+        $sheet->mergeCells( 'A1:B1' );
+
+        $info = [
+            [ 'Business Name',     $profile['business_name'] ],
+            [ 'Owner',             $profile['owner_legal_name'] ],
+            [ 'EIN',               $profile['ein'] ],
+            [ 'Business Address',  $profile['business_address'] ],
+            [ 'Business Type',     ucwords( str_replace( '_', ' ', $profile['business_type'] ) ) ],
+            [ 'Accounting Method', ucfirst( $profile['accounting_method'] ) ],
+        ];
+        $row = 3;
+        foreach ( $info as [ $label, $value ] ) {
+            $sheet->setCellValue( "A{$row}", $label );
+            $sheet->setCellValue( "B{$row}", $value );
+            $sheet->getStyle( "A{$row}" )->getFont()->setBold( true );
+            $row++;
+        }
+
+        // INCOME
+        $row++;
+        $sheet->setCellValue( "A{$row}", 'INCOME' );
+        $this->xl_apply_header_style( $sheet, "A{$row}:B{$row}" );
+        $row++;
+        foreach ( [
+            [ 'Gross Receipts',  $income['total'] ],
+            [ '1099-NEC Income', $income['total_1099'] ],
+            [ 'Other Income',    max( 0.0, $income['other_income'] ) ],
+        ] as [ $label, $value ] ) {
+            $sheet->setCellValue( "A{$row}", $label );
+            $sheet->setCellValue( "B{$row}", $value );
+            $this->xl_set_currency( $sheet, "B{$row}" );
+            $row++;
+        }
+
+        // EXPENSES
+        $row++;
+        $sheet->setCellValue( "A{$row}", 'EXPENSES' );
+        $this->xl_apply_header_style( $sheet, "A{$row}:B{$row}" );
+        $row++;
+        $sheet->setCellValue( "A{$row}", 'Total Expenses' );
+        $sheet->setCellValue( "B{$row}", $total_expenses );
+        $this->xl_set_currency( $sheet, "B{$row}" );
+        $row++;
+
+        // DEDUCTIONS
+        $row++;
+        $sheet->setCellValue( "A{$row}", 'DEDUCTIONS' );
+        $this->xl_apply_header_style( $sheet, "A{$row}:B{$row}" );
+        $row++;
+        $total_deductions = 0.0;
+        foreach ( [
+            [ 'Home Office',     $home_office['enabled'] ? $home_office['deduction'] : 0.0 ],
+            [ 'Vehicle/Mileage', $vehicle['enabled']     ? $vehicle['deduction']     : 0.0 ],
+            [ 'Health Insurance',$other_ded['health_insurance_premium'] ],
+            [ 'Retirement',      $other_ded['total_retirement'] ],
+        ] as [ $label, $value ] ) {
+            $sheet->setCellValue( "A{$row}", $label );
+            $sheet->setCellValue( "B{$row}", (float) $value );
+            $this->xl_set_currency( $sheet, "B{$row}" );
+            $total_deductions += (float) $value;
+            $row++;
+        }
+
+        // NET PROFIT
+        $row++;
+        $net_profit = $income['total'] - $total_expenses - $total_deductions;
+        $sheet->setCellValue( "A{$row}", 'NET PROFIT (LOSS)' );
+        $sheet->setCellValue( "B{$row}", $net_profit );
+        $sheet->getStyle( "A{$row}:B{$row}" )->getFont()->setBold( true )->setSize( 12 );
+        $this->xl_set_currency( $sheet, "B{$row}" );
+        if ( $net_profit < 0 ) {
+            $sheet->getStyle( "B{$row}" )->getFont()->getColor()->setARGB( 'FFDC2626' );
+        }
+
+        $sheet->getColumnDimension( 'A' )->setWidth( 28 );
+        $sheet->getColumnDimension( 'B' )->setWidth( 18 );
+    }
+
+    private function create_income_by_client_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $clients
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Income by Client' );
+
+        $this->xl_write_headers( $sheet, [ 'Client Name', 'Short Name', '1099-NEC Amount', 'Deposits Matched', 'Variance', 'Status', 'Notes' ], 1 );
+        $sheet->freezePane( 'A2' );
+
+        $row = 2;
+        foreach ( $clients as $c ) {
+            $sheet->setCellValue( "A{$row}", $c['client_name'] );
+            $sheet->setCellValue( "B{$row}", $c['short_name'] );
+            $sheet->setCellValue( "C{$row}", $c['form_amount'] );
+            $sheet->setCellValue( "D{$row}", $c['deposits_matched'] );
+            $sheet->setCellValue( "E{$row}", $c['variance'] );
+            $sheet->setCellValue( "F{$row}", ucfirst( $c['reconciliation_status'] ) );
+            $sheet->setCellValue( "G{$row}", $c['notes'] );
+            $this->xl_set_currency( $sheet, "C{$row}:E{$row}" );
+            $row++;
+        }
+
+        if ( $row > 2 ) {
+            $last = $row - 1;
+            $sheet->setCellValue( "A{$row}", 'TOTAL' );
+            $sheet->setCellValue( "C{$row}", "=SUM(C2:C{$last})" );
+            $sheet->setCellValue( "D{$row}", "=SUM(D2:D{$last})" );
+            $sheet->setCellValue( "E{$row}", "=SUM(E2:E{$last})" );
+            $sheet->getStyle( "A{$row}:G{$row}" )->getFont()->setBold( true );
+            $this->xl_set_currency( $sheet, "C{$row}:E{$row}" );
+        }
+
+        foreach ( [ 'A' => 30, 'B' => 18, 'C' => 18, 'D' => 18, 'E' => 14, 'F' => 14, 'G' => 30 ] as $col => $w ) {
+            $sheet->getColumnDimension( $col )->setWidth( $w );
+        }
+    }
+
+    private function create_expenses_by_category_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $expenses
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Expenses by Category' );
+
+        $this->xl_write_headers( $sheet, [ 'Category', 'Schedule C Line', 'Total Amount', 'Transaction Count' ], 1 );
+        $sheet->freezePane( 'A2' );
+
+        $row = 2;
+        foreach ( $expenses as $e ) {
+            $line = $e['schedule_c_line'];
+            $sheet->setCellValue( "A{$row}", $e['category'] );
+            $sheet->setCellValue( "B{$row}", $line ? "Line {$line}" : 'Not on Schedule C' );
+            $sheet->setCellValue( "C{$row}", $e['total'] );
+            $sheet->setCellValue( "D{$row}", $e['count'] );
+            $this->xl_set_currency( $sheet, "C{$row}" );
+            $row++;
+        }
+
+        if ( $row > 2 ) {
+            $last = $row - 1;
+            $sheet->setCellValue( "A{$row}", 'TOTAL' );
+            $sheet->setCellValue( "C{$row}", "=SUM(C2:C{$last})" );
+            $sheet->setCellValue( "D{$row}", "=SUM(D2:D{$last})" );
+            $sheet->getStyle( "A{$row}:D{$row}" )->getFont()->setBold( true );
+            $this->xl_set_currency( $sheet, "C{$row}" );
+        }
+
+        foreach ( [ 'A' => 32, 'B' => 20, 'C' => 16, 'D' => 20 ] as $col => $w ) {
+            $sheet->getColumnDimension( $col )->setWidth( $w );
+        }
+    }
+
+    private function create_expense_detail_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $transactions
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Expense Detail' );
+
+        $this->xl_write_headers( $sheet, [ 'Date', 'Vendor/Merchant', 'Amount', 'Category', 'Schedule C Line', 'Bank Account', 'Receipt', 'Notes' ], 1 );
+        $sheet->freezePane( 'A2' );
+
+        $row = 2;
+        foreach ( $transactions as $t ) {
+            $sheet->setCellValue( "A{$row}", $t['date'] );
+            $sheet->setCellValue( "B{$row}", $t['merchant'] );
+            $sheet->setCellValue( "C{$row}", $t['amount'] );
+            $sheet->setCellValue( "D{$row}", $t['category'] );
+            $sheet->setCellValue( "E{$row}", $t['schedule_c_line'] ? "Line {$t['schedule_c_line']}" : '' );
+            $sheet->setCellValue( "F{$row}", $t['bank_account'] );
+            $sheet->setCellValue( "G{$row}", $t['receipt_attached'] );
+            $sheet->setCellValue( "H{$row}", $t['notes'] );
+            $this->xl_set_currency( $sheet, "C{$row}" );
+            $row++;
+        }
+
+        if ( $row > 2 ) {
+            $last = $row - 1;
+            $sheet->setCellValue( "C{$row}", "=SUM(C2:C{$last})" );
+            $sheet->getStyle( "C{$row}" )->getFont()->setBold( true );
+            $this->xl_set_currency( $sheet, "C{$row}" );
+        }
+
+        foreach ( [ 'A' => 12, 'B' => 30, 'C' => 14, 'D' => 26, 'E' => 18, 'F' => 22, 'G' => 10, 'H' => 30 ] as $col => $w ) {
+            $sheet->getColumnDimension( $col )->setWidth( $w );
+        }
+    }
+
+    private function create_travel_log_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $travel
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Travel Log' );
+
+        $this->xl_write_headers( $sheet, [ 'Trip #', 'Start Date', 'End Date', 'Days', 'Destination/Label', 'Purpose', 'Related Expenses' ], 1 );
+        $sheet->freezePane( 'A2' );
+
+        $row = 2;
+        foreach ( $travel as $t ) {
+            $sheet->setCellValue( "A{$row}", $t['trip_num'] );
+            $sheet->setCellValue( "B{$row}", $t['start_date'] );
+            $sheet->setCellValue( "C{$row}", $t['end_date'] );
+            $sheet->setCellValue( "D{$row}", $t['days'] );
+            $sheet->setCellValue( "E{$row}", $t['destination'] );
+            $sheet->setCellValue( "F{$row}", $t['purpose'] );
+            $sheet->setCellValue( "G{$row}", $t['related_expenses'] );
+            $this->xl_set_currency( $sheet, "G{$row}" );
+            $row++;
+        }
+
+        if ( $row > 2 ) {
+            $last = $row - 1;
+            $sheet->setCellValue( "G{$row}", "=SUM(G2:G{$last})" );
+            $sheet->getStyle( "G{$row}" )->getFont()->setBold( true );
+            $this->xl_set_currency( $sheet, "G{$row}" );
+        }
+
+        foreach ( [ 'A' => 8, 'B' => 12, 'C' => 12, 'D' => 8, 'E' => 28, 'F' => 35, 'G' => 18 ] as $col => $w ) {
+            $sheet->getColumnDimension( $col )->setWidth( $w );
+        }
+    }
+
+    private function create_contractors_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $contractors
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Contractors Paid' );
+
+        $this->xl_write_headers( $sheet, [ 'Contractor Name', 'Email', 'Address', 'Total Paid', '1099 Required' ], 1 );
+        $sheet->freezePane( 'A2' );
+
+        $row = 2;
+        foreach ( $contractors as $c ) {
+            $sheet->setCellValue( "A{$row}", $c['name'] );
+            $sheet->setCellValue( "B{$row}", $c['email'] );
+            $sheet->setCellValue( "C{$row}", $c['address'] );
+            $sheet->setCellValue( "D{$row}", $c['total_paid'] );
+            $sheet->setCellValue( "E{$row}", $c['1099_required'] );
+            $this->xl_set_currency( $sheet, "D{$row}" );
+            $row++;
+        }
+
+        if ( $row > 2 ) {
+            $last = $row - 1;
+            $sheet->setCellValue( "D{$row}", "=SUM(D2:D{$last})" );
+            $sheet->getStyle( "D{$row}" )->getFont()->setBold( true );
+            $this->xl_set_currency( $sheet, "D{$row}" );
+        }
+
+        foreach ( [ 'A' => 28, 'B' => 28, 'C' => 35, 'D' => 16, 'E' => 14 ] as $col => $w ) {
+            $sheet->getColumnDimension( $col )->setWidth( $w );
+        }
+    }
+
+    private function create_home_office_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $data
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Home Office' );
+
+        $sheet->setCellValue( 'A1', 'Home Office Deduction Worksheet' );
+        $sheet->getStyle( 'A1' )->getFont()->setBold( true )->setSize( 14 );
+        $sheet->mergeCells( 'A1:B1' );
+
+        if ( ! $data['enabled'] ) {
+            $sheet->setCellValue( 'A3', 'Home office deduction is not enabled.' );
+            $sheet->getColumnDimension( 'A' )->setWidth( 38 );
+            $sheet->getColumnDimension( 'B' )->setWidth( 20 );
+            return;
+        }
+
+        // Each item: [ label, value, is_currency ]
+        $items = [
+            [ 'Method',                   ucfirst( $data['method'] ),          false ],
+            [ 'Office Square Footage',    $data['office_sqft'],                false ],
+            [ 'Total Home Square Footage',$data['total_sqft'],                 false ],
+            [ 'Business Use %',           $data['business_pct'] . '%',         false ],
+        ];
+
+        if ( $data['method'] === 'simplified' ) {
+            $items[] = [ 'Sq Ft Used (max 300)', min( $data['office_sqft'], 300 ), false ];
+            $items[] = [ 'Rate per Sq Ft',       5.00,                             true  ];
+            $items[] = [ 'Deduction',             $data['deduction'],               true  ];
+        } else {
+            $total_home = $data['mortgage_rent'] + $data['real_estate_taxes'] + $data['utilities']
+                        + $data['insurance'] + $data['repairs'] + $data['depreciation'];
+            $items[] = [ 'Mortgage / Rent',              $data['mortgage_rent'],     true ];
+            $items[] = [ 'Real Estate Taxes',            $data['real_estate_taxes'], true ];
+            $items[] = [ 'Utilities',                    $data['utilities'],         true ];
+            $items[] = [ 'Homeowners Insurance',         $data['insurance'],         true ];
+            $items[] = [ 'Repairs & Maintenance',        $data['repairs'],           true ];
+            $items[] = [ 'Depreciation',                 $data['depreciation'],      true ];
+            $items[] = [ 'Total Home Expenses',          $total_home,                true ];
+            $items[] = [ 'Business Portion (Deduction)', $data['deduction'],         true ];
+        }
+
+        $row = 3;
+        foreach ( $items as [ $label, $value, $is_currency ] ) {
+            $sheet->setCellValue( "A{$row}", $label );
+            $sheet->setCellValue( "B{$row}", $value );
+            $sheet->getStyle( "A{$row}" )->getFont()->setBold( true );
+            if ( $is_currency ) {
+                $this->xl_set_currency( $sheet, "B{$row}" );
+            }
+            $row++;
+        }
+
+        $sheet->getColumnDimension( 'A' )->setWidth( 32 );
+        $sheet->getColumnDimension( 'B' )->setWidth( 18 );
+    }
+
+    private function create_vehicle_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $data
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Vehicle' );
+
+        $sheet->setCellValue( 'A1', 'Vehicle / Mileage Deduction Worksheet' );
+        $sheet->getStyle( 'A1' )->getFont()->setBold( true )->setSize( 14 );
+        $sheet->mergeCells( 'A1:B1' );
+
+        if ( ! $data['enabled'] ) {
+            $sheet->setCellValue( 'A3', 'Vehicle deduction is not enabled.' );
+            $sheet->getColumnDimension( 'A' )->setWidth( 38 );
+            $sheet->getColumnDimension( 'B' )->setWidth( 20 );
+            return;
+        }
+
+        $method_label = $data['method'] === 'standard' ? 'Standard Mileage' : 'Actual Expenses';
+
+        // Each item: [ label, value, is_currency ]
+        $items = [
+            [ 'Vehicle',              $data['description'],  false ],
+            [ 'Date Placed in Service',$data['service_date'], false ],
+            [ 'Method',               $method_label,          false ],
+            [ 'Total Miles',          $data['total_miles'],   false ],
+            [ 'Business Miles',       $data['business_miles'],false ],
+            [ 'Business Use %',       $data['business_pct'] . '%', false ],
+        ];
+
+        if ( $data['method'] === 'standard' ) {
+            $items[] = [ 'Mileage Rate', $data['mileage_rate'], true  ];
+            $items[] = [ 'Deduction',    $data['deduction'],    true  ];
+        } else {
+            $total_v = $data['gas'] + $data['insurance'] + $data['repairs']
+                     + $data['registration'] + $data['lease'] + $data['depreciation'];
+            $items[] = [ 'Gas & Oil',             $data['gas'],          true ];
+            $items[] = [ 'Insurance',             $data['insurance'],    true ];
+            $items[] = [ 'Repairs',               $data['repairs'],      true ];
+            $items[] = [ 'Registration',          $data['registration'], true ];
+            $items[] = [ 'Lease Payments',        $data['lease'],        true ];
+            $items[] = [ 'Depreciation',          $data['depreciation'], true ];
+            $items[] = [ 'Total Vehicle Expenses',$total_v,              true ];
+            $items[] = [ 'Business Portion (Deduction)', $data['deduction'], true ];
+        }
+
+        $row = 3;
+        foreach ( $items as [ $label, $value, $is_currency ] ) {
+            $sheet->setCellValue( "A{$row}", $label );
+            $sheet->setCellValue( "B{$row}", $value );
+            $sheet->getStyle( "A{$row}" )->getFont()->setBold( true );
+            if ( $is_currency ) {
+                $this->xl_set_currency( $sheet, "B{$row}" );
+            }
+            $row++;
+        }
+
+        $sheet->getColumnDimension( 'A' )->setWidth( 32 );
+        $sheet->getColumnDimension( 'B' )->setWidth( 18 );
+    }
+
+    private function create_other_deductions_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $data
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Other Deductions' );
+
+        $sheet->setCellValue( 'A1', 'Other Deductions' );
+        $sheet->getStyle( 'A1' )->getFont()->setBold( true )->setSize( 14 );
+        $sheet->mergeCells( 'A1:B1' );
+
+        $sections = [
+            'Health Insurance' => [
+                [ 'Self-Employed Health Insurance', $data['health_insurance_premium'] ],
+            ],
+            'Retirement Contributions' => [
+                [ 'SEP-IRA',          $data['sep_ira'] ],
+                [ 'Solo 401(k)',      $data['solo_401k'] ],
+                [ 'SIMPLE IRA',       $data['simple_ira'] ],
+                [ 'Total Retirement', $data['total_retirement'] ],
+            ],
+            'Professional Expenses' => [
+                [ 'Licenses',             $data['professional_licenses'] ],
+                [ 'Memberships',          $data['professional_memberships'] ],
+                [ 'Continuing Education', $data['continuing_education'] ],
+            ],
+            'Other' => [
+                [ 'Business Insurance',   $data['business_insurance'] ],
+                [ 'Bank/Merchant Fees',   $data['bank_merchant_fees'] ],
+                [ 'Software Subscriptions',$data['software_subscriptions'] ],
+            ],
+        ];
+
+        $row = 3;
+        foreach ( $sections as $section_title => $items ) {
+            $sheet->setCellValue( "A{$row}", $section_title );
+            $this->xl_apply_header_style( $sheet, "A{$row}:B{$row}" );
+            $row++;
+
+            foreach ( $items as [ $label, $value ] ) {
+                $sheet->setCellValue( "A{$row}", $label );
+                $sheet->setCellValue( "B{$row}", (float) $value );
+                if ( $label === 'Total Retirement' ) {
+                    $sheet->getStyle( "A{$row}:B{$row}" )->getFont()->setBold( true );
+                }
+                $this->xl_set_currency( $sheet, "B{$row}" );
+                $row++;
+            }
+            $row++;
+        }
+
+        $sheet->getColumnDimension( 'A' )->setWidth( 32 );
+        $sheet->getColumnDimension( 'B' )->setWidth( 18 );
+    }
+
+    private function create_invoices_sheet(
+        \PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet,
+        array $invoices
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle( 'Invoices' );
+
+        $this->xl_write_headers( $sheet, [ 'Invoice #', 'Client', 'Date', 'Amount', 'Status', 'Withholding', 'Net Received', 'Matched Deposit' ], 1 );
+        $sheet->freezePane( 'A2' );
+
+        $row = 2;
+        foreach ( $invoices as $inv ) {
+            $sheet->setCellValue( "A{$row}", $inv['invoice_number'] );
+            $sheet->setCellValue( "B{$row}", $inv['client_name'] );
+            $sheet->setCellValue( "C{$row}", $inv['invoice_date'] );
+            $sheet->setCellValue( "D{$row}", $inv['amount'] );
+            $sheet->setCellValue( "E{$row}", ucfirst( $inv['status'] ) );
+            $sheet->setCellValue( "F{$row}", $inv['withholding'] );
+            $sheet->setCellValue( "G{$row}", $inv['net_received'] );
+            $sheet->setCellValue( "H{$row}", $inv['matched_deposit'] );
+            $this->xl_set_currency( $sheet, "D{$row}" );
+            $this->xl_set_currency( $sheet, "F{$row}:G{$row}" );
+            $row++;
+        }
+
+        if ( $row > 2 ) {
+            $last = $row - 1;
+            $sheet->setCellValue( "D{$row}", "=SUM(D2:D{$last})" );
+            $sheet->setCellValue( "F{$row}", "=SUM(F2:F{$last})" );
+            $sheet->setCellValue( "G{$row}", "=SUM(G2:G{$last})" );
+            $sheet->getStyle( "A{$row}:H{$row}" )->getFont()->setBold( true );
+            $this->xl_set_currency( $sheet, "D{$row}" );
+            $this->xl_set_currency( $sheet, "F{$row}:G{$row}" );
+        }
+
+        foreach ( [ 'A' => 14, 'B' => 28, 'C' => 12, 'D' => 14, 'E' => 12, 'F' => 14, 'G' => 14, 'H' => 28 ] as $col => $w ) {
+            $sheet->getColumnDimension( $col )->setWidth( $w );
+        }
+    }
+
+    // ── Spreadsheet Helpers ───────────────────────────────────────────────────
+
+    private function xl_write_headers( $sheet, array $headers, int $row ): void {
+        $col = 'A';
+        foreach ( $headers as $header ) {
+            $sheet->setCellValue( "{$col}{$row}", $header );
+            $col++;
+        }
+        $last_col = chr( ord( 'A' ) + count( $headers ) - 1 );
+        $this->xl_apply_header_style( $sheet, "A{$row}:{$last_col}{$row}" );
+    }
+
+    private function xl_apply_header_style( $sheet, string $range ): void {
+        $sheet->getStyle( $range )->applyFromArray( [
+            'font' => [ 'bold' => true ],
+            'fill' => [
+                'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => [ 'argb' => 'FFE5E7EB' ],
+            ],
+            'borders' => [
+                'bottom' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color'       => [ 'argb' => 'FF9CA3AF' ],
+                ],
+            ],
+        ] );
+    }
+
+    private function xl_set_currency( $sheet, string $range ): void {
+        $sheet->getStyle( $range )->getNumberFormat()->setFormatCode( '$#,##0.00' );
+    }
+
+    // ── Schedule C Line Mapping ───────────────────────────────────────────────
+
+    public static function get_schedule_c_line_map(): array {
+        return [
+            // Business categories
+            'Accounting Fees'                    => '17',
+            'Advertising & Promotion'            => '8',
+            'California FTB Payment'             => '23',
+            'Computer - Hardware'                => '13',
+            'Computer - Hosting'                 => '27a',
+            'Computer - Software'                => '27a',
+            'Contract Labor'                     => '11',
+            'Dues & Subscriptions'               => '27a',
+            'Education & Training'               => '27a',
+            'Georgia Tax Payment'                => '23',
+            'Health Care Insurance'              => '',
+            'Home Office Expense'                => '30',
+            'Insurance-General Liability'        => '15',
+            'Meals & Entertainment'              => '24b',
+            'Merchant Account Fees'              => '27a',
+            'Office Supplies'                    => '18',
+            'Out of pocket Medical Expenses'     => '',
+            'Parking & tolls'                    => '24a',
+            'Professional Fees'                  => '17',
+            'Rent Expense'                       => '20b',
+            'Telephone - Wireless'               => '25',
+            'Travel Expense'                     => '24a',
+            'Vehicle - Fuel'                     => '9',
+            'Vehicle - Repairs and Maintenance'  => '9',
+            'Vehicles Insurance'                 => '9',
+            // Personal categories — excluded from Schedule C
+            'Auto Loan Payment'                  => '',
+            'Bank Service Charges'               => '',
+            'Credit Card Payment'                => '',
+            'Interest Expense'                   => '',
+            'IRS Payment'                        => '',
+            'Merrill Lynch Investment Account'   => '',
+            'Owner Draw'                         => '',
+            'Owner Draw - Cleaners'              => '',
+            'Owner Draw - Entertainment'         => '',
+            'Owner Draw - Groceries'             => '',
+            'Owner Draw - House Repair'          => '',
+            'Owner Draw - Personal Meals'        => '',
+            'Owner Draw - Pet'                   => '',
+            'SBA Loan'                           => '',
+        ];
     }
 }

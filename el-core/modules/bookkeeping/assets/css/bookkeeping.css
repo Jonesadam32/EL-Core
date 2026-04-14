@@ -2745,3 +2745,48 @@
     min-height: 60px;
 }
 
+/* ── ACCOUNTANT EXPORT (Phase C.2) ─────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-export-section {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.el-admin-wrap .el-bk-export-section h3 {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.el-admin-wrap .el-bk-export-section .el-bk-hint {
+    margin: 0 0 14px;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.el-admin-wrap .el-bk-export-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.el-admin-wrap #el-bk-export-status {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.el-admin-wrap #el-bk-export-status .el-bk-success {
+    color: #16a34a;
+}
+
+.el-admin-wrap #el-bk-export-status .el-bk-error {
+    color: #dc2626;
+}
+
+

@@ -169,4 +169,17 @@ $net_income = $total_income - $total_distributions - $total_expenses;
         <button class="el-btn el-btn-outline el-bk-export-pl-btn" data-format="pdf"><?php esc_html_e( 'Download PDF', 'el-core' ); ?></button>
     </div>
 
+    <div class="el-bk-export-section">
+        <h3><?php esc_html_e( 'Export for Accountant', 'el-core' ); ?></h3>
+        <p class="el-bk-hint">
+            <?php esc_html_e( 'Generate a complete Excel workbook with income, expenses, deductions, travel log, contractors, home office and vehicle worksheets — everything your accountant needs for Schedule C.', 'el-core' ); ?>
+        </p>
+        <div class="el-bk-export-section-actions">
+            <button class="el-btn el-btn-primary" id="el-bk-export-accountant-btn">
+                <?php esc_html_e( 'Download Tax Export (.xlsx)', 'el-core' ); ?>
+            </button>
+            <span id="el-bk-export-status"></span>
+        </div>
+    </div>
+
 </div>
