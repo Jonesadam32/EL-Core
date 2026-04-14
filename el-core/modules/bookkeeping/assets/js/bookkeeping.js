@@ -2960,9 +2960,10 @@ function openInvoiceMatchModal(invoiceId) {
     $('#el-bk-match-modal').fadeIn(200);
 
     elBkAjax('bk_suggest_invoice_matches', { invoice_id: invoiceId }, function(res) {
-        matchSourceData = res.invoice;
-        renderMatchSource(res.invoice, 'invoice');
-        renderMatchSuggestions(res.suggestions, 'deposit');
+        var payload = res.data || res;
+        matchSourceData = payload.invoice;
+        renderMatchSource(payload.invoice, 'invoice');
+        renderMatchSuggestions(payload.suggestions, 'deposit');
     }, function(msg) {
         $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtmlMatch(msg) + '</p>');
     });
@@ -2981,9 +2982,10 @@ function openDepositMatchModal(transactionId) {
     $('#el-bk-match-modal').fadeIn(200);
 
     elBkAjax('bk_suggest_deposit_matches', { transaction_id: transactionId }, function(res) {
-        matchSourceData = res.transaction;
-        renderMatchSource(res.transaction, 'deposit');
-        renderMatchSuggestions(res.suggestions, 'invoice');
+        var payload = res.data || res;
+        matchSourceData = payload.transaction;
+        renderMatchSource(payload.transaction, 'deposit');
+        renderMatchSuggestions(payload.suggestions, 'invoice');
     }, function(msg) {
         $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtmlMatch(msg) + '</p>');
     });

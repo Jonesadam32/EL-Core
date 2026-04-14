@@ -3824,12 +3824,17 @@ class EL_Bookkeeping_Module {
 
         $invoice_year = (int) gmdate( 'Y', strtotime( $invoice->invoice_date ) );
 
+        $has_invoice_id_col = (bool) $wpdb->get_var(
+            "SHOW COLUMNS FROM {$this->table('el_bk_transactions')} LIKE 'invoice_id'"
+        );
+        $invoice_id_filter = $has_invoice_id_col ? "AND t.invoice_id = 0" : '';
+
         $deposits = $wpdb->get_results( $wpdb->prepare(
             "SELECT t.*, c.client_name, c.short_name
              FROM {$this->table('el_bk_transactions')} t
              LEFT JOIN {$this->table('el_bk_clients')} c ON t.client_id = c.id
              WHERE t.type = 'income'
-               AND t.invoice_id = 0
+               {$invoice_id_filter}
                AND t.tax_year = %d",
             $invoice_year
         ) ) ?: [];
