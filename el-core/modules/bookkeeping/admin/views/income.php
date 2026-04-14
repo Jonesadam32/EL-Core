@@ -113,6 +113,7 @@ if ( ! empty( $prefetch_clients ) ) {
                 <th><?php esc_html_e( 'Date', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Bank Account', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Comments', 'el-core' ); ?></th>
+                <th><?php esc_html_e( 'Invoice', 'el-core' ); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -166,6 +167,18 @@ if ( ! empty( $prefetch_clients ) ) {
                     <input type="text" class="el-bk-inline-input" data-field="comments" data-id="<?php echo esc_attr( $t->id ); ?>"
                         value="<?php echo esc_attr( $t->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">
                 </td>
+                <td>
+                    <?php if ( empty( $t->invoice_id ) ) : ?>
+                        <button class="el-btn el-btn-outline el-btn-sm el-bk-link-invoice-btn"
+                            data-transaction-id="<?php echo esc_attr( $t->id ); ?>">
+                            <?php esc_html_e( 'Link Invoice', 'el-core' ); ?>
+                        </button>
+                    <?php else : ?>
+                        <span class="el-bk-invoice-linked-badge">
+                            <?php esc_html_e( 'Invoice Linked', 'el-core' ); ?>
+                        </span>
+                    <?php endif; ?>
+                </td>
             </tr>
             <?php endforeach; ?>
         </tbody>
@@ -173,10 +186,58 @@ if ( ! empty( $prefetch_clients ) ) {
             <tr class="el-bk-total-row">
                 <td colspan="3"><strong><?php esc_html_e( 'Total (all)', 'el-core' ); ?></strong></td>
                 <td class="el-bk-amount"><strong>$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></strong></td>
-                <td colspan="4"></td>
-            </tr>
-        </tfoot>
+                <td colspan="5"></td>
     </table>
 </div>
 
 <?php endif; ?>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     INVOICE-DEPOSIT MATCH MODAL (Phase A.9)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="el-bk-match-modal" class="el-bk-modal" style="display:none;">
+    <div class="el-bk-modal-backdrop"></div>
+    <div class="el-bk-modal-content">
+        <div class="el-bk-modal-header">
+            <h3 id="el-bk-match-modal-title"><?php esc_html_e( 'Match Invoice to Deposit', 'el-core' ); ?></h3>
+            <button class="el-bk-modal-close">×</button>
+        </div>
+        <div class="el-bk-modal-body">
+            <div id="el-bk-match-source" class="el-bk-match-source"></div>
+            <div class="el-bk-match-search-row">
+                <input type="text" id="el-bk-match-search" class="el-input"
+                    placeholder="<?php esc_attr_e( 'Search by amount, date, or description…', 'el-core' ); ?>">
+            </div>
+            <div id="el-bk-match-suggestions" class="el-bk-match-suggestions">
+                <p class="el-bk-loading"><?php esc_html_e( 'Loading suggestions…', 'el-core' ); ?></p>
+            </div>
+            <div id="el-bk-match-withholding" class="el-bk-match-withholding" style="display:none;">
+                <h4><?php esc_html_e( 'Tax Withholding', 'el-core' ); ?></h4>
+                <p class="el-bk-hint"><?php esc_html_e( 'The deposit is less than the invoice. Enter withholding amount if applicable.', 'el-core' ); ?></p>
+                <div class="el-bk-match-withholding-row">
+                    <label>
+                        <?php esc_html_e( 'Withholding Amount ($)', 'el-core' ); ?>
+                        <input type="text" id="el-bk-match-withholding-amount" class="el-input"
+                            placeholder="0.00" inputmode="decimal">
+                    </label>
+                    <label>
+                        <?php esc_html_e( 'Type', 'el-core' ); ?>
+                        <select id="el-bk-match-withholding-type" class="el-select">
+                            <option value=""><?php esc_html_e( '— None —', 'el-core' ); ?></option>
+                            <option value="CA Withholding" selected><?php esc_html_e( 'CA Withholding (7%)', 'el-core' ); ?></option>
+                            <option value="Federal"><?php esc_html_e( 'Federal', 'el-core' ); ?></option>
+                            <option value="Other"><?php esc_html_e( 'Other', 'el-core' ); ?></option>
+                        </select>
+                    </label>
+                </div>
+                <p id="el-bk-match-calculation" class="el-bk-match-calculation"></p>
+            </div>
+        </div>
+        <div class="el-bk-modal-footer">
+            <button class="el-btn el-btn-primary" id="el-bk-match-confirm-btn" disabled>
+                <?php esc_html_e( 'Confirm Match', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline el-bk-modal-cancel"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>
+        </div>
+    </div>
+</div>

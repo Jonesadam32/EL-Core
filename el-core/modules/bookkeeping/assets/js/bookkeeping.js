@@ -2935,3 +2935,270 @@
     });
 
 }(jQuery));
+
+// ── INVOICE-DEPOSIT MATCHING (Phase A.9) ──────────────────────────────────────
+
+var matchModalMode = null; // 'invoice' or 'deposit'
+var matchSourceId = null;
+var matchSourceData = null;
+var selectedMatchId = null;
+var selectedMatchData = null;
+
+function openInvoiceMatchModal(invoiceId) {
+    matchModalMode = 'invoice';
+    matchSourceId = invoiceId;
+    selectedMatchId = null;
+    selectedMatchData = null;
+
+    $('#el-bk-match-modal-title').text('Match Invoice to Deposit');
+    $('#el-bk-match-suggestions').html('<p class="el-bk-loading">Loading suggestions\u2026</p>');
+    $('#el-bk-match-withholding').hide();
+    $('#el-bk-match-confirm-btn').prop('disabled', true);
+    $('#el-bk-match-modal').fadeIn(200);
+
+    elBkAjax('bk_suggest_invoice_matches', { invoice_id: invoiceId }, function(res) {
+        matchSourceData = res.invoice;
+        renderMatchSource(res.invoice, 'invoice');
+        renderMatchSuggestions(res.suggestions, 'deposit');
+    }, function(msg) {
+        $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtml(msg) + '</p>');
+    });
+}
+
+function openDepositMatchModal(transactionId) {
+    matchModalMode = 'deposit';
+    matchSourceId = transactionId;
+    selectedMatchId = null;
+    selectedMatchData = null;
+
+    $('#el-bk-match-modal-title').text('Link Deposit to Invoice');
+    $('#el-bk-match-suggestions').html('<p class="el-bk-loading">Loading suggestions\u2026</p>');
+    $('#el-bk-match-withholding').hide();
+    $('#el-bk-match-confirm-btn').prop('disabled', true);
+    $('#el-bk-match-modal').fadeIn(200);
+
+    elBkAjax('bk_suggest_deposit_matches', { transaction_id: transactionId }, function(res) {
+        matchSourceData = res.transaction;
+        renderMatchSource(res.transaction, 'deposit');
+        renderMatchSuggestions(res.suggestions, 'invoice');
+    }, function(msg) {
+        $('#el-bk-match-suggestions').html('<p class="el-bk-error">Error: ' + escapeHtml(msg) + '</p>');
+    });
+}
+
+function renderMatchSource(data, type) {
+    var html = '<div class="el-bk-match-source-card">';
+    if (type === 'invoice') {
+        html += '<div class="el-bk-match-source-label">Invoice</div>';
+        html += '<div class="el-bk-match-source-main">';
+        html += '<strong>' + escapeHtml(data.invoice_number || 'No Number') + '</strong>';
+        html += ' \u2014 $' + escapeHtml(formatMatchNumber(data.amount));
+        html += '</div>';
+        html += '<div class="el-bk-match-source-meta">';
+        html += escapeHtml(data.client_name || 'No Client') + ' \u2022 ' + escapeHtml(data.invoice_date);
+        html += '</div>';
+    } else {
+        html += '<div class="el-bk-match-source-label">Deposit</div>';
+        html += '<div class="el-bk-match-source-main">';
+        html += '<strong>$' + escapeHtml(formatMatchNumber(data.amount)) + '</strong>';
+        html += ' \u2014 ' + escapeHtml(data.date);
+        html += '</div>';
+        html += '<div class="el-bk-match-source-meta">';
+        html += escapeHtml(data.merchant);
+        if (data.client_name) html += ' \u2022 ' + escapeHtml(data.client_name);
+        html += '</div>';
+    }
+    html += '</div>';
+    $('#el-bk-match-source').html(html);
+}
+
+function renderMatchSuggestions(suggestions, type) {
+    if (!suggestions || !suggestions.length) {
+        $('#el-bk-match-suggestions').html('<p class="el-bk-empty">No matching ' + type + 's found.</p>');
+        return;
+    }
+
+    var html = '';
+    suggestions.forEach(function(s) {
+        var scoreClass = s.score >= 100 ? 'high' : (s.score >= 50 ? 'medium' : 'low');
+        var id = type === 'deposit' ? s.transaction_id : s.invoice_id;
+
+        html += '<div class="el-bk-match-suggestion" data-id="' + id + '" data-type="' + type + '"';
+        html += ' data-amount="' + s.amount + '"';
+        html += ' data-suggested-withholding="' + (s.suggested_withholding || 0) + '"';
+        html += ' data-match-type="' + (s.match_type || '') + '">';
+
+        html += '<div class="el-bk-match-suggestion-main">';
+        if (type === 'deposit') {
+            html += '<div class="el-bk-match-suggestion-amount">$' + escapeHtml(formatMatchNumber(s.amount)) + '</div>';
+            html += '<div class="el-bk-match-suggestion-details">';
+            html += '<span>' + escapeHtml(s.date) + '</span>';
+            html += '<span>' + escapeHtml(s.merchant) + '</span>';
+            html += '</div>';
+        } else {
+            html += '<div class="el-bk-match-suggestion-amount">' + escapeHtml(s.invoice_number || 'No #') + '</div>';
+            html += '<div class="el-bk-match-suggestion-details">';
+            html += '<span>$' + escapeHtml(formatMatchNumber(s.amount)) + '</span>';
+            html += '<span>' + escapeHtml(s.invoice_date) + '</span>';
+            html += '<span>' + escapeHtml(s.client_name || '') + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+
+        html += '<div class="el-bk-match-suggestion-meta">';
+        html += '<span class="el-bk-match-score el-bk-match-score--' + scoreClass + '">' + s.score + '</span>';
+        html += '<span class="el-bk-match-type">' + escapeHtml(formatMatchType(s.match_type)) + '</span>';
+        html += '</div>';
+
+        html += '<button class="el-btn el-btn-outline el-btn-sm el-bk-select-match-btn">Select</button>';
+        html += '</div>';
+    });
+
+    $('#el-bk-match-suggestions').html(html);
+
+    // Re-bind live search
+    $('#el-bk-match-search').val('').off('input.matchsearch').on('input.matchsearch', function() {
+        var q = $(this).val().toLowerCase();
+        $('#el-bk-match-suggestions .el-bk-match-suggestion').each(function() {
+            var text = $(this).text().toLowerCase();
+            $(this).toggle(!q || text.indexOf(q) !== -1);
+        });
+    });
+}
+
+function formatMatchType(type) {
+    var labels = {
+        'exact':        'Exact Match',
+        'withholding':  'Withholding Match',
+        'amount_close': 'Amount Close',
+        'client_match': 'Client Match',
+        'partial':      'Partial Match'
+    };
+    return labels[type] || type || 'Suggested';
+}
+
+function formatMatchNumber(n) {
+    return parseFloat(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+$(document).on('click', '.el-bk-select-match-btn', function() {
+    var $card = $(this).closest('.el-bk-match-suggestion');
+    $('.el-bk-match-suggestion').removeClass('el-bk-match-suggestion--selected');
+    $card.addClass('el-bk-match-suggestion--selected');
+
+    selectedMatchId   = $card.attr('data-id');
+    selectedMatchData = {
+        amount:              parseFloat($card.attr('data-amount')),
+        suggestedWithholding: parseFloat($card.attr('data-suggested-withholding') || 0),
+        matchType:           $card.attr('data-match-type')
+    };
+
+    var sourceAmount = parseFloat(matchSourceData.amount);
+    var targetAmount = selectedMatchData.amount;
+    var diff = Math.abs(sourceAmount - targetAmount);
+
+    if (diff > 0.01) {
+        var suggestedWithholding = selectedMatchData.suggestedWithholding || (sourceAmount - targetAmount);
+        if (suggestedWithholding > 0) {
+            $('#el-bk-match-withholding-amount').val(suggestedWithholding.toFixed(2));
+            $('#el-bk-match-withholding-type').val('CA Withholding');
+        }
+        updateWithholdingCalculation();
+        $('#el-bk-match-withholding').slideDown(200);
+    } else {
+        $('#el-bk-match-withholding').hide();
+        $('#el-bk-match-withholding-amount').val('');
+    }
+
+    $('#el-bk-match-confirm-btn').prop('disabled', false);
+});
+
+function updateWithholdingCalculation() {
+    if (!matchSourceData || !selectedMatchData) return;
+    var sourceAmount = parseFloat(matchSourceData.amount);
+    var targetAmount = selectedMatchData.amount;
+    var withholding  = parseFloat($('#el-bk-match-withholding-amount').val()) || 0;
+    var expected     = targetAmount + withholding;
+    var diff         = Math.abs(sourceAmount - expected);
+
+    var html = 'Invoice: $' + formatMatchNumber(sourceAmount);
+    html += ' = Deposit: $' + formatMatchNumber(targetAmount);
+    if (withholding > 0) {
+        html += ' + Withholding: $' + formatMatchNumber(withholding);
+    }
+    html += ' \u2192 ';
+
+    if (diff < 0.01) {
+        html += '<span class="el-bk-calc-match">\u2713 Match</span>';
+    } else {
+        html += '<span class="el-bk-calc-diff">Difference: $' + formatMatchNumber(diff) + '</span>';
+    }
+
+    $('#el-bk-match-calculation').html(html);
+}
+
+$(document).on('input', '#el-bk-match-withholding-amount', updateWithholdingCalculation);
+
+$(document).on('click', '#el-bk-match-confirm-btn', function() {
+    if (!selectedMatchId) return;
+
+    var $btn = $(this).prop('disabled', true).text('Matching\u2026');
+
+    var invoiceId, transactionId;
+    if (matchModalMode === 'invoice') {
+        invoiceId     = matchSourceId;
+        transactionId = selectedMatchId;
+    } else {
+        transactionId = matchSourceId;
+        invoiceId     = selectedMatchId;
+    }
+
+    var withholding     = parseFloat($('#el-bk-match-withholding-amount').val()) || 0;
+    var withholdingType = $('#el-bk-match-withholding-type').val();
+
+    elBkAjax('bk_match_invoice_to_deposit', {
+        invoice_id:         invoiceId,
+        transaction_id:     transactionId,
+        withholding_amount: withholding,
+        withholding_type:   withholdingType
+    }, function() {
+        closeMatchModal();
+        location.reload();
+    }, function(msg) {
+        $btn.prop('disabled', false).text('Confirm Match');
+        alert('Error: ' + msg);
+    });
+});
+
+function closeMatchModal() {
+    $('#el-bk-match-modal').fadeOut(200);
+    matchModalMode    = null;
+    matchSourceId     = null;
+    matchSourceData   = null;
+    selectedMatchId   = null;
+    selectedMatchData = null;
+}
+
+$(document).on('click', '.el-bk-modal-close, .el-bk-modal-cancel, .el-bk-modal-backdrop', closeMatchModal);
+
+$(document).on('click', '.el-bk-match-deposit-btn', function() {
+    openInvoiceMatchModal($(this).attr('data-invoice-id'));
+});
+
+$(document).on('click', '.el-bk-link-invoice-btn', function() {
+    openDepositMatchModal($(this).attr('data-transaction-id'));
+});
+
+$(document).on('click', '.el-bk-unmatch-btn', function(e) {
+    e.stopPropagation();
+    if (!confirm('Unmatch this invoice from its deposit?')) return;
+
+    var $btn      = $(this);
+    var invoiceId = $btn.attr('data-invoice-id');
+
+    elBkAjax('bk_unmatch_invoice', { invoice_id: invoiceId }, function() {
+        location.reload();
+    }, function(msg) {
+        alert('Error: ' + msg);
+    });
+});

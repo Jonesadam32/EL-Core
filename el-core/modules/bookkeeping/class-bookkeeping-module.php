@@ -115,6 +115,12 @@ class EL_Bookkeeping_Module {
 
         // ── Invoice AI Upload (Phase A.8) ─────────────────────────
         add_action( 'el_core_ajax_bk_upload_invoice', [ $this, 'handle_upload_invoice' ] );
+
+        // ── Invoice-Deposit Matching (Phase A.9) ──────────────────
+        add_action( 'el_core_ajax_bk_suggest_invoice_matches',  [ $this, 'handle_suggest_invoice_matches' ] );
+        add_action( 'el_core_ajax_bk_suggest_deposit_matches',  [ $this, 'handle_suggest_deposit_matches' ] );
+        add_action( 'el_core_ajax_bk_match_invoice_to_deposit', [ $this, 'handle_match_invoice_to_deposit' ] );
+        add_action( 'el_core_ajax_bk_unmatch_invoice',          [ $this, 'handle_unmatch_invoice' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -3721,5 +3727,375 @@ class EL_Bookkeeping_Module {
         }
 
         return $wpdb->get_results( $sql ) ?: [];
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // INVOICE-DEPOSIT MATCHING (Phase A.9)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Score a potential invoice↔deposit match.
+     * Returns: [ 'score' => int, 'match_type' => string, 'suggested_withholding' => float ]
+     */
+    private function calculate_match_score(
+        float $invoice_amount,
+        string $invoice_date,
+        int $invoice_client_id,
+        float $deposit_amount,
+        string $deposit_date,
+        int $deposit_client_id
+    ): array {
+        $score                 = 0;
+        $match_type            = 'partial';
+        $suggested_withholding = 0.0;
+
+        $amount_diff = abs( $invoice_amount - $deposit_amount );
+
+        if ( $amount_diff < 0.01 ) {
+            $score     += 100;
+            $match_type = 'exact';
+        } else {
+            // CA Withholding 7% match
+            $withholding_7pct = round( $invoice_amount * 0.07, 2 );
+            $expected_deposit = round( $invoice_amount - $withholding_7pct, 2 );
+
+            if ( abs( $expected_deposit - $deposit_amount ) < 1.00 ) {
+                $score                += 90;
+                $match_type            = 'withholding';
+                $suggested_withholding = round( $invoice_amount - $deposit_amount, 2 );
+            } elseif ( $invoice_amount > 0 && $amount_diff / $invoice_amount <= 0.10 ) {
+                $score     += 50;
+                $match_type = 'amount_close';
+            }
+        }
+
+        if ( $invoice_client_id && $invoice_client_id === $deposit_client_id ) {
+            $score += 30;
+            if ( 'partial' === $match_type ) {
+                $match_type = 'client_match';
+            }
+        }
+
+        if ( $invoice_date && $deposit_date ) {
+            $days_diff = abs( ( strtotime( $invoice_date ) - strtotime( $deposit_date ) ) / DAY_IN_SECONDS );
+            if ( $days_diff <= 30 ) {
+                $score += 20;
+            } elseif ( $days_diff <= 60 ) {
+                $score += 10;
+            }
+        }
+
+        return [
+            'score'                 => $score,
+            'match_type'            => $match_type,
+            'suggested_withholding' => $suggested_withholding,
+        ];
+    }
+
+    /**
+     * Find deposits that might match a given invoice.
+     */
+    public function handle_suggest_invoice_matches( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+
+        $invoice_id = absint( $data['invoice_id'] ?? 0 );
+        if ( ! $invoice_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid invoice ID.', 'el-core' ) );
+            return;
+        }
+
+        $invoice = $wpdb->get_row( $wpdb->prepare(
+            "SELECT i.*, c.client_name, c.short_name
+             FROM {$this->table('el_bk_invoices')} i
+             LEFT JOIN {$this->table('el_bk_clients')} c ON i.client_id = c.id
+             WHERE i.id = %d",
+            $invoice_id
+        ) );
+
+        if ( ! $invoice ) {
+            EL_AJAX_Handler::error( __( 'Invoice not found.', 'el-core' ) );
+            return;
+        }
+
+        $invoice_year = (int) gmdate( 'Y', strtotime( $invoice->invoice_date ) );
+
+        $deposits = $wpdb->get_results( $wpdb->prepare(
+            "SELECT t.*, c.client_name, c.short_name
+             FROM {$this->table('el_bk_transactions')} t
+             LEFT JOIN {$this->table('el_bk_clients')} c ON t.client_id = c.id
+             WHERE t.type = 'income'
+               AND t.invoice_id = 0
+               AND t.tax_year = %d",
+            $invoice_year
+        ) ) ?: [];
+
+        $suggestions = [];
+        foreach ( $deposits as $deposit ) {
+            $result = $this->calculate_match_score(
+                (float) $invoice->amount,
+                $invoice->invoice_date,
+                (int) $invoice->client_id,
+                (float) $deposit->amount,
+                $deposit->date,
+                (int) $deposit->client_id
+            );
+
+            if ( $result['score'] <= 0 ) {
+                continue;
+            }
+
+            $suggestions[] = [
+                'transaction_id'        => (int) $deposit->id,
+                'date'                  => $deposit->date,
+                'amount'                => (float) $deposit->amount,
+                'merchant'              => $deposit->merchant,
+                'client_id'             => (int) $deposit->client_id,
+                'client_name'           => $deposit->client_name ?: '',
+                'score'                 => $result['score'],
+                'match_type'            => $result['match_type'],
+                'suggested_withholding' => $result['suggested_withholding'],
+            ];
+        }
+
+        usort( $suggestions, fn( $a, $b ) => $b['score'] - $a['score'] );
+        $suggestions = array_slice( $suggestions, 0, 10 );
+
+        EL_AJAX_Handler::success( [
+            'invoice'     => [
+                'id'             => (int) $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'amount'         => (float) $invoice->amount,
+                'client_name'    => $invoice->client_name ?: '',
+                'invoice_date'   => $invoice->invoice_date,
+            ],
+            'suggestions' => $suggestions,
+        ] );
+    }
+
+    /**
+     * Find invoices that might match a given deposit (reverse lookup).
+     */
+    public function handle_suggest_deposit_matches( array $data ): void {
+        if ( ! el_core_can( 'view_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+
+        $transaction_id = absint( $data['transaction_id'] ?? 0 );
+        if ( ! $transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction ID.', 'el-core' ) );
+            return;
+        }
+
+        $transaction = $wpdb->get_row( $wpdb->prepare(
+            "SELECT t.*, c.client_name, c.short_name
+             FROM {$this->table('el_bk_transactions')} t
+             LEFT JOIN {$this->table('el_bk_clients')} c ON t.client_id = c.id
+             WHERE t.id = %d",
+            $transaction_id
+        ) );
+
+        if ( ! $transaction ) {
+            EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
+            return;
+        }
+
+        $deposit_year = (int) $transaction->tax_year;
+
+        $invoices = $wpdb->get_results( $wpdb->prepare(
+            "SELECT i.*, c.client_name, c.short_name
+             FROM {$this->table('el_bk_invoices')} i
+             LEFT JOIN {$this->table('el_bk_clients')} c ON i.client_id = c.id
+             WHERE i.status IN ('unpaid', 'partial')
+               AND i.transaction_id = 0
+               AND YEAR(i.invoice_date) = %d",
+            $deposit_year
+        ) ) ?: [];
+
+        $suggestions = [];
+        foreach ( $invoices as $invoice ) {
+            $result = $this->calculate_match_score(
+                (float) $invoice->amount,
+                $invoice->invoice_date,
+                (int) $invoice->client_id,
+                (float) $transaction->amount,
+                $transaction->date,
+                (int) $transaction->client_id
+            );
+
+            if ( $result['score'] <= 0 ) {
+                continue;
+            }
+
+            $suggestions[] = [
+                'invoice_id'            => (int) $invoice->id,
+                'invoice_number'        => $invoice->invoice_number,
+                'invoice_date'          => $invoice->invoice_date,
+                'amount'                => (float) $invoice->amount,
+                'client_id'             => (int) $invoice->client_id,
+                'client_name'           => $invoice->client_name ?: '',
+                'score'                 => $result['score'],
+                'match_type'            => $result['match_type'],
+                'suggested_withholding' => $result['suggested_withholding'],
+            ];
+        }
+
+        usort( $suggestions, fn( $a, $b ) => $b['score'] - $a['score'] );
+        $suggestions = array_slice( $suggestions, 0, 10 );
+
+        EL_AJAX_Handler::success( [
+            'transaction' => [
+                'id'          => (int) $transaction->id,
+                'date'        => $transaction->date,
+                'amount'      => (float) $transaction->amount,
+                'merchant'    => $transaction->merchant,
+                'client_name' => $transaction->client_name ?: '',
+            ],
+            'suggestions' => $suggestions,
+        ] );
+    }
+
+    /**
+     * Link an invoice to a deposit.
+     */
+    public function handle_match_invoice_to_deposit( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+
+        $invoice_id         = absint( $data['invoice_id'] ?? 0 );
+        $transaction_id     = absint( $data['transaction_id'] ?? 0 );
+        $withholding_amount = round( (float) ( $data['withholding_amount'] ?? 0 ), 2 );
+        $withholding_type   = sanitize_text_field( $data['withholding_type'] ?? '' );
+
+        if ( ! $invoice_id || ! $transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invoice ID and transaction ID are required.', 'el-core' ) );
+            return;
+        }
+
+        $invoice = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->table('el_bk_invoices')} WHERE id = %d",
+            $invoice_id
+        ) );
+        if ( ! $invoice ) {
+            EL_AJAX_Handler::error( __( 'Invoice not found.', 'el-core' ) );
+            return;
+        }
+        if ( (int) $invoice->transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invoice is already matched to a deposit.', 'el-core' ) );
+            return;
+        }
+
+        $transaction = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->table('el_bk_transactions')} WHERE id = %d",
+            $transaction_id
+        ) );
+        if ( ! $transaction ) {
+            EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
+            return;
+        }
+        if ( (int) $transaction->invoice_id ) {
+            EL_AJAX_Handler::error( __( 'Deposit is already matched to an invoice.', 'el-core' ) );
+            return;
+        }
+
+        if ( $withholding_amount > 0 && ! $withholding_type ) {
+            $withholding_type = 'CA Withholding';
+        }
+
+        $wpdb->update(
+            $this->table( 'el_bk_invoices' ),
+            [
+                'transaction_id'     => $transaction_id,
+                'status'             => 'paid',
+                'withholding_amount' => $withholding_amount,
+                'withholding_type'   => $withholding_type,
+            ],
+            [ 'id' => $invoice_id ],
+            [ '%d', '%s', '%f', '%s' ],
+            [ '%d' ]
+        );
+
+        $wpdb->update(
+            $this->table( 'el_bk_transactions' ),
+            [
+                'invoice_id' => $invoice_id,
+                'client_id'  => (int) $invoice->client_id,
+            ],
+            [ 'id' => $transaction_id ],
+            [ '%d', '%d' ],
+            [ '%d' ]
+        );
+
+        EL_AJAX_Handler::success( [
+            'invoice_id'     => $invoice_id,
+            'transaction_id' => $transaction_id,
+            'invoice_status' => 'paid',
+        ] );
+    }
+
+    /**
+     * Unlink an invoice from its deposit.
+     */
+    public function handle_unmatch_invoice( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+
+        $invoice_id = absint( $data['invoice_id'] ?? 0 );
+        if ( ! $invoice_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid invoice ID.', 'el-core' ) );
+            return;
+        }
+
+        $invoice = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->table('el_bk_invoices')} WHERE id = %d",
+            $invoice_id
+        ) );
+        if ( ! $invoice ) {
+            EL_AJAX_Handler::error( __( 'Invoice not found.', 'el-core' ) );
+            return;
+        }
+
+        $transaction_id = (int) $invoice->transaction_id;
+
+        $wpdb->update(
+            $this->table( 'el_bk_invoices' ),
+            [
+                'transaction_id' => 0,
+                'status'         => 'unpaid',
+            ],
+            [ 'id' => $invoice_id ],
+            [ '%d', '%s' ],
+            [ '%d' ]
+        );
+
+        if ( $transaction_id ) {
+            $wpdb->update(
+                $this->table( 'el_bk_transactions' ),
+                [ 'invoice_id' => 0 ],
+                [ 'id' => $transaction_id ],
+                [ '%d' ],
+                [ '%d' ]
+            );
+        }
+
+        EL_AJAX_Handler::success( [
+            'invoice_id'     => $invoice_id,
+            'transaction_id' => $transaction_id,
+        ] );
     }
 }
