@@ -102,6 +102,8 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_get_income_summary',           [ $this, 'handle_get_income_summary' ] );
         add_action( 'el_core_ajax_bk_clear_income',                 [ $this, 'handle_clear_income' ] );
         add_action( 'el_core_ajax_bk_clear_expenses',               [ $this, 'handle_clear_expenses' ] );
+        add_action( 'el_core_ajax_bk_lock_period',                  [ $this, 'handle_lock_period' ] );
+        add_action( 'el_core_ajax_bk_unlock_period',                [ $this, 'handle_unlock_period' ] );
         add_action( 'el_core_ajax_bk_split_transaction',            [ $this, 'handle_split_transaction' ] );
         add_action( 'el_core_ajax_bk_unsplit_transaction',          [ $this, 'handle_unsplit_transaction' ] );
 
@@ -3104,6 +3106,84 @@ class EL_Bookkeeping_Module {
         EL_AJAX_Handler::success(
             [ 'deleted' => (int) $deleted ],
             sprintf( __( 'Cleared %d expense transactions for %d. Re-import your expense statements to rebuild.', 'el-core' ), (int) $deleted, $tax_year )
+        );
+    }
+
+    /**
+     * Lock all expense transactions within a date range by setting status = 'classified'.
+     * Locked rows are skipped by Re-Classify and won't be changed automatically.
+     */
+    public function handle_lock_period( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $date_from = sanitize_text_field( $data['date_from'] ?? '' );
+        $date_to   = sanitize_text_field( $data['date_to']   ?? '' );
+
+        if ( ! $date_from || ! $date_to ) {
+            EL_AJAX_Handler::error( __( 'Date range is required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table  = $this->table( 'el_bk_transactions' );
+        $locked = $wpdb->query( $wpdb->prepare(
+            "UPDATE {$table}
+             SET status = 'classified', updated_at = %s
+             WHERE type = 'expense'
+               AND status != 'split'
+               AND date BETWEEN %s AND %s",
+            current_time( 'mysql' ), $date_from, $date_to
+        ) );
+
+        EL_AJAX_Handler::success(
+            [ 'locked' => (int) $locked ],
+            sprintf(
+                __( 'Locked %d transactions (%s → %s).', 'el-core' ),
+                (int) $locked, $date_from, $date_to
+            )
+        );
+    }
+
+    /**
+     * Unlock expense transactions within a date range:
+     * - classified rows with a category   → 'suggested'
+     * - classified rows with no category  → '' (unclassified)
+     */
+    public function handle_unlock_period( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $date_from = sanitize_text_field( $data['date_from'] ?? '' );
+        $date_to   = sanitize_text_field( $data['date_to']   ?? '' );
+
+        if ( ! $date_from || ! $date_to ) {
+            EL_AJAX_Handler::error( __( 'Date range is required.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table    = $this->table( 'el_bk_transactions' );
+        $unlocked = $wpdb->query( $wpdb->prepare(
+            "UPDATE {$table}
+             SET status     = CASE WHEN (category IS NOT NULL AND category != '') THEN 'suggested' ELSE '' END,
+                 updated_at = %s
+             WHERE type   = 'expense'
+               AND status = 'classified'
+               AND date BETWEEN %s AND %s",
+            current_time( 'mysql' ), $date_from, $date_to
+        ) );
+
+        EL_AJAX_Handler::success(
+            [ 'unlocked' => (int) $unlocked ],
+            sprintf(
+                __( 'Unlocked %d transactions (%s → %s).', 'el-core' ),
+                (int) $unlocked, $date_from, $date_to
+            )
         );
     }
 

@@ -17,6 +17,17 @@ $db_accounts   = array_unique( array_filter( array_map( fn( $t ) => $t->bank_acc
 $bank_accounts = array_unique( array_merge( $predefined_accounts, $db_accounts ) );
 sort( $bank_accounts );
 
+// Separate split children from top-level rows
+$children_map = [];
+$top_level    = [];
+foreach ( $transactions as $t ) {
+    if ( ! empty( $t->parent_id ) ) {
+        $children_map[ (int) $t->parent_id ][] = $t;
+    } else {
+        $top_level[] = $t;
+    }
+}
+
 // ── Build category totals for summary bar ────────────────────────────────────
 $category_totals    = [];
 $total_classified   = 0.0;
@@ -35,7 +46,7 @@ foreach ( $transactions as $t ) {
 }
 arsort( $category_totals );
 
-$total_all = array_sum( array_map( fn( $t ) => (float) $t->amount, $transactions ) );
+$total_all = array_sum( array_map( fn( $t ) => $t->status === 'split' ? 0.0 : (float) $t->amount, $transactions ) );
 
 // Build a map of receipt data for all transactions that have one attached
 $_receipt_ids = array_values( array_unique( array_filter( array_map(
@@ -67,6 +78,12 @@ if ( ! empty( $_receipt_ids ) ) {
         </button>
         <button class="el-btn el-btn-outline" id="el-bk-import-ledger-btn">
             <?php esc_html_e( 'Import Ledger Tab', 'el-core' ); ?>
+        </button>
+        <button class="el-btn el-btn-danger el-bk-clear-expenses-btn" data-tax-year="<?php echo esc_attr( $tax_year ); ?>">
+            <?php esc_html_e( 'Clear All Expenses', 'el-core' ); ?>
+        </button>
+        <button class="el-btn el-btn-outline" id="el-bk-lock-period-btn">
+            <?php esc_html_e( '🔒 Lock Period', 'el-core' ); ?>
         </button>
     </div>
 </div>
@@ -210,16 +227,18 @@ if ( ! empty( $_receipt_ids ) ) {
             </tr>
         </thead>
         <tbody>
-            <?php foreach ( $transactions as $i => $t ) :
+            <?php foreach ( $top_level as $i => $t ) :
                 $row_class = match ( $t->status ) {
                     'classified' => 'el-bk-row--classified',
                     'suggested'  => 'el-bk-row--suggested',
                     'rejected'   => 'el-bk-row--rejected',
+                    'split'      => 'el-bk-row--split',
                     default      => '',
                 };
                 $travel_badge  = $t->travel_period_id ? ' ✈' : '';
                 $receipt_badge = $t->receipt_id       ? ' 📎' : '';
                 $expense_type  = ! empty( $t->category ) ? EL_Bookkeeping_Module::get_category_type( $t->category ) : '';
+                $is_split      = $t->status === 'split';
             ?>
             <tr class="el-bk-transaction-row <?php echo esc_attr( $row_class ); ?>"
                 data-id="<?php echo esc_attr( $t->id ); ?>"
@@ -233,28 +252,38 @@ if ( ! empty( $_receipt_ids ) ) {
                 data-date="<?php echo esc_attr( $t->date ); ?>"
                 data-status="<?php echo esc_attr( $t->status ); ?>"
                 data-expense-type="<?php echo esc_attr( $expense_type ); ?>"
+                data-amount="<?php echo esc_attr( $t->amount ); ?>"
             >
                 <td><?php echo esc_html( $i + 1 ); ?></td>
                 <td>
-                    <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $t->id ); ?>">
-                        <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
-                        <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
-                            <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
-                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
-                                    <?php echo esc_html( $cat ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </optgroup>
-                        <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
-                            <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
-                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
-                                    <?php echo esc_html( $cat ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </optgroup>
-                    </select>
-                    <?php if ( $t->status === 'classified' ) echo '<span class="el-bk-lock-badge" title="' . esc_attr__( 'Locked — won\'t change on Re-Classify', 'el-core' ) . '">🔒</span>'; ?>
-                    <?php if ( $travel_badge ) echo '<span title="' . esc_attr__( 'Travel period', 'el-core' ) . '">✈</span>'; ?>
+                    <?php if ( $is_split ) : ?>
+                        <span class="el-bk-split-badge">
+                            <?php esc_html_e( 'Split', 'el-core' ); ?>
+                            <button class="el-bk-unsplit-btn"
+                                data-id="<?php echo esc_attr( $t->id ); ?>"
+                                title="<?php esc_attr_e( 'Remove split — restore to single transaction', 'el-core' ); ?>">×</button>
+                        </span>
+                    <?php else : ?>
+                        <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $t->id ); ?>">
+                            <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
+                            <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                                <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
+                                    <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
+                                        <?php echo esc_html( $cat ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                            <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                                <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
+                                    <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
+                                        <?php echo esc_html( $cat ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                        </select>
+                        <?php if ( $t->status === 'classified' ) echo '<span class="el-bk-lock-badge" title="' . esc_attr__( 'Locked — won\'t change on Re-Classify', 'el-core' ) . '">🔒</span>'; ?>
+                        <?php if ( $travel_badge ) echo '<span title="' . esc_attr__( 'Travel period', 'el-core' ) . '">✈</span>'; ?>
+                    <?php endif; ?>
                 </td>
                 <td><?php echo esc_html( $t->business ); ?></td>
                 <td class="el-bk-amount">$<?php echo esc_html( number_format( (float) $t->amount, 2 ) ); ?></td>
@@ -284,18 +313,79 @@ if ( ! empty( $_receipt_ids ) ) {
                         value="<?php echo esc_attr( $t->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">
                 </td>
                 <td class="el-bk-col-actions">
-                    <button class="el-bk-make-rule-btn el-btn el-btn-outline"
-                        data-id="<?php echo esc_attr( $t->id ); ?>"
-                        data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
-                        data-category="<?php echo esc_attr( $t->category ?? '' ); ?>"
-                        title="<?php esc_attr_e( 'Create a Known Expense rule from this merchant', 'el-core' ); ?>">
-                        <?php esc_html_e( '+ Rule', 'el-core' ); ?>
-                    </button>
-                    <?php if ( in_array( $t->status, [ 'suggested', 'classified' ], true ) ) : ?>
-                        <button class="el-bk-reject-btn" data-id="<?php echo esc_attr( $t->id ); ?>" title="<?php esc_attr_e( 'Reject — clear category and mark rejected', 'el-core' ); ?>">✕</button>
+                    <?php if ( ! $is_split ) : ?>
+                        <button class="el-bk-split-btn el-btn el-btn-outline"
+                            data-id="<?php echo esc_attr( $t->id ); ?>"
+                            data-amount="<?php echo esc_attr( $t->amount ); ?>"
+                            data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
+                            data-date="<?php echo esc_attr( $t->date ); ?>"
+                            title="<?php esc_attr_e( 'Split this expense into multiple categories', 'el-core' ); ?>">
+                            <?php esc_html_e( 'Split', 'el-core' ); ?>
+                        </button>
+                        <button class="el-bk-make-rule-btn el-btn el-btn-outline"
+                            data-id="<?php echo esc_attr( $t->id ); ?>"
+                            data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
+                            data-category="<?php echo esc_attr( $t->category ?? '' ); ?>"
+                            title="<?php esc_attr_e( 'Create a Known Expense rule from this merchant', 'el-core' ); ?>">
+                            <?php esc_html_e( '+ Rule', 'el-core' ); ?>
+                        </button>
+                        <?php if ( in_array( $t->status, [ 'suggested', 'classified' ], true ) ) : ?>
+                            <button class="el-bk-reject-btn" data-id="<?php echo esc_attr( $t->id ); ?>" title="<?php esc_attr_e( 'Reject — clear category and mark rejected', 'el-core' ); ?>">✕</button>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </td>
             </tr>
+            <?php
+            // Render split children beneath the parent
+            if ( $is_split && ! empty( $children_map[ (int) $t->id ] ) ) :
+                foreach ( $children_map[ (int) $t->id ] as $child ) :
+                    $child_type = ! empty( $child->category ) ? EL_Bookkeeping_Module::get_category_type( $child->category ) : '';
+            ?>
+            <tr class="el-bk-split-piece-row"
+                data-id="<?php echo esc_attr( $child->id ); ?>"
+                data-parent-id="<?php echo esc_attr( $t->id ); ?>"
+                data-merchant="<?php echo esc_attr( strtolower( $child->merchant ) ); ?>"
+                data-merchant-raw="<?php echo esc_attr( $child->merchant ); ?>"
+                data-category="<?php echo esc_attr( strtolower( $child->category ?? '' ) ); ?>"
+                data-bank="<?php echo esc_attr( $child->bank_account ?? '' ); ?>"
+                data-date="<?php echo esc_attr( $child->date ); ?>"
+                data-status="<?php echo esc_attr( $child->status ); ?>"
+                data-expense-type="<?php echo esc_attr( $child_type ); ?>"
+                data-comments="<?php echo esc_attr( strtolower( $child->comments ?? '' ) ); ?>"
+            >
+                <td></td>
+                <td>
+                    <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $child->id ); ?>">
+                        <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
+                        <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                            <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
+                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $child->category, $cat ); ?>>
+                                    <?php echo esc_html( $cat ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                        <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                            <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
+                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $child->category, $cat ); ?>>
+                                    <?php echo esc_html( $cat ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                    </select>
+                </td>
+                <td><?php echo esc_html( $child->business ); ?></td>
+                <td class="el-bk-amount">$<?php echo esc_html( number_format( (float) $child->amount, 2 ) ); ?></td>
+                <td><?php echo esc_html( $child->merchant ); ?></td>
+                <td><?php echo esc_html( $child->date ); ?></td>
+                <td><?php echo esc_html( $child->bank_account ); ?></td>
+                <td></td>
+                <td>
+                    <input type="text" class="el-bk-inline-input" data-field="comments" data-id="<?php echo esc_attr( $child->id ); ?>"
+                        value="<?php echo esc_attr( $child->comments ); ?>" placeholder="<?php esc_attr_e( 'Add note…', 'el-core' ); ?>">
+                </td>
+                <td class="el-bk-col-actions"></td>
+            </tr>
+            <?php endforeach; endif; ?>
             <?php endforeach; ?>
         </tbody>
         <tfoot>
@@ -358,8 +448,7 @@ var elBkReceiptMap = <?php echo wp_json_encode( $_receipt_map ); ?>;
     </div>
 </div>
 
-<!-- ── Make Rule Popover ────────────────────────────────────────────────── -->
-<div id="el-bk-make-rule-popover" style="display:none;position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:8px;padding:18px 20px;width:360px;box-shadow:0 6px 24px rgba(0,0,0,.18);">
+<!-- ── Make Rule Popover ────────────────────────────────────────────────── --><div id="el-bk-make-rule-popover" style="display:none;position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:8px;padding:18px 20px;width:360px;box-shadow:0 6px 24px rgba(0,0,0,.18);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <strong style="font-size:14px;"><?php esc_html_e( 'Make a Known Expense Rule', 'el-core' ); ?></strong>
         <button id="el-bk-make-rule-close" style="background:none;border:none;cursor:pointer;font-size:20px;line-height:1;color:#666;">&times;</button>
@@ -390,4 +479,90 @@ var elBkReceiptMap = <?php echo wp_json_encode( $_receipt_map ); ?>;
         <button id="el-bk-make-rule-cancel" class="el-btn el-btn-outline"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>
     </div>
     <input type="hidden" id="el-bk-make-rule-txn-id" value="">
+</div>
+
+<!-- ── Split Transaction Modal ───────────────────────────────────────────── -->
+<div id="el-bk-split-modal" class="el-bk-modal" style="display:none;">
+    <div class="el-bk-modal-backdrop el-bk-split-modal-close"></div>
+    <div class="el-bk-modal-content" style="max-width:540px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;" id="el-bk-split-modal-title"><?php esc_html_e( 'Split Expense', 'el-core' ); ?></h3>
+            <button class="el-bk-split-modal-close" style="background:none;border:none;cursor:pointer;font-size:22px;line-height:1;color:#666;">&times;</button>
+        </div>
+
+        <div id="el-bk-split-info" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;margin-bottom:18px;font-size:13px;"></div>
+
+        <div id="el-bk-split-pieces">
+            <!-- piece rows injected by JS -->
+        </div>
+
+        <button type="button" id="el-bk-split-add-piece" class="el-btn el-btn-outline" style="margin-bottom:16px;width:100%;">
+            <?php esc_html_e( '+ Add Another Piece', 'el-core' ); ?>
+        </button>
+
+        <div id="el-bk-split-tally" class="el-bk-split-tally"></div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;">
+            <button id="el-bk-split-confirm-btn" class="el-btn el-btn-primary" style="flex:1;" disabled>
+                <?php esc_html_e( 'Confirm Split', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline el-bk-split-modal-close" style="flex:0 0 auto;">
+                <?php esc_html_e( 'Cancel', 'el-core' ); ?>
+            </button>
+        </div>
+
+        <!-- Category options template for JS to clone -->
+        <select id="el-bk-split-cat-template" style="display:none;">
+            <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
+            <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
+                    <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                <?php endforeach; ?>
+            </optgroup>
+            <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
+                    <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                <?php endforeach; ?>
+            </optgroup>
+        </select>
+    </div>
+</div>
+
+<!-- ── Lock / Unlock Period Modal ──────────────────────────────────────────── -->
+<div id="el-bk-lock-period-modal" class="el-bk-modal" style="display:none;">
+    <div class="el-bk-modal-backdrop el-bk-lock-period-close"></div>
+    <div class="el-bk-modal-content" style="max-width:480px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;"><?php esc_html_e( '🔒 Lock / Unlock Period', 'el-core' ); ?></h3>
+            <button class="el-bk-lock-period-close" style="background:none;border:none;cursor:pointer;font-size:22px;line-height:1;color:#666;">&times;</button>
+        </div>
+        <p style="margin:0 0 16px;font-size:13px;color:#555;line-height:1.5;">
+            <strong><?php esc_html_e( 'Lock', 'el-core' ); ?></strong> — <?php esc_html_e( 'marks all expenses in the range as Classified (🔒) so Re-Classify won\'t touch them.', 'el-core' ); ?><br>
+            <strong><?php esc_html_e( 'Unlock', 'el-core' ); ?></strong> — <?php esc_html_e( 'removes the lock, restoring classified rows to Suggested (if categorised) so they can be edited or re-run.', 'el-core' ); ?>
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'From Date', 'el-core' ); ?>
+                <input type="date" id="el-bk-lock-from" class="el-input" style="display:block;width:100%;margin-top:5px;box-sizing:border-box;"
+                    value="<?php echo esc_attr( $tax_year . '-01-01' ); ?>">
+            </label>
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'To Date', 'el-core' ); ?>
+                <input type="date" id="el-bk-lock-to" class="el-input" style="display:block;width:100%;margin-top:5px;box-sizing:border-box;"
+                    value="<?php echo esc_attr( $tax_year . '-12-31' ); ?>">
+            </label>
+        </div>
+        <div id="el-bk-lock-result" style="margin-bottom:14px;display:none;padding:10px 14px;border-radius:5px;font-size:13px;"></div>
+        <div style="display:flex;gap:10px;">
+            <button id="el-bk-lock-confirm-btn" class="el-btn el-btn-primary" style="flex:1;">
+                <?php esc_html_e( '🔒 Lock Period', 'el-core' ); ?>
+            </button>
+            <button id="el-bk-unlock-confirm-btn" class="el-btn el-btn-outline" style="flex:1;">
+                <?php esc_html_e( '🔓 Unlock Period', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline el-bk-lock-period-close" style="flex:0 0 auto;">
+                <?php esc_html_e( 'Close', 'el-core' ); ?>
+            </button>
+        </div>
+    </div>
 </div>

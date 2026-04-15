@@ -113,6 +113,97 @@
         });
     });
 
+    // ── Lock / Unlock Period ─────────────────────────────────────────────────
+
+    $('#el-bk-lock-period-btn').on('click', function () {
+        $('#el-bk-lock-result').hide().text('');
+        $('#el-bk-lock-period-modal').show();
+    });
+
+    $(document).on('click', '.el-bk-lock-period-close', function () {
+        $('#el-bk-lock-period-modal').hide();
+    });
+
+    $('#el-bk-lock-confirm-btn').on('click', function () {
+        var dateFrom = $('#el-bk-lock-from').val();
+        var dateTo   = $('#el-bk-lock-to').val();
+        if (!dateFrom || !dateTo) { alert('Please enter both From and To dates.'); return; }
+        if (dateTo < dateFrom) { alert('To date must be on or after From date.'); return; }
+
+        var $btn = $(this).prop('disabled', true).text('Locking\u2026');
+
+        elBkAjax('bk_lock_period', { date_from: dateFrom, date_to: dateTo }, function (data) {
+            var d = data.data || data;
+            var msg = d.message || ('Locked ' + (d.locked || 0) + ' transactions.');
+
+            $('.el-bk-transaction-row').each(function () {
+                var $row    = $(this);
+                var rowDate = $row.data('date');
+                var status  = $row.data('status');
+                if (status === 'split') return;
+                if (rowDate >= dateFrom && rowDate <= dateTo) {
+                    $row.removeClass('el-bk-row--suggested el-bk-row--rejected')
+                        .addClass('el-bk-row--classified');
+                    $row.attr('data-status', 'classified');
+                    var $catCell = $row.find('.el-bk-inline-select[data-field="category"]');
+                    if ($catCell.length && !$row.find('.el-bk-lock-badge').length) {
+                        $catCell.after('<span class="el-bk-lock-badge" title="Locked \u2014 won\u2019t change on Re-Classify">\uD83D\uDD12</span>');
+                    }
+                }
+            });
+
+            var $result = $('#el-bk-lock-result');
+            $result.css({ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534' })
+                   .text(msg).show();
+            $btn.prop('disabled', false).text('\uD83D\uDD12 Lock Period');
+        }, function (msg) {
+            alert(msg);
+            $btn.prop('disabled', false).text('\uD83D\uDD12 Lock Period');
+        });
+    });
+
+    $('#el-bk-unlock-confirm-btn').on('click', function () {
+        var dateFrom = $('#el-bk-lock-from').val();
+        var dateTo   = $('#el-bk-lock-to').val();
+        if (!dateFrom || !dateTo) { alert('Please enter both From and To dates.'); return; }
+        if (dateTo < dateFrom) { alert('To date must be on or after From date.'); return; }
+
+        var $btn = $(this).prop('disabled', true).text('Unlocking\u2026');
+
+        elBkAjax('bk_unlock_period', { date_from: dateFrom, date_to: dateTo }, function (data) {
+            var d = data.data || data;
+            var msg = d.message || ('Unlocked ' + (d.unlocked || 0) + ' transactions.');
+
+            $('.el-bk-transaction-row').each(function () {
+                var $row    = $(this);
+                var rowDate = $row.data('date');
+                var status  = $row.data('status');
+                if (status !== 'classified') return;
+                if (rowDate >= dateFrom && rowDate <= dateTo) {
+                    var category = $row.attr('data-category') || '';
+                    var newStatus = category ? 'suggested' : '';
+                    $row.removeClass('el-bk-row--classified')
+                        .toggleClass('el-bk-row--suggested', !!category);
+                    $row.attr('data-status', newStatus);
+                    $row.find('.el-bk-lock-badge').remove();
+                    if (category && !$row.find('.el-bk-reject-btn').length) {
+                        $row.find('.el-bk-col-actions .el-bk-split-btn').after(
+                            ' <button class="el-bk-reject-btn" data-id="' + $row.data('id') + '" title="Reject \u2014 clear category and mark rejected">\u2715</button>'
+                        );
+                    }
+                }
+            });
+
+            var $result = $('#el-bk-lock-result');
+            $result.css({ background: '#fefce8', border: '1px solid #fde047', color: '#713f12' })
+                   .text(msg).show();
+            $btn.prop('disabled', false).text('\uD83D\uDD13 Unlock Period');
+        }, function (msg) {
+            alert(msg);
+            $btn.prop('disabled', false).text('\uD83D\uDD13 Unlock Period');
+        });
+    });
+
     // ── Reject Suggestion ─────────────────────────────────────────────────────
 
     $(document).on('click', '.el-bk-reject-btn', function () {
