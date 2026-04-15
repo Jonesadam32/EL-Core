@@ -122,6 +122,9 @@ if ( ! empty( $_receipt_ids ) ) {
     <button class="el-btn el-btn-primary" id="el-bk-reclassify-btn">
         <?php esc_html_e( 'Re-Classify Expenses', 'el-core' ); ?>
     </button>
+    <button class="el-btn el-btn-outline" id="el-bk-reclassify-range-btn">
+        <?php esc_html_e( 'Re-Classify Range…', 'el-core' ); ?>
+    </button>
     <button class="el-btn el-btn-outline el-bk-confirm-all-btn" data-scope="all">
         <?php esc_html_e( 'Confirm All Suggestions', 'el-core' ); ?>
     </button>
@@ -329,6 +332,13 @@ if ( ! empty( $_receipt_ids ) ) {
                             title="<?php esc_attr_e( 'Create a Known Expense rule from this merchant', 'el-core' ); ?>">
                             <?php esc_html_e( '+ Rule', 'el-core' ); ?>
                         </button>
+                        <button class="el-bk-row-lock-btn"
+                            data-id="<?php echo esc_attr( $t->id ); ?>"
+                            data-locked="<?php echo $t->status === 'classified' ? '1' : '0'; ?>"
+                            title="<?php echo $t->status === 'classified' ? esc_attr__( 'Unlock this transaction', 'el-core' ) : esc_attr__( 'Lock this transaction', 'el-core' ); ?>"
+                            style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px;opacity:<?php echo $t->status === 'classified' ? '1' : '0.35'; ?>;">
+                            <?php echo $t->status === 'classified' ? '🔒' : '🔓'; ?>
+                        </button>
                         <?php if ( in_array( $t->status, [ 'suggested', 'classified' ], true ) ) : ?>
                             <button class="el-bk-reject-btn" data-id="<?php echo esc_attr( $t->id ); ?>" title="<?php esc_attr_e( 'Reject — clear category and mark rejected', 'el-core' ); ?>">✕</button>
                         <?php endif; ?>
@@ -525,6 +535,41 @@ var elBkReceiptMap = <?php echo wp_json_encode( $_receipt_map ); ?>;
                 <?php endforeach; ?>
             </optgroup>
         </select>
+    </div>
+</div>
+
+<!-- ── Re-Classify Range Modal ───────────────────────────────────────────── -->
+<div id="el-bk-reclassify-range-modal" class="el-bk-modal" style="display:none;">
+    <div class="el-bk-modal-backdrop el-bk-reclassify-range-close"></div>
+    <div class="el-bk-modal-content" style="max-width:480px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;"><?php esc_html_e( 'Re-Classify a Date Range', 'el-core' ); ?></h3>
+            <button class="el-bk-reclassify-range-close" style="background:none;border:none;cursor:pointer;font-size:22px;line-height:1;color:#666;">&times;</button>
+        </div>
+        <p style="margin:0 0 16px;font-size:13px;color:#555;line-height:1.5;">
+            <?php esc_html_e( 'Runs your Known Expense rules against unclassified and suggested transactions within the selected dates only. Locked (🔒) transactions are always skipped.', 'el-core' ); ?>
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'From Date', 'el-core' ); ?>
+                <input type="date" id="el-bk-reclassify-range-from" class="el-input" style="display:block;width:100%;margin-top:5px;box-sizing:border-box;"
+                    value="<?php echo esc_attr( $tax_year . '-01-01' ); ?>">
+            </label>
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'To Date', 'el-core' ); ?>
+                <input type="date" id="el-bk-reclassify-range-to" class="el-input" style="display:block;width:100%;margin-top:5px;box-sizing:border-box;"
+                    value="<?php echo esc_attr( $tax_year . '-12-31' ); ?>">
+            </label>
+        </div>
+        <div id="el-bk-reclassify-range-result" style="margin-bottom:14px;display:none;padding:10px 14px;border-radius:5px;font-size:13px;"></div>
+        <div style="display:flex;gap:10px;">
+            <button id="el-bk-reclassify-range-confirm-btn" class="el-btn el-btn-primary" style="flex:1;">
+                <?php esc_html_e( 'Re-Classify Range', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline el-bk-reclassify-range-close" style="flex:0 0 auto;">
+                <?php esc_html_e( 'Cancel', 'el-core' ); ?>
+            </button>
+        </div>
     </div>
 </div>
 

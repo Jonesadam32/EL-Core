@@ -113,6 +113,43 @@
         });
     });
 
+    // ── Re-Classify Range ────────────────────────────────────────────────────
+
+    $('#el-bk-reclassify-range-btn').on('click', function () {
+        $('#el-bk-reclassify-range-result').hide().text('');
+        $('#el-bk-reclassify-range-modal').show();
+    });
+
+    $(document).on('click', '.el-bk-reclassify-range-close', function () {
+        $('#el-bk-reclassify-range-modal').hide();
+    });
+
+    $('#el-bk-reclassify-range-confirm-btn').on('click', function () {
+        var dateFrom = $('#el-bk-reclassify-range-from').val();
+        var dateTo   = $('#el-bk-reclassify-range-to').val();
+        if (!dateFrom || !dateTo) { alert('Please enter both From and To dates.'); return; }
+        if (dateTo < dateFrom) { alert('To date must be on or after From date.'); return; }
+
+        var $btn = $(this).prop('disabled', true).text('Re-classifying…');
+
+        elBkAjax('bk_reclassify', { tax_year: elBookkeeping.taxYear, date_from: dateFrom, date_to: dateTo }, function (data) {
+            var d = data.data || data;
+            var msg = d.message || 'Done.';
+
+            var $result = $('#el-bk-reclassify-range-result');
+            $result.css({ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534' })
+                   .text(msg).show();
+            $btn.prop('disabled', false).text('Re-Classify Range');
+
+            if ((d.reclassified || 0) > 0) {
+                setTimeout(function () { location.reload(); }, 1200);
+            }
+        }, function (msg) {
+            alert(msg);
+            $btn.prop('disabled', false).text('Re-Classify Range');
+        });
+    });
+
     // ── Lock / Unlock Period ─────────────────────────────────────────────────
 
     $('#el-bk-lock-period-btn').on('click', function () {
@@ -202,6 +239,50 @@
             alert(msg);
             $btn.prop('disabled', false).text('\uD83D\uDD13 Unlock Period');
         });
+    });
+
+    // ── Row-level Lock Toggle ─────────────────────────────────────────────────
+
+    $(document).on('click', '.el-bk-row-lock-btn', function () {
+        var $btn    = $(this);
+        var id      = $btn.data('id');
+        var locked  = $btn.data('locked') == '1';
+        var $row    = $btn.closest('tr');
+        var category = $row.attr('data-category') || '';
+
+        if (locked) {
+            // Unlock: restore to suggested (if categorised) or unclassified
+            var newStatus = category ? 'suggested' : '';
+            elBkAjax('bk_update_transaction', { id: id, field: 'status', value: newStatus }, function () {
+                $row.removeClass('el-bk-row--classified')
+                    .toggleClass('el-bk-row--suggested', !!category);
+                $row.attr('data-status', newStatus);
+                $row.find('.el-bk-lock-badge').remove();
+                $btn.data('locked', '0')
+                    .attr('title', 'Lock this transaction')
+                    .css('opacity', '0.35')
+                    .text('\uD83D\uDD13');
+                // Restore reject button if categorised
+                if (category && !$row.find('.el-bk-reject-btn').length) {
+                    $btn.after(' <button class="el-bk-reject-btn" data-id="' + id + '" title="Reject \u2014 clear category and mark rejected">\u2715</button>');
+                }
+            });
+        } else {
+            // Lock: set to classified
+            elBkAjax('bk_update_transaction', { id: id, field: 'status', value: 'classified' }, function () {
+                $row.removeClass('el-bk-row--suggested el-bk-row--rejected')
+                    .addClass('el-bk-row--classified');
+                $row.attr('data-status', 'classified');
+                var $catCell = $row.find('.el-bk-inline-select[data-field="category"]');
+                if ($catCell.length && !$row.find('.el-bk-lock-badge').length) {
+                    $catCell.after('<span class="el-bk-lock-badge" title="Locked \u2014 won\u2019t change on Re-Classify">\uD83D\uDD12</span>');
+                }
+                $btn.data('locked', '1')
+                    .attr('title', 'Unlock this transaction')
+                    .css('opacity', '1')
+                    .text('\uD83D\uDD12');
+            });
+        }
     });
 
     // ── Reject Suggestion ─────────────────────────────────────────────────────

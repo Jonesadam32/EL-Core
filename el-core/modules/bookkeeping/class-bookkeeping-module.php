@@ -1384,15 +1384,27 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $tax_year = absint( $data['tax_year'] ?? $this->get_tax_year() );
+        $tax_year  = absint( $data['tax_year'] ?? $this->get_tax_year() );
+        $date_from = sanitize_text_field( $data['date_from'] ?? '' );
+        $date_to   = sanitize_text_field( $data['date_to']   ?? '' );
 
         global $wpdb;
         $table = $this->table( 'el_bk_transactions' );
 
-        $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, merchant, date, category, status FROM {$table} WHERE type = 'expense' AND tax_year = %d AND status != 'classified'",
-            $tax_year
-        ) );
+        if ( $date_from && $date_to ) {
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, merchant, date, category, status FROM {$table}
+                 WHERE type = 'expense' AND tax_year = %d AND status != 'classified'
+                   AND date BETWEEN %s AND %s",
+                $tax_year, $date_from, $date_to
+            ) );
+        } else {
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, merchant, date, category, status FROM {$table}
+                 WHERE type = 'expense' AND tax_year = %d AND status != 'classified'",
+                $tax_year
+            ) );
+        }
 
         $reclassified = 0;
         foreach ( $rows as $row ) {
