@@ -426,6 +426,7 @@ class EL_Bookkeeping_Module {
                 'Owner Draw - Personal Meals',
                 'Owner Draw - Pet',
                 'SBA Loan',
+                'Student Loan',
             ],
         ];
     }
@@ -5325,6 +5326,7 @@ class EL_Bookkeeping_Module {
             'Owner Draw - Personal Meals'        => '',
             'Owner Draw - Pet'                   => '',
             'SBA Loan'                           => '',
+            'Student Loan'                       => '',
         ];
     }
 }
