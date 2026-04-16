@@ -4255,10 +4255,10 @@ class EL_Bookkeeping_Module {
             EL_AJAX_Handler::error( __( 'Invoice not found.', 'el-core' ) );
             return;
         }
-        if ( (int) $invoice->transaction_id ) {
-            EL_AJAX_Handler::error( __( 'Invoice is already matched to a deposit.', 'el-core' ) );
-            return;
-        }
+
+        // $is_additional = true means a deposit is already linked as primary;
+        // we're adding a second (or third…) deposit to the same invoice.
+        $is_additional = (int) $invoice->transaction_id > 0;
 
         $transaction = $wpdb->get_row( $wpdb->prepare(
             "SELECT * FROM {$this->table('el_bk_transactions')} WHERE id = %d",
@@ -4268,49 +4268,40 @@ class EL_Bookkeeping_Module {
             EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
             return;
         }
-        // Allow multiple invoices per deposit (e.g. one $10k check covering two $5k invoices).
-        // We only block if THIS invoice is already matched to a DIFFERENT deposit.
 
         if ( $withholding_amount > 0 && ! $withholding_type ) {
             $withholding_type = 'CA Withholding';
         }
 
-        $wpdb->update(
-            $this->table( 'el_bk_invoices' ),
-            [
-                'transaction_id'     => $transaction_id,
-                'status'             => 'paid',
-                'withholding_amount' => $withholding_amount,
-                'withholding_type'   => $withholding_type,
-            ],
-            [ 'id' => $invoice_id ],
-            [ '%d', '%s', '%f', '%s' ],
-            [ '%d' ]
-        );
-
-        // Set transaction.invoice_id only if it isn't already pointing at another invoice
-        // (first invoice linked becomes the "primary"; subsequent ones don't overwrite it).
-        if ( ! (int) $transaction->invoice_id ) {
+        if ( ! $is_additional ) {
+            // First deposit linked — record it as primary and mark the invoice paid.
             $wpdb->update(
-                $this->table( 'el_bk_transactions' ),
+                $this->table( 'el_bk_invoices' ),
                 [
-                    'invoice_id' => $invoice_id,
-                    'client_id'  => (int) $invoice->client_id,
+                    'transaction_id'     => $transaction_id,
+                    'status'             => 'paid',
+                    'withholding_amount' => $withholding_amount,
+                    'withholding_type'   => $withholding_type,
                 ],
-                [ 'id' => $transaction_id ],
-                [ '%d', '%d' ],
-                [ '%d' ]
-            );
-        } elseif ( ! (int) $transaction->client_id && (int) $invoice->client_id ) {
-            // At minimum keep client_id populated.
-            $wpdb->update(
-                $this->table( 'el_bk_transactions' ),
-                [ 'client_id' => (int) $invoice->client_id ],
-                [ 'id' => $transaction_id ],
-                [ '%d' ],
+                [ 'id' => $invoice_id ],
+                [ '%d', '%s', '%f', '%s' ],
                 [ '%d' ]
             );
         }
+        // For additional deposits the invoice row stays as-is (already paid,
+        // primary transaction_id stays pointing to the first deposit).
+
+        // Always point this deposit at the invoice so it shows as linked.
+        $wpdb->update(
+            $this->table( 'el_bk_transactions' ),
+            [
+                'invoice_id' => $invoice_id,
+                'client_id'  => (int) $invoice->client_id,
+            ],
+            [ 'id' => $transaction_id ],
+            [ '%d', '%d' ],
+            [ '%d' ]
+        );
 
         EL_AJAX_Handler::success( [
             'invoice_id'     => $invoice_id,
@@ -4347,6 +4338,7 @@ class EL_Bookkeeping_Module {
 
         $transaction_id = (int) $invoice->transaction_id;
 
+        // Clear the invoice's primary deposit link and mark it unpaid.
         $wpdb->update(
             $this->table( 'el_bk_invoices' ),
             [
@@ -4358,8 +4350,20 @@ class EL_Bookkeeping_Module {
             [ '%d' ]
         );
 
+        // Clear invoice_id on ALL deposits that referenced this invoice
+        // (covers both the primary deposit and any additional deposits).
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $wpdb->update(
+            $this->table( 'el_bk_transactions' ),
+            [ 'invoice_id' => 0 ],
+            [ 'invoice_id' => $invoice_id ],
+            [ '%d' ],
+            [ '%d' ]
+        );
+
         if ( $transaction_id ) {
-            // Check whether other invoices still reference this deposit.
+            // Multi-invoice deposit case (v1.38.74): if other invoices still reference
+            // the PRIMARY deposit, restore its invoice_id to point at the next one.
             $remaining = (int) $wpdb->get_var( $wpdb->prepare(
                 // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
                 "SELECT COUNT(*) FROM {$this->table('el_bk_invoices')} WHERE transaction_id = %d AND id != %d",
@@ -4367,18 +4371,7 @@ class EL_Bookkeeping_Module {
                 $invoice_id
             ) );
 
-            if ( $remaining === 0 ) {
-                // No other invoices — clear the deposit's invoice_id entirely.
-                $wpdb->update(
-                    $this->table( 'el_bk_transactions' ),
-                    [ 'invoice_id' => 0 ],
-                    [ 'id' => $transaction_id ],
-                    [ '%d' ],
-                    [ '%d' ]
-                );
-            } else {
-                // Other invoices still reference this deposit — update transaction.invoice_id
-                // to point at the next remaining one (keep deposit marked as linked).
+            if ( $remaining > 0 ) {
                 $next_invoice_id = (int) $wpdb->get_var( $wpdb->prepare(
                     // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
                     "SELECT id FROM {$this->table('el_bk_invoices')} WHERE transaction_id = %d AND id != %d LIMIT 1",

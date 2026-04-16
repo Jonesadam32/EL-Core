@@ -34,6 +34,20 @@ $total_invoiced = array_sum( array_map( fn( $inv ) => (float) $inv->amount, $inv
 $total_paid     = array_sum( array_map( fn( $inv ) => $inv->status === 'paid' ? (float) $inv->amount : 0, $invoices ) );
 $total_unpaid   = array_sum( array_map( fn( $inv ) => $inv->status === 'unpaid' ? (float) $inv->amount : 0, $invoices ) );
 
+// Build deposit count map: invoice_id → number of deposits linked (primary + additional).
+$deposit_counts = [];
+if ( ! empty( $invoices ) ) {
+	global $wpdb;
+	$tbl_txn = $wpdb->prefix . 'el_bk_transactions';
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$dc_rows = $wpdb->get_results(
+		"SELECT invoice_id, COUNT(*) AS cnt FROM {$tbl_txn} WHERE invoice_id > 0 GROUP BY invoice_id"
+	) ?: [];
+	foreach ( $dc_rows as $dc ) {
+		$deposit_counts[ (int) $dc->invoice_id ] = (int) $dc->cnt;
+	}
+}
+
 // Build client lookup for JS
 $client_options = [];
 foreach ( $clients as $c ) {
@@ -315,21 +329,31 @@ foreach ( $clients as $c ) {
 						<span class="el-bk-muted">—</span>
 					<?php endif; ?>
 				</td>
-				<td class="el-bk-actions">
-					<?php if ( empty( $inv->transaction_id ) && $inv->status !== 'void' ) : ?>
-						<button class="el-btn el-btn-outline el-btn-sm el-bk-match-deposit-btn"
-							data-invoice-id="<?php echo esc_attr( $inv->id ); ?>">
-							<?php esc_html_e( 'Match Deposit', 'el-core' ); ?>
-						</button>
-					<?php elseif ( ! empty( $inv->transaction_id ) ) : ?>
-						<span class="el-bk-matched-badge">
-							<?php esc_html_e( 'Matched', 'el-core' ); ?>
-							<button class="el-bk-unmatch-btn"
-								data-invoice-id="<?php echo esc_attr( $inv->id ); ?>"
-								title="<?php esc_attr_e( 'Unmatch', 'el-core' ); ?>">×</button>
-						</span>
-					<?php endif; ?>
-				</td>
+			<td class="el-bk-actions">
+				<?php if ( empty( $inv->transaction_id ) && $inv->status !== 'void' ) : ?>
+					<button class="el-btn el-btn-outline el-btn-sm el-bk-match-deposit-btn"
+						data-invoice-id="<?php echo esc_attr( $inv->id ); ?>">
+						<?php esc_html_e( 'Match Deposit', 'el-core' ); ?>
+					</button>
+				<?php elseif ( ! empty( $inv->transaction_id ) ) :
+					$dep_count = $deposit_counts[ (int) $inv->id ] ?? 1;
+				?>
+					<span class="el-bk-matched-badge">
+						<?php echo esc_html( $dep_count > 1
+							? sprintf( __( '%d Deposits Linked', 'el-core' ), $dep_count )
+							: __( 'Matched', 'el-core' )
+						); ?>
+						<button class="el-bk-unmatch-btn"
+							data-invoice-id="<?php echo esc_attr( $inv->id ); ?>"
+							title="<?php esc_attr_e( 'Unmatch all deposits', 'el-core' ); ?>">×</button>
+					</span>
+					<button class="el-btn el-btn-outline el-btn-sm el-bk-match-deposit-btn"
+						data-invoice-id="<?php echo esc_attr( $inv->id ); ?>"
+						style="margin-top:4px; display:block;">
+						<?php esc_html_e( '+ Link Another Deposit', 'el-core' ); ?>
+					</button>
+				<?php endif; ?>
+			</td>
 				<td class="el-bk-actions">
 					<button class="el-btn el-btn-outline el-bk-edit-invoice-btn"
 						data-id="<?php echo esc_attr( $inv->id ); ?>"
