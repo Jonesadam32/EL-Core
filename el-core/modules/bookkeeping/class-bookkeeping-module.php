@@ -107,6 +107,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_split_transaction',            [ $this, 'handle_split_transaction' ] );
         add_action( 'el_core_ajax_bk_unsplit_transaction',          [ $this, 'handle_unsplit_transaction' ] );
         add_action( 'el_core_ajax_bk_delete_expense',               [ $this, 'handle_delete_expense' ] );
+        add_action( 'el_core_ajax_bk_add_expense',                  [ $this, 'handle_add_expense' ] );
 
         // ── Reconciliation Views (Phase A.6) ──────────────────────
         add_action( 'el_core_ajax_bk_get_reconciliation',    [ $this, 'handle_get_reconciliation' ] );
@@ -3162,6 +3163,68 @@ class EL_Bookkeeping_Module {
         $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
 
         EL_AJAX_Handler::success( [ 'deleted_id' => $id ] );
+    }
+
+    /**
+     * Manually add a single expense transaction.
+     */
+    public function handle_add_expense( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $date         = sanitize_text_field( $data['date']         ?? '' );
+        $merchant     = sanitize_text_field( $data['merchant']     ?? '' );
+        $amount       = round( abs( (float) ( $data['amount'] ?? 0 ) ), 2 );
+        $category     = sanitize_text_field( $data['category']     ?? '' );
+        $bank_account = sanitize_text_field( $data['bank_account'] ?? '' );
+        $comments     = sanitize_text_field( $data['comments']     ?? '' );
+
+        if ( ! $date || ! $merchant || $amount <= 0 ) {
+            EL_AJAX_Handler::error( __( 'Date, merchant/description, and amount are required.', 'el-core' ) );
+            return;
+        }
+
+        // Validate date format.
+        $ts = strtotime( $date );
+        if ( ! $ts ) {
+            EL_AJAX_Handler::error( __( 'Invalid date.', 'el-core' ) );
+            return;
+        }
+
+        $tax_year = (int) gmdate( 'Y', $ts );
+
+        // Determine classification status.
+        $status = $category ? 'classified' : 'unclassified';
+
+        global $wpdb;
+        $wpdb->insert(
+            $this->table( 'el_bk_transactions' ),
+            [
+                'type'             => 'expense',
+                'date'             => $date,
+                'merchant'         => $merchant,
+                'amount'           => $amount,
+                'category'         => $category,
+                'bank_account'     => $bank_account,
+                'business'         => $this->get_business_name(),
+                'status'           => $status,
+                'comments'         => $comments,
+                'source_file'      => 'manual',
+                'tax_year'         => $tax_year,
+                'travel_period_id' => 0,
+                'receipt_id'       => 0,
+                'client_id'        => 0,
+            ]
+        );
+
+        $new_id = (int) $wpdb->insert_id;
+
+        EL_AJAX_Handler::success( [
+            'id'       => $new_id,
+            'tax_year' => $tax_year,
+        ] );
     }
 
     /**

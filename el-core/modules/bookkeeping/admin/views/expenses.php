@@ -73,6 +73,9 @@ if ( ! empty( $_receipt_ids ) ) {
         <h2><?php echo esc_html( sprintf( __( 'Expenses — %d', 'el-core' ), $tax_year ) ); ?></h2>
     </div>
     <div class="el-bk-tab-header-right">
+        <button class="el-btn el-btn-primary" id="el-bk-add-expense-btn">
+            <?php esc_html_e( '+ Add Expense', 'el-core' ); ?>
+        </button>
         <button class="el-btn el-btn-outline el-bk-export-btn" data-format="csv">
             <?php esc_html_e( 'Download CSV', 'el-core' ); ?>
         </button>
@@ -612,6 +615,82 @@ var elBkReceiptMap = <?php echo wp_json_encode( $_receipt_map ); ?>;
             </button>
             <button class="el-btn el-btn-outline el-bk-lock-period-close" style="flex:0 0 auto;">
                 <?php esc_html_e( 'Close', 'el-core' ); ?>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Add Expense Modal ───────────────────────────────────────────────────── -->
+<div id="el-bk-add-expense-modal" class="el-bk-modal" style="display:none;">
+    <div class="el-bk-modal-backdrop el-bk-add-expense-close"></div>
+    <div class="el-bk-modal-content" style="max-width:500px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+            <h3 style="margin:0;"><?php esc_html_e( 'Add Expense', 'el-core' ); ?></h3>
+            <button class="el-bk-add-expense-close" style="background:none;border:none;cursor:pointer;font-size:22px;line-height:1;color:#666;">&times;</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+            <label style="font-size:13px;font-weight:500;grid-column:1/-1;">
+                <?php esc_html_e( 'Merchant / Description', 'el-core' ); ?> <span style="color:#dc2626;">*</span>
+                <input type="text" id="el-bk-ae-merchant" class="el-input el-bk-voice-input"
+                    placeholder="<?php esc_attr_e( 'e.g. Staples, Amazon, AT&T…', 'el-core' ); ?>"
+                    style="display:block;width:100%;margin-top:5px;box-sizing:border-box;">
+            </label>
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'Date', 'el-core' ); ?> <span style="color:#dc2626;">*</span>
+                <input type="date" id="el-bk-ae-date" class="el-input"
+                    value="<?php echo esc_attr( gmdate( 'Y-m-d' ) ); ?>"
+                    style="display:block;width:100%;margin-top:5px;box-sizing:border-box;">
+            </label>
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'Amount ($)', 'el-core' ); ?> <span style="color:#dc2626;">*</span>
+                <input type="text" id="el-bk-ae-amount" class="el-input el-bk-voice-input"
+                    placeholder="0.00" inputmode="decimal"
+                    style="display:block;width:100%;margin-top:5px;box-sizing:border-box;">
+            </label>
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'Category', 'el-core' ); ?>
+                <select id="el-bk-ae-category" class="el-select"
+                    style="display:block;width:100%;margin-top:5px;box-sizing:border-box;">
+                    <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
+                    <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                        <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
+                            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                        <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
+                            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                </select>
+            </label>
+            <label style="font-size:13px;font-weight:500;">
+                <?php esc_html_e( 'Bank Account', 'el-core' ); ?>
+                <select id="el-bk-ae-bank" class="el-select"
+                    style="display:block;width:100%;margin-top:5px;box-sizing:border-box;">
+                    <option value=""><?php esc_html_e( '— Select —', 'el-core' ); ?></option>
+                    <?php foreach ( EL_Bookkeeping_Module::get_bank_accounts() as $acct ) : ?>
+                        <option value="<?php echo esc_attr( $acct ); ?>"><?php echo esc_html( $acct ); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label style="font-size:13px;font-weight:500;grid-column:1/-1;">
+                <?php esc_html_e( 'Comments / Notes', 'el-core' ); ?>
+                <input type="text" id="el-bk-ae-comments" class="el-input el-bk-voice-input"
+                    placeholder="<?php esc_attr_e( 'Optional note…', 'el-core' ); ?>"
+                    style="display:block;width:100%;margin-top:5px;box-sizing:border-box;">
+            </label>
+        </div>
+
+        <div id="el-bk-ae-status" style="margin-bottom:10px;font-size:13px;min-height:18px;"></div>
+
+        <div style="display:flex;gap:10px;">
+            <button id="el-bk-ae-save-btn" class="el-btn el-btn-primary" style="flex:1;">
+                <?php esc_html_e( 'Save Expense', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline el-bk-add-expense-close" style="flex:0 0 auto;">
+                <?php esc_html_e( 'Cancel', 'el-core' ); ?>
             </button>
         </div>
     </div>

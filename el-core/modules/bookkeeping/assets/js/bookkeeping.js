@@ -3771,6 +3771,58 @@ if ($('#el-bk-home-office-sqft').length) {
     updateVehicleCalculation();
 }
 
+// ── ADD EXPENSE MODAL ─────────────────────────────────────────────────────────
+
+$(document).on('click', '#el-bk-add-expense-btn', function() {
+    $('#el-bk-ae-merchant').val('');
+    $('#el-bk-ae-date').val(new Date().toISOString().slice(0, 10));
+    $('#el-bk-ae-amount').val('');
+    $('#el-bk-ae-category').val('');
+    $('#el-bk-ae-bank').val('');
+    $('#el-bk-ae-comments').val('');
+    $('#el-bk-ae-status').text('');
+    $('#el-bk-add-expense-modal').fadeIn(200);
+    setTimeout(function() { $('#el-bk-ae-merchant').focus(); }, 220);
+});
+
+$(document).on('click', '.el-bk-add-expense-close', function() {
+    $('#el-bk-add-expense-modal').fadeOut(200);
+});
+
+$(document).on('click', '#el-bk-ae-save-btn', function() {
+    var $btn    = $(this).prop('disabled', true).text('Saving\u2026');
+    var $status = $('#el-bk-ae-status').text('');
+
+    var merchant = $.trim($('#el-bk-ae-merchant').val());
+    var date     = $('#el-bk-ae-date').val();
+    var amount   = $('#el-bk-ae-amount').val();
+    var category = $('#el-bk-ae-category').val();
+    var bank     = $('#el-bk-ae-bank').val();
+    var comments = $.trim($('#el-bk-ae-comments').val());
+
+    if (!merchant || !date || !amount || parseFloat(amount) <= 0) {
+        $status.html('<span style="color:#dc2626;">Merchant, date, and amount are required.</span>');
+        $btn.prop('disabled', false).text('Save Expense');
+        return;
+    }
+
+    elBkAjax('bk_add_expense', {
+        merchant:     merchant,
+        date:         date,
+        amount:       amount,
+        category:     category,
+        bank_account: bank,
+        comments:     comments
+    }, function() {
+        $btn.prop('disabled', false).text('Save Expense');
+        $status.html('<span style="color:#16a34a;">&#10003; Saved \u2014 reloading\u2026</span>');
+        setTimeout(function() { location.reload(); }, 800);
+    }, function(msg) {
+        $btn.prop('disabled', false).text('Save Expense');
+        $status.html('<span style="color:#dc2626;">Error: ' + msg + '</span>');
+    });
+});
+
 // ── DELETE SINGLE EXPENSE ─────────────────────────────────────────────────────
 
 $(document).on('click', '.el-bk-delete-expense-btn', function() {
