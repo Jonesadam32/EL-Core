@@ -123,11 +123,17 @@ if ( $transactions ) {
         <thead>
             <tr>
                 <th>#</th>
-                <th><?php esc_html_e( 'Category', 'el-core' ); ?></th>
+                <th id="el-bk-inc-cat-th" style="cursor:pointer;user-select:none;" title="Click to sort by category">
+                    <?php esc_html_e( 'Category', 'el-core' ); ?> <span id="el-bk-inc-cat-sort-icon" style="font-size:11px;"></span>
+                </th>
                 <th><?php esc_html_e( 'Client', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Amount', 'el-core' ); ?></th>
-                <th><?php esc_html_e( 'Merchant / Description', 'el-core' ); ?></th>
-                <th><?php esc_html_e( 'Date', 'el-core' ); ?></th>
+                <th id="el-bk-inc-merchant-th" style="cursor:pointer;user-select:none;" title="Click to sort by merchant">
+                    <?php esc_html_e( 'Merchant / Description', 'el-core' ); ?> <span id="el-bk-inc-merchant-sort-icon" style="font-size:11px;"></span>
+                </th>
+                <th id="el-bk-inc-date-th" style="cursor:pointer;user-select:none;" title="Click to sort by date">
+                    <?php esc_html_e( 'Date', 'el-core' ); ?> <span id="el-bk-inc-date-sort-icon" style="font-size:11px;">▼</span>
+                </th>
                 <th><?php esc_html_e( 'Bank Account', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Comments', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Invoice', 'el-core' ); ?></th>
@@ -138,7 +144,7 @@ if ( $transactions ) {
                 $assigned_client_id   = (int) ( $t->client_id ?? 0 );
                 $assigned_client_name = $assigned_client_id ? ( $client_map[ $assigned_client_id ] ?? __( 'Unknown', 'el-core' ) ) : '';
             ?>
-            <tr class="el-bk-transaction-row el-bk-row--classified" data-id="<?php echo esc_attr( $t->id ); ?>" data-date="<?php echo esc_attr( $t->date ); ?>">
+            <tr class="el-bk-transaction-row el-bk-row--classified" data-id="<?php echo esc_attr( $t->id ); ?>" data-date="<?php echo esc_attr( $t->date ); ?>" data-merchant="<?php echo esc_attr( strtolower( $t->merchant ?? '' ) ); ?>" data-category="<?php echo esc_attr( strtolower( $t->category ?? '' ) ); ?>">
                 <td><?php echo esc_html( $i + 1 ); ?></td>
                 <td>
                     <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $t->id ); ?>">

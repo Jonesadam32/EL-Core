@@ -568,6 +568,42 @@
     $('#el-bk-inc-filter-btn').on('click', filterIncomeTable);
     $('#el-bk-inc-from, #el-bk-inc-to').on('change', filterIncomeTable);
 
+    // ── Income Table Sorting ──────────────────────────────────────────────────
+
+    var incSortCol  = 'date'; // active sort column: 'date' | 'merchant' | 'category'
+    var incSortDesc = true;   // true = descending (newest / Z→A)
+
+    function sortIncomeTable(col) {
+        if (incSortCol === col) {
+            incSortDesc = !incSortDesc;
+        } else {
+            incSortCol  = col;
+            incSortDesc = col === 'date'; // dates default newest-first; text defaults A→Z
+        }
+
+        // Update sort icons — clear all, then set the active one
+        $('#el-bk-inc-date-sort-icon, #el-bk-inc-merchant-sort-icon, #el-bk-inc-cat-sort-icon').text('');
+        var icon = incSortDesc ? '▼' : '▲';
+        if (col === 'date')     $('#el-bk-inc-date-sort-icon').text(icon);
+        if (col === 'merchant') $('#el-bk-inc-merchant-sort-icon').text(icon);
+        if (col === 'category') $('#el-bk-inc-cat-sort-icon').text(icon);
+
+        var $tbody = $('#el-bk-inc-table tbody');
+        var $rows  = $tbody.find('.el-bk-transaction-row').toArray();
+
+        $rows.sort(function (a, b) {
+            var va = $(a).attr('data-' + col) || '';
+            var vb = $(b).attr('data-' + col) || '';
+            return incSortDesc ? vb.localeCompare(va) : va.localeCompare(vb);
+        });
+
+        $tbody.append($rows);
+    }
+
+    $('#el-bk-inc-date-th').on('click',     function () { sortIncomeTable('date'); });
+    $('#el-bk-inc-merchant-th').on('click', function () { sortIncomeTable('merchant'); });
+    $('#el-bk-inc-cat-th').on('click',      function () { sortIncomeTable('category'); });
+
     // ── Rules: Add/Edit Form Toggle ────────────────────────────────────────────
 
     $('#el-bk-add-rule-btn').on('click', function () {
