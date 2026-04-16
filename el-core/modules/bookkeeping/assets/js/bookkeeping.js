@@ -1825,6 +1825,28 @@
         if (to)   $('#el-bk-pl-to').val(to);
     });
 
+    // ── P&L Filter Button ──────────────────────────────────────────────────────
+
+    $(document).on('click', '#el-bk-pl-filter-btn', function () {
+        var from = $('#el-bk-pl-from').val();
+        var to   = $('#el-bk-pl-to').val();
+        var view = $('.el-btn-toggle--active[data-view]').data('view') || 'business';
+        var url  = new URL(window.location.href);
+        url.searchParams.set('pl_from', from);
+        url.searchParams.set('pl_to', to);
+        url.searchParams.set('pl_view', view);
+        window.location.href = url.toString();
+    });
+
+    // ── P&L View Toggle ────────────────────────────────────────────────────────
+
+    $(document).on('click', '.el-btn-toggle[data-view]', function () {
+        var view = $(this).data('view');
+        var url  = new URL(window.location.href);
+        url.searchParams.set('pl_view', view);
+        window.location.href = url.toString();
+    });
+
     $(document).on('click', '.el-bk-generate-pl-btn', function () {
         // Phase 7
         alert('P&L report generation will be available in Phase 7.');
@@ -3755,22 +3777,40 @@ $('#el-bk-export-accountant-btn').on('click', function() {
     var $btn    = $(this).prop('disabled', true).text('Generating…');
     var $status = $('#el-bk-export-status').text('');
 
-    elBkAjax('bk_export_accountant', {
-        tax_year: elBookkeeping.taxYear
-    }, function(res) {
-        $btn.prop('disabled', false).text('Download Tax Export (.xlsx)');
-
+    fetch(elBookkeeping.ajaxUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action:    'el_core_action',
+            el_action: 'bk_export_accountant',
+            nonce:     elBookkeeping.nonce,
+            tax_year:  elBookkeeping.taxYear
+        }).toString()
+    })
+    .then(function(response) {
+        if (!response.ok) throw new Error('Server returned ' + response.status);
+        var disposition = response.headers.get('Content-Disposition') || '';
+        var match = disposition.match(/filename="?([^"]+)"?/);
+        var filename = match ? match[1] : 'ELS-Tax-Export.xlsx';
+        return response.blob().then(function(blob) {
+            return { blob: blob, filename: filename };
+        });
+    })
+    .then(function(data) {
+        var url  = URL.createObjectURL(data.blob);
         var link = document.createElement('a');
-        link.href     = res.download_url;
-        link.download = res.filename;
+        link.href     = url;
+        link.download = data.filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
-        $status.html('<span class="el-bk-success">&#10003; Export ready — downloading now</span>');
-    }, function(msg) {
+        URL.revokeObjectURL(url);
         $btn.prop('disabled', false).text('Download Tax Export (.xlsx)');
-        $status.html('<span class="el-bk-error">Error: ' + msg + '</span>');
+        $status.html('<span class="el-bk-success">&#10003; Export ready — downloading now</span>');
+    })
+    .catch(function(err) {
+        $btn.prop('disabled', false).text('Download Tax Export (.xlsx)');
+        $status.html('<span class="el-bk-error">Error: ' + err.message + '</span>');
     });
 });
 

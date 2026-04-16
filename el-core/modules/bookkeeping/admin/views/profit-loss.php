@@ -10,11 +10,16 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Date range from POST/GET, default to full tax year.
-$from = sanitize_text_field( $_GET['pl_from'] ?? ( $tax_year . '-01-01' ) );
-$to   = sanitize_text_field( $_GET['pl_to']   ?? ( $tax_year . '-12-31' ) );
+// Date range from GET, default to full tax year.
+$from    = sanitize_text_field( $_GET['pl_from'] ?? ( $tax_year . '-01-01' ) );
+$to      = sanitize_text_field( $_GET['pl_to']   ?? ( $tax_year . '-12-31' ) );
+$pl_view = sanitize_text_field( $_GET['pl_view'] ?? 'business' );
+if ( ! in_array( $pl_view, [ 'business', 'all' ], true ) ) {
+    $pl_view = 'business';
+}
 
 $business_name = $module->get_business_name();
+$personal_cats = EL_Bookkeeping_Module::get_expense_categories_grouped()['personal'];
 
 // Fetch all transactions in the date range.
 global $wpdb;
@@ -26,9 +31,9 @@ $all_rows = $wpdb->get_results( $wpdb->prepare(
     $to
 ) ) ?: [];
 
-// Split income vs expense.
+// Split income vs expense; exclude split-parent rows from expense totals.
 $income_rows  = array_filter( $all_rows, fn( $t ) => $t->type === 'income' );
-$expense_rows = array_filter( $all_rows, fn( $t ) => $t->type === 'expense' );
+$expense_rows = array_filter( $all_rows, fn( $t ) => $t->type === 'expense' && $t->status !== 'split' );
 
 // Excluded income categories.
 $income_excluded = [ 'Other', 'Bank Transfer', 'Ignore', 'Distributions', 'Shareholder Loan', 'Refund', 'Travel Credit' ];
@@ -38,16 +43,18 @@ $distributions   = array_filter( $income_rows, fn( $t ) => $t->category === 'Dis
 $total_income       = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable_income ) );
 $total_distribution = array_sum( array_map( fn( $t ) => (float) $t->amount, $distributions ) );
 
-// Build expense totals by category.
+// Build expense totals by category, respecting view mode.
 $expense_cats = [];
 foreach ( $expense_rows as $t ) {
+    if ( $pl_view === 'business' && in_array( $t->category, $personal_cats, true ) ) {
+        continue;
+    }
     $cat = $t->category ?: __( 'Unclassified', 'el-core' );
     $expense_cats[ $cat ] = ( $expense_cats[ $cat ] ?? 0.0 ) + (float) $t->amount;
 }
 arsort( $expense_cats );
 $total_expenses = array_sum( $expense_cats );
-
-$net_income = $total_income - $total_distributions - $total_expenses;
+$net_income     = $total_income - $total_distribution - $total_expenses;
 ?>
 
 <div class="el-bk-tab-header">
@@ -71,6 +78,16 @@ $net_income = $total_income - $total_distributions - $total_expenses;
         <button class="el-btn el-btn-outline el-bk-preset-btn" data-preset="q2"><?php esc_html_e( 'Q2', 'el-core' ); ?></button>
         <button class="el-btn el-btn-outline el-bk-preset-btn" data-preset="q3"><?php esc_html_e( 'Q3', 'el-core' ); ?></button>
         <button class="el-btn el-btn-outline el-bk-preset-btn" data-preset="q4"><?php esc_html_e( 'Q4', 'el-core' ); ?></button>
+    </div>
+    <div class="el-bk-pl-view-toggle">
+        <button class="el-btn el-btn-toggle <?php echo $pl_view === 'business' ? 'el-btn-toggle--active' : ''; ?>"
+                data-view="business">
+            <?php esc_html_e( 'Business Only', 'el-core' ); ?>
+        </button>
+        <button class="el-btn el-btn-toggle <?php echo $pl_view === 'all' ? 'el-btn-toggle--active' : ''; ?>"
+                data-view="all">
+            <?php esc_html_e( 'All Transactions', 'el-core' ); ?>
+        </button>
     </div>
 </div>
 
@@ -107,6 +124,19 @@ $net_income = $total_income - $total_distributions - $total_expenses;
                 <?php echo $net_income < 0 ? '-' : ''; ?>$<?php echo esc_html( number_format( abs( $net_income ), 2 ) ); ?>
             </div>
         </div>
+    </div>
+
+    <!-- View mode label -->
+    <div class="el-bk-pl-view-label">
+        <?php if ( $pl_view === 'business' ) : ?>
+            <span class="el-bk-pl-view-label--business">
+                <?php esc_html_e( 'Showing business expenses only (Schedule C)', 'el-core' ); ?>
+            </span>
+        <?php else : ?>
+            <span class="el-bk-pl-view-label--all">
+                <?php esc_html_e( 'Showing all transactions including personal', 'el-core' ); ?>
+            </span>
+        <?php endif; ?>
     </div>
 
     <!-- Income section -->

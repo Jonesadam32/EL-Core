@@ -4440,7 +4440,7 @@ class EL_Bookkeeping_Module {
         $other_ded       = $this->get_other_deductions_for_export();
         $invoices        = $this->get_invoices_for_export( $tax_year );
 
-        $url = $this->generate_accountant_export(
+        $filepath = $this->generate_accountant_export(
             $tax_year,
             $profile,
             $income_summary,
@@ -4455,10 +4455,18 @@ class EL_Bookkeeping_Module {
             $invoices
         );
 
-        EL_AJAX_Handler::success( [
-            'download_url' => $url,
-            'filename'     => basename( $url ),
-        ] );
+        $filename = basename( $filepath );
+
+        // Stream the file directly — bypasses CDN/file-URL issues on Rocket.net.
+        header( 'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'Content-Length: ' . filesize( $filepath ) );
+        header( 'Cache-Control: no-cache, no-store, must-revalidate' );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+        readfile( $filepath );
+        @unlink( $filepath ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+        exit;
     }
 
     // ── Data Gathering ────────────────────────────────────────────────────────
@@ -4853,7 +4861,7 @@ class EL_Bookkeeping_Module {
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx( $spreadsheet );
         $writer->save( $filepath );
 
-        return $upload_dir['baseurl'] . '/el-bk-exports/' . $filename;
+        return $filepath;
     }
 
     // ── Sheet Creators ────────────────────────────────────────────────────────

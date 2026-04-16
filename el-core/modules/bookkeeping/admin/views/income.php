@@ -20,6 +20,15 @@ $total_all     = array_sum( array_map( fn( $t ) => (float) $t->amount, $transact
 $total_taxable = array_sum( array_map( fn( $t ) => (float) $t->amount, $taxable ) );
 $business_name = $module->get_business_name();
 
+// Audit panel data.
+$excluded_txns   = array_filter( $transactions, fn( $t ) => in_array( $t->category, $excluded, true ) );
+$client_assigned = array_filter( $transactions, fn( $t ) => ! empty( $t->client_id ) && (int) $t->client_id > 0 );
+$count_all       = count( $transactions );
+$count_excluded  = count( $excluded_txns );
+$count_assigned  = count( $client_assigned );
+$total_excluded  = array_sum( array_map( fn( $t ) => (float) $t->amount, $excluded_txns ) );
+$total_assigned  = array_sum( array_map( fn( $t ) => (float) $t->amount, $client_assigned ) );
+
 // Build client lookup map: id => display name
 $client_map = [];
 if ( ! empty( $prefetch_clients ) ) {
@@ -81,6 +90,32 @@ if ( $transactions ) {
         </div>
         <div class="el-bk-income-total-card-amount">
             $<?php echo esc_html( number_format( $total_taxable, 2 ) ); ?>
+        </div>
+    </div>
+</div>
+
+<div class="el-bk-income-audit-panel">
+    <h4><?php echo esc_html( sprintf( __( 'Deposits Audit — %d', 'el-core' ), $tax_year ) ); ?></h4>
+    <div class="el-bk-income-audit-grid">
+        <div class="el-bk-income-audit-cell">
+            <div class="el-bk-income-audit-label"><?php esc_html_e( 'Total Deposits Imported', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-count"><?php echo esc_html( $count_all ); ?> <?php esc_html_e( 'deposits', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-amount">$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></div>
+        </div>
+        <div class="el-bk-income-audit-cell">
+            <div class="el-bk-income-audit-label"><?php esc_html_e( 'Matched to Client', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-count"><?php echo esc_html( $count_assigned ); ?> <?php esc_html_e( 'deposits', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-amount">$<?php echo esc_html( number_format( $total_assigned, 2 ) ); ?></div>
+        </div>
+        <div class="el-bk-income-audit-cell el-bk-income-audit-cell--excluded">
+            <div class="el-bk-income-audit-label"><?php esc_html_e( 'Excluded (Bank Transfer / Ignore / etc.)', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-count"><?php echo esc_html( $count_excluded ); ?> <?php esc_html_e( 'deposits', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-amount">$<?php echo esc_html( number_format( $total_excluded, 2 ) ); ?></div>
+        </div>
+        <div class="el-bk-income-audit-cell el-bk-income-audit-cell--taxable">
+            <div class="el-bk-income-audit-label"><?php esc_html_e( 'Net Taxable Income', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-count"><?php echo esc_html( count( $taxable ) ); ?> <?php esc_html_e( 'deposits', 'el-core' ); ?></div>
+            <div class="el-bk-income-audit-amount el-bk-income-audit-amount--highlight">$<?php echo esc_html( number_format( $total_taxable, 2 ) ); ?></div>
         </div>
     </div>
 </div>
