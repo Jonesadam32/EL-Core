@@ -3280,6 +3280,8 @@ class EL_Bookkeeping_Module {
 
         EL_AJAX_Handler::success( [ 'deleted_id' => $id ] );
     }
+
+    /**
      * Lock all expense transactions within a date range by setting status = 'classified'.
      * Locked rows are skipped by Re-Classify and won't be changed automatically.
      */
