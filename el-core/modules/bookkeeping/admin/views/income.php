@@ -101,17 +101,38 @@ if ( $transactions ) {
 </div>
 <?php endif; ?>
 
-<div class="el-bk-action-row">
-    <div class="el-bk-date-range">
-        <label><?php esc_html_e( 'From', 'el-core' ); ?>
+<div class="el-bk-filter-bar">
+    <div class="el-bk-filter-bar-row">
+        <div class="el-bk-filter-field">
+            <label for="el-bk-inc-search"><?php esc_html_e( 'Search', 'el-core' ); ?></label>
+            <input type="text" id="el-bk-inc-search" placeholder="<?php esc_attr_e( 'Merchant / description…', 'el-core' ); ?>">
+        </div>
+        <div class="el-bk-filter-field">
+            <label for="el-bk-inc-cat-filter"><?php esc_html_e( 'Category', 'el-core' ); ?></label>
+            <select id="el-bk-inc-cat-filter">
+                <option value=""><?php esc_html_e( '— All Categories —', 'el-core' ); ?></option>
+                <option value="__unclassified__"><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
+                <?php foreach ( $categories as $cat ) : ?>
+                    <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="el-bk-filter-field">
+            <label for="el-bk-inc-from"><?php esc_html_e( 'From', 'el-core' ); ?></label>
             <input type="date" id="el-bk-inc-from" value="<?php echo esc_attr( $tax_year . '-01-01' ); ?>">
-        </label>
-        <label><?php esc_html_e( 'To', 'el-core' ); ?>
+        </div>
+        <div class="el-bk-filter-field">
+            <label for="el-bk-inc-to"><?php esc_html_e( 'To', 'el-core' ); ?></label>
             <input type="date" id="el-bk-inc-to" value="<?php echo esc_attr( $tax_year . '-12-31' ); ?>">
-        </label>
-        <button class="el-btn el-btn-outline" id="el-bk-inc-filter-btn"><?php esc_html_e( 'Filter', 'el-core' ); ?></button>
+        </div>
+        <div class="el-bk-filter-field el-bk-filter-actions">
+            <button class="el-btn el-btn-outline" id="el-bk-inc-filter-btn"><?php esc_html_e( 'Filter', 'el-core' ); ?></button>
+            <button class="el-btn el-btn-outline" id="el-bk-inc-clear-filters"><?php esc_html_e( 'Clear', 'el-core' ); ?></button>
+        </div>
+        <div class="el-bk-filter-field el-bk-filter-count">
+            <span id="el-bk-inc-filter-count"></span>
+        </div>
     </div>
-    <span id="el-bk-inc-filter-count" class="el-bk-filter-count"></span>
 </div>
 
 <?php if ( empty( $transactions ) ) : ?>

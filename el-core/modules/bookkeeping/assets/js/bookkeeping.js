@@ -532,6 +532,8 @@
     function filterIncomeTable() {
         var dateFrom = $('#el-bk-inc-from').val() || '';
         var dateTo   = $('#el-bk-inc-to').val()   || '';
+        var search   = ($('#el-bk-inc-search').val() || '').toLowerCase().trim();
+        var catFilter = $('#el-bk-inc-cat-filter').val() || '';
 
         var visible = 0;
         var visibleAmount = 0;
@@ -540,11 +542,21 @@
         $('#el-bk-inc-table tbody .el-bk-transaction-row').each(function () {
             var $row    = $(this);
             var rowDate = $row.attr('data-date') || '';
+            var rowMerchant = ($row.attr('data-merchant') || $row.find('td').eq(4).text()).toLowerCase();
+            var rowCatVal   = $row.find('.el-bk-inline-select[data-field="category"]').val() || '';
             var show    = true;
             total++;
 
             if (show && dateFrom && rowDate < dateFrom) show = false;
             if (show && dateTo   && rowDate > dateTo)   show = false;
+            if (show && search   && rowMerchant.indexOf(search) === -1) show = false;
+            if (show && catFilter) {
+                if (catFilter === '__unclassified__') {
+                    if (rowCatVal) show = false;
+                } else {
+                    if (rowCatVal !== catFilter) show = false;
+                }
+            }
 
             if (show) {
                 $row.show();
@@ -556,7 +568,7 @@
             }
         });
 
-        var isFiltered = (dateFrom || dateTo);
+        var isFiltered = (dateFrom || dateTo || search || catFilter);
         var $count = $('#el-bk-inc-filter-count');
         if (isFiltered && visible < total) {
             $count.html('Showing <strong>' + visible + '</strong> of ' + total + ' &mdash; $' + visibleAmount.toFixed(2));
@@ -567,6 +579,16 @@
 
     $('#el-bk-inc-filter-btn').on('click', filterIncomeTable);
     $('#el-bk-inc-from, #el-bk-inc-to').on('change', filterIncomeTable);
+    $('#el-bk-inc-search').on('input', filterIncomeTable);
+    $('#el-bk-inc-cat-filter').on('change', filterIncomeTable);
+
+    $('#el-bk-inc-clear-filters').on('click', function () {
+        $('#el-bk-inc-search').val('');
+        $('#el-bk-inc-cat-filter').val('');
+        $('#el-bk-inc-from').val('');
+        $('#el-bk-inc-to').val('');
+        filterIncomeTable();
+    });
 
     // ── Income Table Sorting ──────────────────────────────────────────────────
 
