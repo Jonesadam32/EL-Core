@@ -381,6 +381,13 @@
         } else {
             $count.html('');
         }
+
+        // Always update the tfoot total to match visible rows
+        var $expTotalCell = $('#el-bk-exp-total-cell');
+        if ($expTotalCell.length) {
+            $expTotalCell.html('<strong>$' + visibleAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '</strong>');
+            $('#el-bk-exp-total-label').html(isFiltered ? '<strong>Total (filtered)</strong>' : '<strong>Total</strong>');
+        }
     }
 
     $('#el-bk-exp-search').on('input', filterExpenseTable);
@@ -398,6 +405,9 @@
         $('#el-bk-exp-to').val(year + '-12-31');
         filterExpenseTable();
     });
+
+    // Initialise expense total from DOM on page load (catches inline edits)
+    if ($('#el-bk-exp-total-cell').length) { filterExpenseTable(); }
 
     // ── Make Rule Popover ─────────────────────────────────────────────────────
 
@@ -575,6 +585,13 @@
         } else {
             $count.html('');
         }
+
+        // Always update the tfoot total to match visible rows
+        var $incTotalCell = $('#el-bk-inc-total-cell');
+        if ($incTotalCell.length) {
+            $incTotalCell.html('<strong>$' + visibleAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '</strong>');
+            $('#el-bk-inc-total-label').html(isFiltered ? '<strong>Total (filtered)</strong>' : '<strong>Total</strong>');
+        }
     }
 
     $('#el-bk-inc-filter-btn').on('click', filterIncomeTable);
@@ -589,6 +606,9 @@
         $('#el-bk-inc-to').val('');
         filterIncomeTable();
     });
+
+    // Initialise income total from DOM on page load (catches inline edits)
+    if ($('#el-bk-inc-total-cell').length) { filterIncomeTable(); }
 
     // ── Income Table Sorting ──────────────────────────────────────────────────
 

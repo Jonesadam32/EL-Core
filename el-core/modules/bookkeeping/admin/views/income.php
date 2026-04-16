@@ -238,8 +238,8 @@ if ( $transactions ) {
         </tbody>
         <tfoot>
             <tr class="el-bk-total-row">
-                <td colspan="3"><strong><?php esc_html_e( 'Total (all)', 'el-core' ); ?></strong></td>
-                <td class="el-bk-amount"><strong>$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></strong></td>
+                <td colspan="3"><strong id="el-bk-inc-total-label"><?php esc_html_e( 'Total', 'el-core' ); ?></strong></td>
+                <td class="el-bk-amount" id="el-bk-inc-total-cell"><strong>$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></strong></td>
                 <td colspan="5"></td>
     </table>
 </div>
