@@ -1,4 +1,4 @@
-$version = "1.38.87"
+$version = "1.38.88"
 $root    = $PSScriptRoot
 $source  = Join-Path $root "el-core"
 $backupDir = Join-Path $root "old-versions\v$version"
