@@ -193,6 +193,7 @@ if ( $transactions ) {
                 <th><?php esc_html_e( 'Bank Account', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Comments', 'el-core' ); ?></th>
                 <th><?php esc_html_e( 'Invoice', 'el-core' ); ?></th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -268,6 +269,13 @@ if ( $transactions ) {
                         </button>
                     <?php endif; ?>
                 </td>
+                <td style="text-align:center;white-space:nowrap;">
+                    <button class="el-bk-delete-income-btn"
+                        data-id="<?php echo esc_attr( $t->id ); ?>"
+                        data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
+                        title="<?php esc_attr_e( 'Delete this deposit permanently', 'el-core' ); ?>"
+                        style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 5px;color:#dc2626;opacity:0.6;line-height:1;">&#128465;</button>
+                </td>
             </tr>
             <?php endforeach; ?>
         </tbody>
@@ -275,7 +283,7 @@ if ( $transactions ) {
             <tr class="el-bk-total-row">
                 <td colspan="3"><strong id="el-bk-inc-total-label"><?php esc_html_e( 'Total', 'el-core' ); ?></strong></td>
                 <td class="el-bk-amount" id="el-bk-inc-total-cell"><strong>$<?php echo esc_html( number_format( $total_all, 2 ) ); ?></strong></td>
-                <td colspan="5"></td>
+                <td colspan="6"></td>
     </table>
 </div>
 

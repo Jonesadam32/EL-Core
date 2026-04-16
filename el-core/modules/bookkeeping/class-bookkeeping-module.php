@@ -108,6 +108,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_unsplit_transaction',          [ $this, 'handle_unsplit_transaction' ] );
         add_action( 'el_core_ajax_bk_delete_expense',               [ $this, 'handle_delete_expense' ] );
         add_action( 'el_core_ajax_bk_add_expense',                  [ $this, 'handle_add_expense' ] );
+        add_action( 'el_core_ajax_bk_delete_income',                [ $this, 'handle_delete_income' ] );
 
         // ── Reconciliation Views (Phase A.6) ──────────────────────
         add_action( 'el_core_ajax_bk_get_reconciliation',    [ $this, 'handle_get_reconciliation' ] );
@@ -3228,6 +3229,57 @@ class EL_Bookkeeping_Module {
     }
 
     /**
+     * Delete a single income (deposit) transaction.
+     * Also unlinks any invoices that were matched to this deposit.
+     */
+    public function handle_delete_income( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        $row = $wpdb->get_row( $wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            "SELECT id, type FROM {$table} WHERE id = %d",
+            $id
+        ) );
+
+        if ( ! $row ) {
+            EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
+            return;
+        }
+        if ( $row->type !== 'income' ) {
+            EL_AJAX_Handler::error( __( 'Only income transactions can be deleted here.', 'el-core' ) );
+            return;
+        }
+
+        // Unlink any invoices that were matched to this deposit.
+        $tbl_inv = $this->table( 'el_bk_invoices' );
+        $wpdb->update(
+            $tbl_inv,
+            [ 'transaction_id' => 0, 'status' => 'unpaid' ],
+            [ 'transaction_id' => $id ],
+            [ '%d', '%s' ],
+            [ '%d' ]
+        );
+
+        // Also clear invoice_id on this transaction's row (belt-and-suspenders).
+        $wpdb->update( $table, [ 'invoice_id' => 0 ], [ 'id' => $id ], [ '%d' ], [ '%d' ] );
+
+        // Delete the transaction.
+        $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+
+        EL_AJAX_Handler::success( [ 'deleted_id' => $id ] );
+    }
      * Lock all expense transactions within a date range by setting status = 'classified'.
      * Locked rows are skipped by Re-Classify and won't be changed automatically.
      */

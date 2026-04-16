@@ -3823,6 +3823,26 @@ $(document).on('click', '#el-bk-ae-save-btn', function() {
     });
 });
 
+// ── DELETE SINGLE INCOME (DEPOSIT) ────────────────────────────────────────────
+
+$(document).on('click', '.el-bk-delete-income-btn', function() {
+    var $btn     = $(this);
+    var id       = $btn.data('id');
+    var merchant = $btn.data('merchant') || 'this deposit';
+    var $row     = $btn.closest('tr');
+
+    if (!confirm('Delete "' + merchant + '"?\n\nThis will permanently remove the deposit. Any linked invoice will be reset to Unpaid.')) return;
+
+    $btn.prop('disabled', true).css('opacity', '0.3');
+
+    elBkAjax('bk_delete_income', { id: id }, function() {
+        $row.fadeOut(250, function() { $(this).remove(); });
+    }, function(msg) {
+        $btn.prop('disabled', false).css('opacity', '0.6');
+        alert('Could not delete: ' + msg);
+    });
+});
+
 // ── DELETE SINGLE EXPENSE ─────────────────────────────────────────────────────
 
 $(document).on('click', '.el-bk-delete-expense-btn', function() {
