@@ -3771,6 +3771,28 @@ if ($('#el-bk-home-office-sqft').length) {
     updateVehicleCalculation();
 }
 
+// ── DELETE SINGLE EXPENSE ─────────────────────────────────────────────────────
+
+$(document).on('click', '.el-bk-delete-expense-btn', function() {
+    var $btn     = $(this);
+    var id       = $btn.data('id');
+    var merchant = $btn.data('merchant') || 'this expense';
+    var $row     = $btn.closest('tr');
+
+    if (!confirm('Delete "' + merchant + '"?\n\nThis will permanently remove the transaction and cannot be undone.')) return;
+
+    $btn.prop('disabled', true).css('opacity', '0.3');
+
+    elBkAjax('bk_delete_expense', { id: id }, function() {
+        // Remove split children (if any) then the row itself.
+        $('[data-parent-id="' + id + '"]').fadeOut(200, function() { $(this).remove(); });
+        $row.fadeOut(250, function() { $(this).remove(); });
+    }, function(msg) {
+        $btn.prop('disabled', false).css('opacity', '0.6');
+        alert('Could not delete: ' + msg);
+    });
+});
+
 // ── ACCOUNTANT EXPORT (Phase C.2) ─────────────────────────────────────────────
 
 $('#el-bk-export-accountant-btn').on('click', function() {

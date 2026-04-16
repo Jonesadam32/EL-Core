@@ -343,6 +343,11 @@ if ( ! empty( $_receipt_ids ) ) {
                             <button class="el-bk-reject-btn" data-id="<?php echo esc_attr( $t->id ); ?>" title="<?php esc_attr_e( 'Reject — clear category and mark rejected', 'el-core' ); ?>">✕</button>
                         <?php endif; ?>
                     <?php endif; ?>
+                    <button class="el-bk-delete-expense-btn"
+                        data-id="<?php echo esc_attr( $t->id ); ?>"
+                        data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
+                        title="<?php esc_attr_e( 'Delete this expense permanently', 'el-core' ); ?>"
+                        style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 5px;color:#dc2626;opacity:0.6;line-height:1;">&#128465;</button>
                 </td>
             </tr>
             <?php

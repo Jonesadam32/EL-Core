@@ -106,6 +106,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_unlock_period',                [ $this, 'handle_unlock_period' ] );
         add_action( 'el_core_ajax_bk_split_transaction',            [ $this, 'handle_split_transaction' ] );
         add_action( 'el_core_ajax_bk_unsplit_transaction',          [ $this, 'handle_unsplit_transaction' ] );
+        add_action( 'el_core_ajax_bk_delete_expense',               [ $this, 'handle_delete_expense' ] );
 
         // ── Reconciliation Views (Phase A.6) ──────────────────────
         add_action( 'el_core_ajax_bk_get_reconciliation',    [ $this, 'handle_get_reconciliation' ] );
@@ -3119,6 +3120,48 @@ class EL_Bookkeeping_Module {
             [ 'deleted' => (int) $deleted ],
             sprintf( __( 'Cleared %d expense transactions for %d. Re-import your expense statements to rebuild.', 'el-core' ), (int) $deleted, $tax_year )
         );
+    }
+
+    /**
+     * Delete a single expense transaction (and its split children if any).
+     */
+    public function handle_delete_expense( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $id = absint( $data['id'] ?? 0 );
+        if ( ! $id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        $row = $wpdb->get_row( $wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            "SELECT id, type FROM {$table} WHERE id = %d",
+            $id
+        ) );
+
+        if ( ! $row ) {
+            EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
+            return;
+        }
+        if ( $row->type !== 'expense' ) {
+            EL_AJAX_Handler::error( __( 'Only expense transactions can be deleted here.', 'el-core' ) );
+            return;
+        }
+
+        // Delete any split children first.
+        $wpdb->delete( $table, [ 'parent_id' => $id ], [ '%d' ] );
+
+        // Delete the transaction itself.
+        $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+
+        EL_AJAX_Handler::success( [ 'deleted_id' => $id ] );
     }
 
     /**
