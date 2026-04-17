@@ -109,6 +109,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_delete_expense',               [ $this, 'handle_delete_expense' ] );
         add_action( 'el_core_ajax_bk_add_expense',                  [ $this, 'handle_add_expense' ] );
         add_action( 'el_core_ajax_bk_delete_income',                [ $this, 'handle_delete_income' ] );
+        add_action( 'el_core_ajax_bk_convert_refund_offset',        [ $this, 'handle_convert_refund_offset' ] );
 
         // ── Reconciliation Views (Phase A.6) ──────────────────────
         add_action( 'el_core_ajax_bk_get_reconciliation',    [ $this, 'handle_get_reconciliation' ] );
@@ -3285,6 +3286,87 @@ class EL_Bookkeeping_Module {
         $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
 
         EL_AJAX_Handler::success( [ 'deleted_id' => $id ] );
+    }
+
+    /**
+     * Convert an income deposit to a negative expense offset.
+     * Creates a negative expense entry (reducing the category total in P&L)
+     * and marks the income row as "Refund" so it is excluded from taxable income.
+     */
+    public function handle_convert_refund_offset( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $income_id = absint( $data['income_id'] ?? 0 );
+        $category  = sanitize_text_field( $data['category']  ?? 'Travel Expense' );
+        $comments  = sanitize_text_field( $data['comments']  ?? '' );
+
+        if ( ! $income_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        $row = $wpdb->get_row( $wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            "SELECT id, type, date, merchant, amount, tax_year FROM {$table} WHERE id = %d",
+            $income_id
+        ) );
+
+        if ( ! $row ) {
+            EL_AJAX_Handler::error( __( 'Transaction not found.', 'el-core' ) );
+            return;
+        }
+        if ( $row->type !== 'income' ) {
+            EL_AJAX_Handler::error( __( 'Only income transactions can be converted.', 'el-core' ) );
+            return;
+        }
+
+        $neg_amount = round( -1 * abs( (float) $row->amount ), 2 );
+        $tax_year   = (int) $row->tax_year;
+
+        // Insert the negative expense entry.
+        $wpdb->insert(
+            $table,
+            [
+                'type'             => 'expense',
+                'date'             => $row->date,
+                'merchant'         => $row->merchant,
+                'amount'           => $neg_amount,
+                'category'         => $category,
+                'bank_account'     => '',
+                'business'         => $this->get_business_name(),
+                'status'           => 'classified',
+                'comments'         => $comments,
+                'source_file'      => 'refund-offset',
+                'tax_year'         => $tax_year,
+                'travel_period_id' => 0,
+                'receipt_id'       => 0,
+                'client_id'        => 0,
+            ]
+        );
+
+        $expense_id = (int) $wpdb->insert_id;
+
+        // Mark the income row as Refund so it is excluded from taxable income.
+        $wpdb->update(
+            $table,
+            [ 'category' => 'Refund' ],
+            [ 'id'       => $income_id ],
+            [ '%s' ],
+            [ '%d' ]
+        );
+
+        EL_AJAX_Handler::success( [
+            'expense_id' => $expense_id,
+            'income_id'  => $income_id,
+            'amount'     => $neg_amount,
+            'category'   => $category,
+        ] );
     }
 
     /**

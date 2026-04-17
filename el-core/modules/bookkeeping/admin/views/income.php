@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 $transactions = $prefetch_income;
 $categories   = EL_Bookkeeping_Module::get_income_categories();
 $bank_accounts = EL_Bookkeeping_Module::get_bank_accounts();
+$exp_cat_grouped = EL_Bookkeeping_Module::get_expense_categories_grouped();
 
 $excluded      = [ 'Other', 'Bank Transfer', 'Ignore', 'Refund', 'Travel Credit' ];
 $taxable       = array_filter( $transactions, fn( $t ) => ! in_array( $t->category, $excluded, true ) );
@@ -270,6 +271,13 @@ if ( $transactions ) {
                     <?php endif; ?>
                 </td>
                 <td style="text-align:center;white-space:nowrap;">
+                    <button class="el-bk-convert-refund-btn"
+                        data-id="<?php echo esc_attr( $t->id ); ?>"
+                        data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
+                        data-amount="<?php echo esc_attr( number_format( (float) $t->amount, 2 ) ); ?>"
+                        data-date="<?php echo esc_attr( $t->date ); ?>"
+                        title="<?php esc_attr_e( 'Convert to Expense Offset — creates a negative expense entry and marks this deposit as Refund', 'el-core' ); ?>"
+                        style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 5px;color:#7c3aed;opacity:0.7;line-height:1;">↩</button>
                     <button class="el-bk-delete-income-btn"
                         data-id="<?php echo esc_attr( $t->id ); ?>"
                         data-merchant="<?php echo esc_attr( $t->merchant ); ?>"
@@ -333,6 +341,61 @@ if ( $transactions ) {
         <div class="el-bk-modal-footer">
             <button class="el-btn el-btn-primary" id="el-bk-match-confirm-btn" disabled>
                 <?php esc_html_e( 'Confirm Match', 'el-core' ); ?>
+            </button>
+            <button class="el-btn el-btn-outline el-bk-modal-cancel"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     REFUND OFFSET MODAL
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="el-bk-refund-offset-modal" class="el-bk-modal" style="display:none;">
+    <div class="el-bk-modal-backdrop"></div>
+    <div class="el-bk-modal-content" style="max-width:480px;">
+        <div class="el-bk-modal-header">
+            <h3><?php esc_html_e( 'Convert to Expense Offset', 'el-core' ); ?></h3>
+            <button class="el-bk-modal-close">×</button>
+        </div>
+        <div class="el-bk-modal-body">
+            <div id="el-bk-ro-info"
+                style="background:#f3f4f6;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:13px;line-height:1.6;">
+            </div>
+            <p style="font-size:13px;color:#6b7280;margin:0 0 14px;">
+                <?php esc_html_e( 'This will create a negative expense entry for this amount and mark the deposit as Refund (excluded from taxable income).', 'el-core' ); ?>
+            </p>
+            <label style="font-size:13px;font-weight:500;display:block;margin-bottom:12px;">
+                <?php esc_html_e( 'Expense Category', 'el-core' ); ?>
+                <select id="el-bk-ro-category" class="el-select"
+                    style="display:block;width:100%;margin-top:5px;">
+                    <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+                        <?php foreach ( $exp_cat_grouped['business'] as $cat ) : ?>
+                            <option value="<?php echo esc_attr( $cat ); ?>"
+                                <?php selected( $cat, 'Travel Expense' ); ?>>
+                                <?php echo esc_html( $cat ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+                        <?php foreach ( $exp_cat_grouped['personal'] as $cat ) : ?>
+                            <option value="<?php echo esc_attr( $cat ); ?>">
+                                <?php echo esc_html( $cat ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                </select>
+            </label>
+            <label style="font-size:13px;font-weight:500;display:block;">
+                <?php esc_html_e( 'Comments / Notes', 'el-core' ); ?>
+                <input type="text" id="el-bk-ro-comments" class="el-input el-bk-voice-input"
+                    style="display:block;width:100%;margin-top:5px;box-sizing:border-box;"
+                    placeholder="<?php esc_attr_e( 'e.g. Refund offset — cancelled flight', 'el-core' ); ?>">
+            </label>
+            <div id="el-bk-ro-status" style="min-height:18px;font-size:13px;margin-top:10px;"></div>
+        </div>
+        <div class="el-bk-modal-footer">
+            <button class="el-btn el-btn-primary" id="el-bk-ro-confirm-btn">
+                <?php esc_html_e( 'Create Offset', 'el-core' ); ?>
             </button>
             <button class="el-btn el-btn-outline el-bk-modal-cancel"><?php esc_html_e( 'Cancel', 'el-core' ); ?></button>
         </div>

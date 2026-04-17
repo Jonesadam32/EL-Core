@@ -3874,6 +3874,55 @@ $(document).on('click', '.el-bk-delete-income-btn', function() {
     });
 });
 
+// ── CONVERT DEPOSIT TO REFUND OFFSET ─────────────────────────────────────────
+
+$(document).on('click', '.el-bk-convert-refund-btn', function () {
+    var $btn      = $(this);
+    var incomeId  = $btn.data('id');
+    var merchant  = $btn.data('merchant') || '';
+    var amount    = $btn.data('amount')   || '0.00';
+    var date      = $btn.data('date')     || '';
+
+    $('#el-bk-ro-info').html(
+        '<strong>' + $('<span>').text(merchant).html() + '</strong>' +
+        ' &nbsp;|&nbsp; $' + amount +
+        ' &nbsp;|&nbsp; ' + date
+    );
+    $('#el-bk-ro-comments').val('Refund offset \u2014 ' + merchant);
+    $('#el-bk-ro-status').html('');
+    $('#el-bk-ro-confirm-btn').prop('disabled', false).text('Create Offset');
+    $('#el-bk-refund-offset-modal')
+        .data('income-id', incomeId)
+        .data('income-row', $btn.closest('tr'))
+        .fadeIn(200);
+});
+
+$(document).on('click', '#el-bk-ro-confirm-btn', function () {
+    var $modal    = $('#el-bk-refund-offset-modal');
+    var incomeId  = $modal.data('income-id');
+    var $row      = $modal.data('income-row');
+    var category  = $('#el-bk-ro-category').val();
+    var comments  = $.trim($('#el-bk-ro-comments').val());
+    var $btn      = $(this).prop('disabled', true).text('Saving\u2026');
+    var $status   = $('#el-bk-ro-status');
+
+    elBkAjax('bk_convert_refund_offset', {
+        income_id: incomeId,
+        category:  category,
+        comments:  comments,
+    }, function (data) {
+        $modal.fadeOut(200);
+        // Update the category dropdown on the income row to show Refund.
+        $row.find('.el-bk-inline-select[data-field="category"]').val('Refund');
+        // Dim the row to indicate it is now excluded.
+        $row.css('opacity', '0.5').attr('title', 'Marked as Refund \u2014 excluded from taxable income');
+        $btn.prop('disabled', false).text('Create Offset');
+    }, function (msg) {
+        $status.html('<span style="color:#dc2626;">Error: ' + msg + '</span>');
+        $btn.prop('disabled', false).text('Create Offset');
+    });
+});
+
 // ── DELETE SINGLE EXPENSE ─────────────────────────────────────────────────────
 
 $(document).on('click', '.el-bk-delete-expense-btn', function() {
