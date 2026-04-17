@@ -3787,6 +3787,9 @@ $('input[name="vehicle_method"]').on('change', function() {
     var method = $(this).val();
     $('#el-bk-vehicle-standard-fields').toggle(method === 'standard');
     $('#el-bk-vehicle-actual-fields').toggle(method === 'actual');
+    // Disable the hidden section's inputs so they are not submitted with the form.
+    $('#el-bk-vehicle-standard-fields input').prop('disabled', method !== 'standard');
+    $('#el-bk-vehicle-actual-fields input').prop('disabled', method !== 'actual');
     updateVehicleCalculation();
 });
 

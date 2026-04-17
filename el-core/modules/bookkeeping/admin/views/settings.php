@@ -375,11 +375,11 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['el_bk_settings_nonc
                     <div class="el-bk-settings-row">
                         <div class="el-bk-settings-field">
                             <label for="el-bk-vehicle-total-miles"><?php esc_html_e( 'Total Miles Driven (Year)', 'el-core' ); ?></label>
-                            <input type="number" id="el-bk-vehicle-total-miles" name="vehicle_total_miles" class="el-input" value="<?php echo esc_attr( $vehicle_total_miles ); ?>" min="0" step="1">
+                            <input type="number" id="el-bk-vehicle-total-miles" name="vehicle_total_miles" class="el-input" value="<?php echo esc_attr( $vehicle_total_miles ); ?>" min="0" step="1" <?php echo $vehicle_method === 'actual' ? 'disabled' : ''; ?>>
                         </div>
                         <div class="el-bk-settings-field">
                             <label for="el-bk-vehicle-business-miles"><?php esc_html_e( 'Business Miles Driven', 'el-core' ); ?></label>
-                            <input type="number" id="el-bk-vehicle-business-miles" name="vehicle_business_miles" class="el-input" value="<?php echo esc_attr( $vehicle_biz_miles ); ?>" min="0" step="1">
+                            <input type="number" id="el-bk-vehicle-business-miles" name="vehicle_business_miles" class="el-input" value="<?php echo esc_attr( $vehicle_biz_miles ); ?>" min="0" step="1" <?php echo $vehicle_method === 'actual' ? 'disabled' : ''; ?>>
                         </div>
                         <div class="el-bk-settings-field">
                             <label><?php esc_html_e( 'Business Use %', 'el-core' ); ?></label>
@@ -435,11 +435,11 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['el_bk_settings_nonc
                     <div class="el-bk-settings-row">
                         <div class="el-bk-settings-field">
                             <label for="el-bk-vehicle-actual-total-miles"><?php esc_html_e( 'Total Miles Driven (Year)', 'el-core' ); ?></label>
-                            <input type="number" id="el-bk-vehicle-actual-total-miles" name="vehicle_total_miles" class="el-input" value="<?php echo esc_attr( $vehicle_total_miles ); ?>" min="0" step="1">
+                            <input type="number" id="el-bk-vehicle-actual-total-miles" name="vehicle_total_miles" class="el-input" value="<?php echo esc_attr( $vehicle_total_miles ); ?>" min="0" step="1" <?php echo $vehicle_method !== 'actual' ? 'disabled' : ''; ?>>
                         </div>
                         <div class="el-bk-settings-field">
                             <label for="el-bk-vehicle-actual-business-miles"><?php esc_html_e( 'Business Miles Driven', 'el-core' ); ?></label>
-                            <input type="number" id="el-bk-vehicle-actual-business-miles" name="vehicle_business_miles" class="el-input" value="<?php echo esc_attr( $vehicle_biz_miles ); ?>" min="0" step="1">
+                            <input type="number" id="el-bk-vehicle-actual-business-miles" name="vehicle_business_miles" class="el-input" value="<?php echo esc_attr( $vehicle_biz_miles ); ?>" min="0" step="1" <?php echo $vehicle_method !== 'actual' ? 'disabled' : ''; ?>>
                         </div>
                     </div>
                 </div>
