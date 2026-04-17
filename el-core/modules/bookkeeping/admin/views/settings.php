@@ -64,6 +64,10 @@ $biz_insurance       = (float) $module->get_setting( 'business_insurance',      
 $bank_merchant_fees  = (float) $module->get_setting( 'bank_merchant_fees',        0 );
 $software_subs       = (float) $module->get_setting( 'software_subscriptions',    0 );
 
+// Gmail
+$gmail_client_id     = $module->get_setting( 'gmail_client_id',     '' );
+$gmail_client_secret = $module->get_setting( 'gmail_client_secret', '' );
+
 $upload_dir  = wp_upload_dir();
 $receipt_dir = $upload_dir['basedir'] . '/els-bookkeeping/receipts';
 
@@ -122,6 +126,10 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['el_bk_settings_nonc
         $s->set( 'mod_bookkeeping', 'bank_merchant_fees',       (float) ( $_POST['bank_merchant_fees']       ?? 0 ) );
         $s->set( 'mod_bookkeeping', 'software_subscriptions',   (float) ( $_POST['software_subscriptions']   ?? 0 ) );
 
+        // Gmail Receipt Scanner
+        $s->set( 'mod_bookkeeping', 'gmail_client_id',     sanitize_text_field( wp_unslash( $_POST['gmail_client_id']     ?? '' ) ) );
+        $s->set( 'mod_bookkeeping', 'gmail_client_secret', sanitize_text_field( wp_unslash( $_POST['gmail_client_secret'] ?? '' ) ) );
+
         echo EL_Admin_UI::notice( [ 'message' => __( 'Settings saved.', 'el-core' ), 'type' => 'success' ] ); // phpcs:ignore
 
         // Refresh all values after save
@@ -170,6 +178,9 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['el_bk_settings_nonc
         $biz_insurance       = (float) $module->get_setting( 'business_insurance',        0 );
         $bank_merchant_fees  = (float) $module->get_setting( 'bank_merchant_fees',        0 );
         $software_subs       = (float) $module->get_setting( 'software_subscriptions',    0 );
+
+        $gmail_client_id     = $module->get_setting( 'gmail_client_id',     '' );
+        $gmail_client_secret = $module->get_setting( 'gmail_client_secret', '' );
     }
 }
 ?>
@@ -534,6 +545,64 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['el_bk_settings_nonc
             <p class="el-bk-hint">
                 <?php esc_html_e( 'Note: The Anthropic API key for AI receipt scanning is managed in EL Core → Brand → AI Configuration.', 'el-core' ); ?>
             </p>
+        </div>
+    </div>
+
+    <?php /* ── Gmail Receipt Scanner ─────────────────────────────────────────────── */ ?>
+
+    <?php if ( isset( $_GET['gmail_connected'] ) ) : ?>
+        <div class="el-bk-notice el-bk-notice--success" style="margin-bottom:16px;">
+            <?php esc_html_e( '✓ Gmail account connected successfully.', 'el-core' ); ?>
+        </div>
+    <?php endif; ?>
+    <?php if ( isset( $_GET['gmail_error'] ) ) : ?>
+        <div class="el-bk-notice el-bk-notice--error" style="margin-bottom:16px;">
+            <?php esc_html_e( 'Gmail connection failed. Please try again.', 'el-core' ); ?>
+            <code><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['gmail_error'] ) ) ); ?></code>
+        </div>
+    <?php endif; ?>
+
+    <div class="el-bk-settings-section">
+        <button type="button" class="el-bk-settings-toggle el-bk-settings-toggle--collapsed" data-target="el-bk-section-gmail">
+            <span class="el-bk-settings-toggle-icon">&#9654;</span>
+            <?php esc_html_e( 'Gmail Receipt Scanner', 'el-core' ); ?>
+        </button>
+        <div id="el-bk-section-gmail" class="el-bk-settings-body" style="display:none">
+
+            <p class="el-bk-hint" style="margin-bottom:12px;">
+                <?php esc_html_e( 'Connect Gmail accounts to scan for receipt emails. Requires a Google Cloud project with Gmail API enabled and OAuth 2.0 credentials.', 'el-core' ); ?>
+            </p>
+
+            <p class="el-bk-settings-subsection-title"><?php esc_html_e( 'Google OAuth Credentials', 'el-core' ); ?></p>
+            <div class="el-bk-settings-row">
+                <div class="el-bk-settings-field el-bk-settings-field--full">
+                    <label for="el-bk-gmail-client-id"><?php esc_html_e( 'Client ID', 'el-core' ); ?></label>
+                    <input type="text" id="el-bk-gmail-client-id" name="gmail_client_id" class="el-input el-input--wide" value="<?php echo esc_attr( $gmail_client_id ); ?>" placeholder="xxxxxx.apps.googleusercontent.com">
+                    <span class="el-bk-field-help"><?php esc_html_e( 'From Google Cloud Console → APIs & Services → Credentials', 'el-core' ); ?></span>
+                </div>
+            </div>
+            <div class="el-bk-settings-row">
+                <div class="el-bk-settings-field el-bk-settings-field--full">
+                    <label for="el-bk-gmail-client-secret"><?php esc_html_e( 'Client Secret', 'el-core' ); ?></label>
+                    <input type="text" id="el-bk-gmail-client-secret" name="gmail_client_secret" class="el-input el-input--wide" value="<?php echo esc_attr( $gmail_client_secret ); ?>">
+                    <span class="el-bk-field-help">
+                        <?php esc_html_e( 'Authorized Redirect URI to add in Google Cloud Console:', 'el-core' ); ?>
+                        <code><?php echo esc_html( admin_url( 'admin-ajax.php?action=el_core_action&el_action=bk_gmail_oauth_callback' ) ); ?></code>
+                    </span>
+                </div>
+            </div>
+
+            <p class="el-bk-settings-subsection-title" style="margin-top:20px;"><?php esc_html_e( 'Connected Accounts', 'el-core' ); ?></p>
+            <div id="el-bk-gmail-accounts-list">
+                <p class="el-bk-hint"><?php esc_html_e( 'Loading…', 'el-core' ); ?></p>
+            </div>
+
+            <div style="margin-top:12px;">
+                <button type="button" class="el-btn el-btn-primary" id="el-bk-gmail-connect-btn">
+                    <?php esc_html_e( 'Connect Gmail Account', 'el-core' ); ?>
+                </button>
+            </div>
+
         </div>
     </div>
 

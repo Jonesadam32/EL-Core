@@ -2934,3 +2934,132 @@
     color: #15803d;
 }
 
+/* ── Gmail Receipt Scanner ───────────────────────────────────────────────────── */
+
+.el-admin-wrap .el-bk-gmail-scanner-card {
+    margin-bottom: 20px;
+}
+
+.el-admin-wrap .el-bk-gmail-scanner-toggle:hover h3 {
+    color: #2271b1;
+}
+
+/* Connected accounts table in Settings */
+.el-admin-wrap .el-bk-gmail-accounts-table {
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+.el-admin-wrap .el-bk-gmail-accounts-table th,
+.el-admin-wrap .el-bk-gmail-accounts-table td {
+    padding: 7px 10px;
+}
+
+/* Month status grid */
+.el-admin-wrap .el-bk-gmail-month-grid {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    margin-bottom: 4px;
+}
+
+.el-admin-wrap .el-bk-gmail-month-cell {
+    flex: 1;
+    min-width: 42px;
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    user-select: none;
+}
+
+.el-admin-wrap .el-bk-gmail-month-cell:hover {
+    opacity: 0.8;
+    transform: translateY(-1px);
+}
+
+.el-admin-wrap .el-bk-gmail-month-cell--gray {
+    background: #e5e7eb;
+    color: #6b7280;
+}
+
+.el-admin-wrap .el-bk-gmail-month-cell--yellow {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+}
+
+.el-admin-wrap .el-bk-gmail-month-cell--green {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #22c55e;
+}
+
+/* Scan progress */
+.el-admin-wrap .el-bk-gmail-scan-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #374151;
+    padding: 10px 0;
+}
+
+/* Review queue cards */
+.el-admin-wrap .el-bk-gmail-review-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+
+.el-admin-wrap .el-bk-gmail-review-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.el-admin-wrap .el-bk-gmail-review-card-fields {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.el-admin-wrap .el-bk-gmail-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.el-admin-wrap .el-bk-gmail-field-group--wide {
+    grid-column: span 2;
+}
+
+.el-admin-wrap .el-bk-gmail-field-group--full {
+    grid-column: span 3;
+}
+
+.el-admin-wrap .el-bk-gmail-field-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.el-admin-wrap .el-bk-gmail-cat-select {
+    width: 100%;
+    font-size: 13px;
+}
+
+.el-admin-wrap .el-bk-confidence-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}

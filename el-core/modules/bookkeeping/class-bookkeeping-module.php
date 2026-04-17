@@ -133,6 +133,15 @@ class EL_Bookkeeping_Module {
 
         // ── Accountant Export (Phase C.2) ─────────────────────────
         add_action( 'el_core_ajax_bk_export_accountant', [ $this, 'handle_export_accountant' ] );
+
+        // ── Gmail Receipt Scanner ──────────────────────────────────
+        add_action( 'wp_ajax_el_core_action',               [ $this, 'maybe_handle_gmail_oauth_get' ], 1 );
+        add_action( 'el_core_ajax_bk_gmail_get_accounts',   [ $this, 'handle_gmail_get_accounts' ] );
+        add_action( 'el_core_ajax_bk_gmail_build_auth_url', [ $this, 'handle_gmail_build_auth_url' ] );
+        add_action( 'el_core_ajax_bk_gmail_disconnect',     [ $this, 'handle_gmail_disconnect' ] );
+        add_action( 'el_core_ajax_bk_gmail_scan_month',     [ $this, 'handle_gmail_scan_month' ] );
+        add_action( 'el_core_ajax_bk_gmail_save_receipts',  [ $this, 'handle_gmail_save_receipts' ] );
+        add_action( 'el_core_ajax_bk_gmail_get_scan_log',   [ $this, 'handle_gmail_get_scan_log' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -5872,5 +5881,497 @@ class EL_Bookkeeping_Module {
             'SBA Loan'                           => '',
             'Student Loan'                       => '',
         ];
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // GMAIL RECEIPT SCANNER — HELPERS
+    // ─────────────────────────────────────────────────────────────
+
+    private function gmail_redirect_uri(): string {
+        return admin_url( 'admin-ajax.php?action=el_core_action&el_action=bk_gmail_oauth_callback' );
+    }
+
+    /**
+     * Refresh access token if it expires within 5 minutes.
+     * Returns the (possibly updated) account object, or false on failure.
+     */
+    private function gmail_refresh_token_if_needed( object $account ): object|false {
+        $expires = strtotime( $account->token_expires );
+        if ( time() < $expires - 300 ) {
+            return $account;
+        }
+
+        $client_id     = $this->get_setting( 'gmail_client_id', '' );
+        $client_secret = $this->get_setting( 'gmail_client_secret', '' );
+
+        $response = wp_remote_post( 'https://oauth2.googleapis.com/token', [
+            'timeout' => 30,
+            'body'    => [
+                'client_id'     => $client_id,
+                'client_secret' => $client_secret,
+                'refresh_token' => $account->refresh_token,
+                'grant_type'    => 'refresh_token',
+            ],
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            return false;
+        }
+
+        $body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( empty( $body['access_token'] ) ) {
+            return false;
+        }
+
+        $new_expires = gmdate( 'Y-m-d H:i:s', time() + (int) ( $body['expires_in'] ?? 3600 ) );
+
+        global $wpdb;
+        $wpdb->update(
+            $this->table( 'el_bk_gmail_accounts' ),
+            [
+                'access_token'  => $body['access_token'],
+                'token_expires' => $new_expires,
+                'status'        => 'active',
+                'updated_at'    => current_time( 'mysql' ),
+            ],
+            [ 'id' => $account->id ],
+            [ '%s', '%s', '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        $account->access_token  = $body['access_token'];
+        $account->token_expires = $new_expires;
+        $account->status        = 'active';
+
+        return $account;
+    }
+
+    /** Simple authenticated GET to the Gmail REST API. Returns decoded JSON or false. */
+    private function gmail_api_get( string $url, string $access_token ): array|false {
+        $response = wp_remote_get( $url, [
+            'timeout' => 30,
+            'headers' => [ 'Authorization' => 'Bearer ' . $access_token ],
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            return false;
+        }
+
+        if ( wp_remote_retrieve_response_code( $response ) !== 200 ) {
+            return false;
+        }
+
+        return json_decode( wp_remote_retrieve_body( $response ), true ) ?: false;
+    }
+
+    /** Decode base64url-encoded string (Gmail uses URL-safe base64). */
+    private function gmail_decode_base64url( string $data ): string {
+        return (string) base64_decode( str_replace( [ '-', '_' ], [ '+', '/' ], $data ) );
+    }
+
+    /**
+     * Walk a message payload recursively and extract:
+     *   - First text/plain (or text/html stripped of tags) as $text
+     *   - First image/* attachment as $image_base64 / $image_mime
+     */
+    private function gmail_walk_payload( array $part, string &$text, string &$image_base64, string &$image_mime ): void {
+        $mime = $part['mimeType'] ?? '';
+
+        if ( $mime === 'text/plain' && $text === '' ) {
+            $data = $part['body']['data'] ?? '';
+            if ( $data ) {
+                $text = $this->gmail_decode_base64url( $data );
+            }
+        } elseif ( $mime === 'text/html' && $text === '' ) {
+            $data = $part['body']['data'] ?? '';
+            if ( $data ) {
+                $text = wp_strip_all_tags( $this->gmail_decode_base64url( $data ) );
+            }
+        } elseif ( str_starts_with( $mime, 'image/' ) && $image_base64 === '' ) {
+            $data = $part['body']['data'] ?? '';
+            if ( $data ) {
+                $image_base64 = base64_encode( $this->gmail_decode_base64url( $data ) );
+                $image_mime   = $mime;
+            }
+        }
+
+        foreach ( $part['parts'] ?? [] as $subpart ) {
+            $this->gmail_walk_payload( $subpart, $text, $image_base64, $image_mime );
+        }
+    }
+
+    /**
+     * Extract usable body text + optional image from a raw Gmail message payload.
+     * Returns array: ['text' => '...', 'image_base64' => '...', 'image_mime' => '...']
+     */
+    private function gmail_extract_body( array $payload ): array {
+        $text         = '';
+        $image_base64 = '';
+        $image_mime   = '';
+
+        $this->gmail_walk_payload( $payload, $text, $image_base64, $image_mime );
+
+        // Last-resort fallback for simple single-part messages.
+        if ( $text === '' && ! empty( $payload['body']['data'] ) ) {
+            $raw  = $this->gmail_decode_base64url( $payload['body']['data'] );
+            $text = wp_strip_all_tags( $raw );
+        }
+
+        return [
+            'text'         => substr( trim( $text ), 0, 2000 ),
+            'image_base64' => $image_base64,
+            'image_mime'   => $image_mime,
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // GMAIL RECEIPT SCANNER — AJAX HANDLERS
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Fires at priority 1 on wp_ajax_el_core_action.
+     * Intercepts GET-based OAuth redirect from Google before the nonce check runs.
+     */
+    public function maybe_handle_gmail_oauth_get(): void {
+        $action = sanitize_key( $_GET['el_action'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification
+        if ( $action !== 'bk_gmail_oauth_callback' ) {
+            return;
+        }
+
+        if ( ! is_user_logged_in() || ! el_core_can( 'manage_bookkeeping_settings' ) ) {
+            wp_die( esc_html__( 'Permission denied.', 'el-core' ) );
+        }
+
+        $code  = sanitize_text_field( wp_unslash( $_GET['code']  ?? '' ) ); // phpcs:ignore
+        $error = sanitize_text_field( wp_unslash( $_GET['error'] ?? '' ) ); // phpcs:ignore
+
+        if ( $error || ! $code ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=els-bookkeeping&tab=settings&gmail_error=access_denied' ) );
+            exit;
+        }
+
+        $client_id     = $this->get_setting( 'gmail_client_id', '' );
+        $client_secret = $this->get_setting( 'gmail_client_secret', '' );
+        $redirect_uri  = $this->gmail_redirect_uri();
+
+        $token_response = wp_remote_post( 'https://oauth2.googleapis.com/token', [
+            'timeout' => 30,
+            'body'    => [
+                'client_id'     => $client_id,
+                'client_secret' => $client_secret,
+                'code'          => $code,
+                'redirect_uri'  => $redirect_uri,
+                'grant_type'    => 'authorization_code',
+            ],
+        ] );
+
+        if ( is_wp_error( $token_response ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=els-bookkeeping&tab=settings&gmail_error=token_exchange' ) );
+            exit;
+        }
+
+        $tokens = json_decode( wp_remote_retrieve_body( $token_response ), true );
+
+        if ( empty( $tokens['access_token'] ) ) {
+            wp_safe_redirect( admin_url( 'admin.php?page=els-bookkeeping&tab=settings&gmail_error=no_token' ) );
+            exit;
+        }
+
+        // Fetch Gmail address from profile endpoint.
+        $profile = $this->gmail_api_get(
+            'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+            $tokens['access_token']
+        );
+
+        $email   = $profile['emailAddress'] ?? 'unknown@gmail.com';
+        $expires = gmdate( 'Y-m-d H:i:s', time() + (int) ( $tokens['expires_in'] ?? 3600 ) );
+
+        global $wpdb;
+        $wpdb->insert( $this->table( 'el_bk_gmail_accounts' ), [
+            'label'         => $email,
+            'email'         => $email,
+            'access_token'  => $tokens['access_token'],
+            'refresh_token' => $tokens['refresh_token'] ?? '',
+            'token_expires' => $expires,
+            'status'        => 'active',
+        ] );
+
+        wp_safe_redirect( admin_url( 'admin.php?page=els-bookkeeping&tab=settings&gmail_connected=1' ) );
+        exit;
+    }
+
+    public function handle_gmail_get_accounts( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+        $accounts = $wpdb->get_results(
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            "SELECT id, label, email, token_expires, status, created_at FROM {$this->table('el_bk_gmail_accounts')} ORDER BY id ASC"
+        );
+
+        EL_AJAX_Handler::success( $accounts );
+    }
+
+    public function handle_gmail_build_auth_url( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping_settings' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $client_id = $this->get_setting( 'gmail_client_id', '' );
+        if ( ! $client_id ) {
+            EL_AJAX_Handler::error( __( 'No Gmail Client ID configured. Add your Google OAuth credentials in Settings → Gmail Receipt Scanner.', 'el-core' ) );
+            return;
+        }
+
+        $url = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query( [
+            'client_id'     => $client_id,
+            'redirect_uri'  => $this->gmail_redirect_uri(),
+            'response_type' => 'code',
+            'scope'         => 'https://www.googleapis.com/auth/gmail.readonly',
+            'access_type'   => 'offline',
+            'prompt'        => 'consent',
+        ] );
+
+        EL_AJAX_Handler::success( [ 'url' => $url ] );
+    }
+
+    public function handle_gmail_disconnect( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping_settings' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $account_id = absint( $data['account_id'] ?? 0 );
+        if ( ! $account_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid account ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $wpdb->delete( $this->table( 'el_bk_gmail_accounts' ), [ 'id' => $account_id ], [ '%d' ] );
+
+        EL_AJAX_Handler::success( null, __( 'Account disconnected.', 'el-core' ) );
+    }
+
+    public function handle_gmail_scan_month( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $account_id = absint( $data['account_id'] ?? 0 );
+        $scan_month = sanitize_text_field( $data['scan_month'] ?? '' ); // YYYY-MM
+
+        if ( ! $account_id || ! preg_match( '/^\d{4}-\d{2}$/', $scan_month ) ) {
+            EL_AJAX_Handler::error( __( 'Invalid account or month format.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $account = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$this->table('el_bk_gmail_accounts')} WHERE id = %d",
+            $account_id
+        ) );
+
+        if ( ! $account ) {
+            EL_AJAX_Handler::error( __( 'Gmail account not found.', 'el-core' ) );
+            return;
+        }
+
+        $account = $this->gmail_refresh_token_if_needed( $account );
+        if ( ! $account ) {
+            EL_AJAX_Handler::error( __( 'Token refresh failed. Please reconnect this Gmail account in Settings.', 'el-core' ) );
+            return;
+        }
+
+        // Build date window for Gmail query.
+        [ $year, $month ] = explode( '-', $scan_month );
+        $year  = (int) $year;
+        $month = (int) $month;
+
+        $date_from = sprintf( '%d/%02d/01', $year, $month );
+        $date_to   = ( $month === 12 )
+            ? sprintf( '%d/01/01', $year + 1 )
+            : sprintf( '%d/%02d/01', $year, $month + 1 );
+
+        $query = "after:{$date_from} before:{$date_to} (receipt OR invoice OR order OR confirmation OR purchase)";
+
+        $search_url    = add_query_arg( [ 'q' => $query, 'maxResults' => 50 ],
+                            'https://gmail.googleapis.com/gmail/v1/users/me/messages' );
+        $search_result = $this->gmail_api_get( $search_url, $account->access_token );
+
+        if ( $search_result === false ) {
+            EL_AJAX_Handler::error( __( 'Gmail API error while searching messages. Check your connection.', 'el-core' ) );
+            return;
+        }
+
+        $messages     = $search_result['messages'] ?? [];
+        $emails_found = count( $messages );
+        $receipts     = [];
+
+        $categories_list = implode( ', ', [
+            'Accounting Fees', 'Advertising & Promotion', 'Computer - Hardware',
+            'Computer - Hosting', 'Computer - Software', 'Contract Labor',
+            'Dues & Subscriptions', 'Education & Training', 'Health Care Insurance',
+            'Home Office Expense', 'Insurance-General Liability', 'Meals & Entertainment',
+            'Merchant Account Fees', 'Office Supplies', 'Parking & tolls',
+            'Professional Fees', 'Rent Expense', 'Telephone - Wireless', 'Travel Expense',
+            'Vehicle - Fuel', 'Vehicle - Repairs and Maintenance', 'Vehicles Insurance',
+        ] );
+
+        set_time_limit( 120 );
+
+        foreach ( $messages as $msg_stub ) {
+            $msg_id = $msg_stub['id'] ?? '';
+            if ( ! $msg_id ) continue;
+
+            $msg_url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/{$msg_id}?format=full";
+            $message = $this->gmail_api_get( $msg_url, $account->access_token );
+            if ( ! $message ) continue;
+
+            // Extract subject from headers.
+            $subject = '';
+            foreach ( $message['payload']['headers'] ?? [] as $header ) {
+                if ( strtolower( $header['name'] ) === 'subject' ) {
+                    $subject = $header['value'];
+                    break;
+                }
+            }
+
+            $body_data = $this->gmail_extract_body( $message['payload'] ?? [] );
+            $body_text = $body_data['text'];
+
+            if ( empty( $body_text ) && empty( $subject ) ) continue;
+
+            $prompt = "You are a receipt extraction assistant. Given the subject and body of an email, extract receipt information if present.\n\n"
+                . "Return ONLY a JSON object — no explanation, no markdown, no code fences. If this email does not contain a receipt, return: {\"is_receipt\": false}\n\n"
+                . "If it is a receipt, return:\n"
+                . "{\n  \"is_receipt\": true,\n  \"merchant\": \"Store or vendor name\",\n"
+                . "  \"date\": \"YYYY-MM-DD\",\n  \"amount\": \"0.00\",\n"
+                . "  \"category\": \"Best matching category from the list below\",\n"
+                . "  \"notes\": \"Brief description of what was purchased\",\n"
+                . "  \"confidence\": \"high | medium | low\"\n}\n\n"
+                . "Valid categories: {$categories_list}\n\n"
+                . "Email subject: {$subject}\nEmail body:\n{$body_text}";
+
+            $ai_args = [ 'prompt' => $prompt, 'max_tokens' => 300 ];
+
+            if ( $body_data['image_base64'] ) {
+                $ai_args['image_base64'] = $body_data['image_base64'];
+                $ai_args['image_mime']   = $body_data['image_mime'];
+                $ai_result               = $this->core->ai->complete_with_image( $ai_args );
+            } else {
+                $ai_result = $this->core->ai->complete( $ai_args );
+            }
+
+            if ( ! $ai_result['success'] ) continue;
+
+            // Strip markdown fences if the model wraps in ```json ... ```.
+            $raw    = trim( $ai_result['content'] );
+            $raw    = preg_replace( '/^```(?:json)?\s*/i', '', $raw );
+            $raw    = preg_replace( '/\s*```\s*$/', '', $raw );
+            $parsed = json_decode( $raw, true );
+
+            if ( ! is_array( $parsed ) || empty( $parsed['is_receipt'] ) ) continue;
+
+            $receipts[] = [
+                'gmail_message_id' => $msg_id,
+                'subject'          => $subject,
+                'merchant'         => $parsed['merchant']   ?? '',
+                'date'             => $parsed['date']       ?? '',
+                'amount'           => $parsed['amount']     ?? '0.00',
+                'category'         => $parsed['category']   ?? '',
+                'notes'            => $parsed['notes']      ?? '',
+                'confidence'       => $parsed['confidence'] ?? 'medium',
+            ];
+        }
+
+        // Write scan log row.
+        $wpdb->insert( $this->table( 'el_bk_gmail_scan_log' ), [
+            'account_id'         => $account_id,
+            'scan_month'         => $scan_month,
+            'emails_found'       => $emails_found,
+            'receipts_extracted' => count( $receipts ),
+        ] );
+
+        EL_AJAX_Handler::success( [
+            'emails_found' => $emails_found,
+            'receipts'     => $receipts,
+        ] );
+    }
+
+    public function handle_gmail_save_receipts( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $receipts = $data['receipts'] ?? [];
+        if ( ! is_array( $receipts ) || empty( $receipts ) ) {
+            EL_AJAX_Handler::error( __( 'No receipts to save.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $saved = 0;
+
+        foreach ( $receipts as $receipt ) {
+            if ( ! is_array( $receipt ) ) continue;
+
+            $amount_float = (float) str_replace( [ '$', ',' ], '', $receipt['amount'] ?? '0' );
+            $date_val     = sanitize_text_field( $receipt['date'] ?? '' );
+
+            $wpdb->insert(
+                $this->table( 'el_bk_receipts' ),
+                [
+                    'transaction_id'        => 0,
+                    'file_path'             => '',
+                    'file_url'              => '',
+                    'file_type'             => '',
+                    'ai_extracted_merchant' => sanitize_text_field( $receipt['merchant'] ?? '' ),
+                    'ai_extracted_date'     => $date_val ?: null,
+                    'ai_extracted_amount'   => $amount_float ?: null,
+                    'ai_extracted_category' => sanitize_text_field( $receipt['category'] ?? '' ),
+                    'location'              => '',
+                    'notes'                 => sanitize_text_field( $receipt['notes'] ?? '' ),
+                    'ai_raw_response'       => 'email:' . sanitize_text_field( $receipt['gmail_message_id'] ?? '' ),
+                    'status'                => 'unmatched',
+                ]
+            );
+
+            $saved++;
+        }
+
+        EL_AJAX_Handler::success(
+            [ 'saved' => $saved ],
+            // translators: %d = number of receipts saved
+            sprintf( _n( '%d receipt saved to Receipts tab.', '%d receipts saved to Receipts tab.', $saved, 'el-core' ), $saved )
+        );
+    }
+
+    public function handle_gmail_get_scan_log( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        $account_id = absint( $data['account_id'] ?? 0 );
+        if ( ! $account_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid account ID.', 'el-core' ) );
+            return;
+        }
+
+        global $wpdb;
+        $logs = $wpdb->get_results( $wpdb->prepare(
+            "SELECT * FROM {$this->table('el_bk_gmail_scan_log')} WHERE account_id = %d ORDER BY scanned_at DESC",
+            $account_id
+        ) );
+
+        EL_AJAX_Handler::success( $logs );
     }
 }

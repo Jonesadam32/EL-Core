@@ -4060,4 +4060,330 @@ $(document).on('click', '.el-bk-export-pl-btn', function () {
     elBkDownloadCsv({ type: 'pl', pl_from: plFrom, pl_to: plTo, pl_view: plView }, origText, $btn);
 });
 
+// ── GMAIL RECEIPT SCANNER ─────────────────────────────────────────────────────
+
+// ── Settings tab: load + manage connected accounts ────────────────────────────
+
+function elBkGmailLoadAccounts() {
+    var $list = $('#el-bk-gmail-accounts-list');
+    if (!$list.length) return;
+    elBkAjax('bk_gmail_get_accounts', {}, function (accounts) {
+        if (!accounts || !accounts.length) {
+            $list.html('<p class="el-bk-hint">No Gmail accounts connected yet.</p>');
+            return;
+        }
+        var html = '<table class="el-bk-gmail-accounts-table widefat">'
+            + '<thead><tr><th>Email</th><th>Status</th><th>Connected</th><th></th></tr></thead><tbody>';
+        $.each(accounts, function (i, a) {
+            var badge = a.status === 'active'
+                ? '<span class="el-bk-status-badge el-bk-status-badge--matched">Active</span>'
+                : '<span class="el-bk-status-badge el-bk-status-badge--unmatched">' + a.status + '</span>';
+            html += '<tr>'
+                + '<td>' + $('<span>').text(a.email).html() + '</td>'
+                + '<td>' + badge + '</td>'
+                + '<td style="font-size:12px;color:#666;">' + $('<span>').text(a.created_at ? a.created_at.substring(0, 10) : '').html() + '</td>'
+                + '<td><button class="el-btn el-btn-outline el-btn-sm el-bk-gmail-disconnect-btn" data-id="' + a.id + '">Disconnect</button></td>'
+                + '</tr>';
+        });
+        html += '</tbody></table>';
+        $list.html(html);
+    }, function () {
+        $list.html('<p class="el-bk-hint" style="color:#dc2626;">Could not load accounts.</p>');
+    });
+}
+
+// Load on settings tab
+if ($('#el-bk-gmail-accounts-list').length) {
+    elBkGmailLoadAccounts();
+}
+
+// Connect button
+$(document).on('click', '#el-bk-gmail-connect-btn', function () {
+    var $btn = $(this).prop('disabled', true).text('Redirecting to Google…');
+    elBkAjax('bk_gmail_build_auth_url', {}, function (data) {
+        window.location.href = data.url;
+    }, function (msg) {
+        $btn.prop('disabled', false).text('Connect Gmail Account');
+        alert(msg);
+    });
+});
+
+// Disconnect button
+$(document).on('click', '.el-bk-gmail-disconnect-btn', function () {
+    if (!confirm('Disconnect this Gmail account?')) return;
+    var $btn = $(this).prop('disabled', true);
+    elBkAjax('bk_gmail_disconnect', { account_id: $btn.data('id') }, function () {
+        elBkGmailLoadAccounts();
+    }, function (msg) {
+        $btn.prop('disabled', false);
+        alert(msg);
+    });
+});
+
+// ── Receipts tab: Scanner UI ──────────────────────────────────────────────────
+
+var elBkGmailScanLog = {}; // { 'YYYY-MM': { receipts_extracted, scanned_at } }
+var elBkGmailCurrentYear = String(elBookkeeping.taxYear);
+
+// Pre-set month to current month on page load
+(function () {
+    var now = new Date();
+    var mm  = String(now.getMonth() + 1).padStart(2, '0');
+    $('#el-bk-gmail-month-select').val(mm);
+}());
+
+// Toggle scanner card open/close
+$(document).on('click', '#el-bk-gmail-scanner-toggle', function () {
+    var $body = $('#el-bk-gmail-scanner-body');
+    var $icon = $('#el-bk-gmail-scanner-icon');
+    if ($body.is(':visible')) {
+        $body.slideUp(150);
+        $icon.html('&#9654;');
+    } else {
+        $body.slideDown(150);
+        $icon.html('&#9660;');
+        // Load accounts into dropdown if not already loaded
+        if ($('#el-bk-gmail-account-select option').length === 1) {
+            elBkGmailLoadAccountDropdown();
+        }
+    }
+});
+
+function elBkGmailLoadAccountDropdown() {
+    elBkAjax('bk_gmail_get_accounts', {}, function (accounts) {
+        var $sel = $('#el-bk-gmail-account-select');
+        $sel.find('option:not(:first)').remove();
+        if (!accounts || !accounts.length) {
+            $sel.after('<p class="el-bk-hint" style="margin-top:6px;">No Gmail accounts connected. Go to Settings → Gmail Receipt Scanner to connect one.</p>');
+            return;
+        }
+        $.each(accounts, function (i, a) {
+            $sel.append($('<option>').val(a.id).text(a.email));
+        });
+    });
+}
+
+// Account selection → load scan log + show grid
+$(document).on('change', '#el-bk-gmail-account-select', function () {
+    var accountId = $(this).val();
+    if (!accountId) {
+        $('#el-bk-gmail-scan-btn').prop('disabled', true);
+        $('#el-bk-gmail-month-grid-wrap').hide();
+        return;
+    }
+    $('#el-bk-gmail-scan-btn').prop('disabled', false);
+    elBkGmailRefreshScanLog(accountId);
+});
+
+function elBkGmailRefreshScanLog(accountId) {
+    elBkAjax('bk_gmail_get_scan_log', { account_id: accountId }, function (logs) {
+        elBkGmailScanLog = {};
+        $.each(logs || [], function (i, row) {
+            elBkGmailScanLog[row.scan_month] = row;
+        });
+        elBkGmailUpdateGrid();
+        $('#el-bk-gmail-month-grid-wrap').show();
+    });
+}
+
+function elBkGmailUpdateGrid() {
+    var year = $('#el-bk-gmail-year-select').val() || elBkGmailCurrentYear;
+    $('.el-bk-gmail-month-cell').each(function () {
+        var $cell  = $(this);
+        var month  = $cell.data('month');
+        var key    = year + '-' + month;
+        var row    = elBkGmailScanLog[key];
+        $cell.removeClass('el-bk-gmail-month-cell--gray el-bk-gmail-month-cell--yellow el-bk-gmail-month-cell--green');
+        if (!row) {
+            $cell.addClass('el-bk-gmail-month-cell--gray');
+        } else if ($cell.data('saved')) {
+            $cell.addClass('el-bk-gmail-month-cell--green');
+        } else {
+            $cell.addClass('el-bk-gmail-month-cell--yellow');
+        }
+    });
+}
+
+// Year change → refresh grid labels
+$(document).on('change', '#el-bk-gmail-year-select', function () {
+    elBkGmailUpdateGrid();
+});
+
+// Month cell click → pre-select in dropdowns
+$(document).on('click', '.el-bk-gmail-month-cell', function () {
+    var month = $(this).data('month');
+    $('#el-bk-gmail-month-select').val(month);
+});
+
+// Scan Now
+$(document).on('click', '#el-bk-gmail-scan-btn', function () {
+    var accountId = $('#el-bk-gmail-account-select').val();
+    var month     = $('#el-bk-gmail-month-select').val();
+    var year      = $('#el-bk-gmail-year-select').val();
+    if (!accountId) { alert('Select a Gmail account first.'); return; }
+
+    var scanMonth    = year + '-' + month;
+    var monthNames   = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var monthDisplay = monthNames[parseInt(month, 10) - 1] + ' ' + year;
+
+    $('#el-bk-gmail-scan-btn').prop('disabled', true);
+    $('#el-bk-gmail-review-queue').hide();
+    $('#el-bk-gmail-cards-wrap').empty();
+    $('#el-bk-gmail-save-status').text('');
+    $('#el-bk-gmail-scan-status-text').text('Scanning ' + monthDisplay + '\u2026');
+    $('#el-bk-gmail-scan-progress').show();
+
+    elBkAjax('bk_gmail_scan_month', {
+        account_id: accountId,
+        scan_month: scanMonth,
+        tax_year:   year
+    }, function (data) {
+        $('#el-bk-gmail-scan-progress').hide();
+        $('#el-bk-gmail-scan-btn').prop('disabled', false);
+
+        // Update scan log cache + grid
+        if (elBkGmailScanLog) {
+            elBkGmailScanLog[scanMonth] = { scan_month: scanMonth, receipts_extracted: (data.receipts || []).length };
+            elBkGmailUpdateGrid();
+        }
+
+        if (!data.receipts || !data.receipts.length) {
+            alert('Scanned ' + data.emails_found + ' email(s) — no receipts found.');
+            return;
+        }
+
+        elBkGmailRenderQueue(data.receipts, data.emails_found, monthDisplay);
+    }, function (msg) {
+        $('#el-bk-gmail-scan-progress').hide();
+        $('#el-bk-gmail-scan-btn').prop('disabled', false);
+        alert('Scan error: ' + msg);
+    });
+});
+
+function elBkGmailRenderQueue(receipts, emailsFound, monthDisplay) {
+    var $wrap = $('#el-bk-gmail-cards-wrap').empty();
+
+    $('#el-bk-gmail-queue-title').text(
+        'Review Extracted Receipts — ' + monthDisplay
+        + ' (' + receipts.length + ' of ' + emailsFound + ' emails)'
+    );
+
+    // Get category options from existing template select
+    var $catTemplate = $('#el-bk-receipt-category-template');
+
+    $.each(receipts, function (i, r) {
+        var confidenceColor = r.confidence === 'high' ? '#22c55e' : (r.confidence === 'low' ? '#ef4444' : '#f59e0b');
+        var $catClone       = $catTemplate.clone().removeAttr('id').removeAttr('style')
+                                .addClass('el-bk-gmail-cat-select el-select');
+
+        var $card = $('<div class="el-bk-gmail-review-card" data-index="' + i + '">'
+            + '<div class="el-bk-gmail-review-card-header">'
+            + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
+            + '<input type="checkbox" class="el-bk-gmail-receipt-chk" checked>'
+            + '<span class="el-bk-gmail-subject" style="font-size:13px;color:#374151;">'
+            + $('<span>').text(r.subject || '(no subject)').html()
+            + '</span>'
+            + '</label>'
+            + '<span class="el-bk-confidence-badge" style="font-size:11px;font-weight:600;color:' + confidenceColor + ';text-transform:uppercase;">'
+            + $('<span>').text(r.confidence || 'medium').html()
+            + '</span>'
+            + '</div>'
+            + '<div class="el-bk-gmail-review-card-fields">'
+            + '<div class="el-bk-gmail-field-group">'
+            + '<label>Merchant</label>'
+            + '<input type="text" class="el-input el-bk-gmail-merchant" value="' + $('<span>').text(r.merchant).html() + '">'
+            + '</div>'
+            + '<div class="el-bk-gmail-field-group">'
+            + '<label>Date</label>'
+            + '<input type="text" class="el-input el-bk-gmail-date" value="' + $('<span>').text(r.date).html() + '">'
+            + '</div>'
+            + '<div class="el-bk-gmail-field-group">'
+            + '<label>Amount</label>'
+            + '<input type="text" class="el-input el-bk-gmail-amount" value="' + $('<span>').text(r.amount).html() + '">'
+            + '</div>'
+            + '<div class="el-bk-gmail-field-group el-bk-gmail-field-group--wide">'
+            + '<label>Category</label>'
+            + '</div>'
+            + '<div class="el-bk-gmail-field-group el-bk-gmail-field-group--full">'
+            + '<label>Notes</label>'
+            + '<input type="text" class="el-input el-bk-gmail-notes" value="' + $('<span>').text(r.notes).html() + '">'
+            + '</div>'
+            + '</div>'
+            + '</div>');
+
+        // Insert category select into its container
+        $card.find('.el-bk-gmail-field-group--wide').append($catClone);
+        if (r.category) { $catClone.val(r.category); }
+
+        // Store original data on the card for save
+        $card.data('receipt', r);
+        $wrap.append($card);
+    });
+
+    // Select-all checkbox
+    $('#el-bk-gmail-select-all').prop('checked', true).off('change').on('change', function () {
+        $('.el-bk-gmail-receipt-chk').prop('checked', this.checked);
+    });
+
+    $('#el-bk-gmail-review-queue').show();
+}
+
+// Save Selected
+$(document).on('click', '#el-bk-gmail-save-btn', function () {
+    var toSave = [];
+    $('.el-bk-gmail-review-card').each(function () {
+        var $card = $(this);
+        if (!$card.find('.el-bk-gmail-receipt-chk').is(':checked')) return;
+
+        var orig = $card.data('receipt') || {};
+        toSave.push({
+            gmail_message_id: orig.gmail_message_id || '',
+            merchant:         $card.find('.el-bk-gmail-merchant').val(),
+            date:             $card.find('.el-bk-gmail-date').val(),
+            amount:           $card.find('.el-bk-gmail-amount').val(),
+            category:         $card.find('.el-bk-gmail-cat-select').val(),
+            notes:            $card.find('.el-bk-gmail-notes').val()
+        });
+    });
+
+    if (!toSave.length) { alert('No receipts selected.'); return; }
+
+    var $btn = $(this).prop('disabled', true).text('Saving…');
+    var $status = $('#el-bk-gmail-save-status').text('');
+
+    // Build flat POST data — jQuery $.post serializes nested arrays
+    var postData = {
+        action:    'el_core_action',
+        el_action: 'bk_gmail_save_receipts',
+        nonce:     elBookkeeping.nonce
+    };
+    $.each(toSave, function (i, r) {
+        $.each(r, function (key, val) {
+            postData['receipts[' + i + '][' + key + ']'] = val;
+        });
+    });
+
+    $.post(elBookkeeping.ajaxUrl, postData, function (res) {
+        $btn.prop('disabled', false).text('Save Selected');
+        if (res && res.success) {
+            $status.html('<span style="color:#22c55e;font-weight:600;">&#10003; ' + (res.data && res.data.message ? res.data.message : 'Receipts saved.') + '</span>');
+            // Mark saved cells green
+            var $monthCell = $('.el-bk-gmail-month-cell[data-month="' + $('#el-bk-gmail-month-select').val() + '"]');
+            $monthCell.data('saved', true).removeClass('el-bk-gmail-month-cell--gray el-bk-gmail-month-cell--yellow').addClass('el-bk-gmail-month-cell--green');
+            // Uncheck saved cards
+            $('.el-bk-gmail-review-card').each(function () {
+                if ($(this).find('.el-bk-gmail-receipt-chk').is(':checked')) {
+                    $(this).fadeOut(300);
+                }
+            });
+        } else {
+            var msg = (res && res.data && res.data.message) ? res.data.message : 'Save failed.';
+            $status.html('<span style="color:#dc2626;">' + msg + '</span>');
+        }
+    }).fail(function () {
+        $btn.prop('disabled', false).text('Save Selected');
+        $status.html('<span style="color:#dc2626;">Request failed. Please try again.</span>');
+    });
+});
+
 }(jQuery));

@@ -109,6 +109,107 @@ $all       = $module->get_receipts( '', $tax_year );
     </div>
 </div>
 
+<!-- Email Receipt Scanner -->
+<div class="el-bk-card el-bk-gmail-scanner-card">
+    <div class="el-bk-card-header el-bk-gmail-scanner-toggle" id="el-bk-gmail-scanner-toggle" style="cursor:pointer;">
+        <h3 style="margin:0;display:flex;align-items:center;gap:8px;">
+            <span id="el-bk-gmail-scanner-icon" style="font-size:12px;">&#9654;</span>
+            <?php esc_html_e( '📧 Email Receipt Scanner', 'el-core' ); ?>
+        </h3>
+        <p class="el-bk-tab-desc" style="margin:4px 0 0;"><?php esc_html_e( 'Scan connected Gmail accounts for receipt emails and extract data with AI.', 'el-core' ); ?></p>
+    </div>
+    <div id="el-bk-gmail-scanner-body" style="display:none;padding:16px 0 0;">
+
+        <div class="el-bk-gmail-controls">
+            <div class="el-bk-form-row-inline" style="align-items:flex-end;gap:12px;flex-wrap:wrap;">
+                <div class="el-bk-form-row" style="margin:0;min-width:200px;">
+                    <label for="el-bk-gmail-account-select"><?php esc_html_e( 'Gmail Account', 'el-core' ); ?></label>
+                    <select id="el-bk-gmail-account-select" class="el-select">
+                        <option value=""><?php esc_html_e( '— Select account —', 'el-core' ); ?></option>
+                    </select>
+                </div>
+                <div class="el-bk-form-row" style="margin:0;">
+                    <label for="el-bk-gmail-month-select"><?php esc_html_e( 'Month', 'el-core' ); ?></label>
+                    <select id="el-bk-gmail-month-select" class="el-select el-select--small">
+                        <option value="01"><?php esc_html_e( 'January', 'el-core' ); ?></option>
+                        <option value="02"><?php esc_html_e( 'February', 'el-core' ); ?></option>
+                        <option value="03"><?php esc_html_e( 'March', 'el-core' ); ?></option>
+                        <option value="04"><?php esc_html_e( 'April', 'el-core' ); ?></option>
+                        <option value="05"><?php esc_html_e( 'May', 'el-core' ); ?></option>
+                        <option value="06"><?php esc_html_e( 'June', 'el-core' ); ?></option>
+                        <option value="07"><?php esc_html_e( 'July', 'el-core' ); ?></option>
+                        <option value="08"><?php esc_html_e( 'August', 'el-core' ); ?></option>
+                        <option value="09"><?php esc_html_e( 'September', 'el-core' ); ?></option>
+                        <option value="10"><?php esc_html_e( 'October', 'el-core' ); ?></option>
+                        <option value="11"><?php esc_html_e( 'November', 'el-core' ); ?></option>
+                        <option value="12"><?php esc_html_e( 'December', 'el-core' ); ?></option>
+                    </select>
+                </div>
+                <div class="el-bk-form-row" style="margin:0;">
+                    <label for="el-bk-gmail-year-select"><?php esc_html_e( 'Year', 'el-core' ); ?></label>
+                    <select id="el-bk-gmail-year-select" class="el-select el-select--small">
+                        <?php for ( $y = (int) gmdate( 'Y' ); $y >= 2020; $y-- ) : ?>
+                            <option value="<?php echo esc_attr( $y ); ?>" <?php selected( $y, $tax_year ); ?>><?php echo esc_html( $y ); ?></option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+                <div>
+                    <button class="el-btn el-btn-primary" id="el-bk-gmail-scan-btn" disabled>
+                        <?php esc_html_e( 'Scan Now', 'el-core' ); ?>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Month status grid — shown after an account is selected -->
+        <div id="el-bk-gmail-month-grid-wrap" style="display:none;margin-top:16px;">
+            <p style="font-size:12px;font-weight:600;color:#666;margin:0 0 8px;">
+                <?php echo esc_html( sprintf( __( 'Scan status for %d', 'el-core' ), $tax_year ) ); ?>
+                &mdash; <span style="color:#9ca3af;">&#9632;</span> <?php esc_html_e( 'Never scanned', 'el-core' ); ?>
+                &nbsp;<span style="color:#f59e0b;">&#9632;</span> <?php esc_html_e( 'Scanned', 'el-core' ); ?>
+                &nbsp;<span style="color:#22c55e;">&#9632;</span> <?php esc_html_e( 'Receipts saved', 'el-core' ); ?>
+            </p>
+            <div class="el-bk-gmail-month-grid" id="el-bk-gmail-month-grid">
+                <?php
+                $month_names = [ 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec' ];
+                foreach ( $month_names as $mi => $mn ) :
+                    $m_val = sprintf( '%02d', $mi + 1 );
+                ?>
+                <div class="el-bk-gmail-month-cell el-bk-gmail-month-cell--gray"
+                     data-month="<?php echo esc_attr( $m_val ); ?>"
+                     title="<?php echo esc_attr( $mn ); ?>">
+                    <?php echo esc_html( $mn ); ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Scan progress -->
+        <div id="el-bk-gmail-scan-progress" style="display:none;margin-top:16px;" class="el-bk-gmail-scan-progress">
+            <span class="el-bk-spinner"></span>
+            <span id="el-bk-gmail-scan-status-text"><?php esc_html_e( 'Scanning…', 'el-core' ); ?></span>
+        </div>
+
+        <!-- Review queue -->
+        <div id="el-bk-gmail-review-queue" style="display:none;margin-top:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <h4 style="margin:0;" id="el-bk-gmail-queue-title"><?php esc_html_e( 'Review Extracted Receipts', 'el-core' ); ?></h4>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <label style="font-size:13px;cursor:pointer;">
+                        <input type="checkbox" id="el-bk-gmail-select-all"> <?php esc_html_e( 'Select all', 'el-core' ); ?>
+                    </label>
+                    <button class="el-btn el-btn-primary" id="el-bk-gmail-save-btn">
+                        <?php esc_html_e( 'Save Selected', 'el-core' ); ?>
+                    </button>
+                </div>
+            </div>
+            <div id="el-bk-gmail-cards-wrap"></div>
+            <div id="el-bk-gmail-save-status" style="margin-top:10px;font-size:13px;font-weight:500;"></div>
+        </div>
+
+    </div>
+</div>
+
 <!-- Unmatched Receipts Panel -->
 <?php if ( ! empty( $unmatched ) ) : ?>
 <div class="el-bk-card">
