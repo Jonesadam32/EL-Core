@@ -5043,7 +5043,6 @@ class EL_Bookkeeping_Module {
     private function get_travel_log_for_export( int $tax_year ): array {
         global $wpdb;
         $tbl_travel = $this->table( 'el_bk_travel_periods' );
-        $tbl_txn    = $this->table( 'el_bk_transactions' );
 
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $periods = $wpdb->get_results(
@@ -5053,22 +5052,14 @@ class EL_Bookkeeping_Module {
         $result = [];
         $i      = 1;
         foreach ( $periods as $p ) {
-            $days             = (int) ( ( strtotime( $p->end_date ) - strtotime( $p->start_date ) ) / DAY_IN_SECONDS ) + 1;
-            $related_expenses = (float) $wpdb->get_var( $wpdb->prepare(
-                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-                "SELECT COALESCE(SUM(amount),0) FROM {$tbl_txn}
-                 WHERE travel_period_id=%d AND type='expense' AND status != 'split' AND tax_year=%d",
-                (int) $p->id,
-                $tax_year
-            ) );
+            $days     = (int) ( ( strtotime( $p->end_date ) - strtotime( $p->start_date ) ) / DAY_IN_SECONDS ) + 1;
             $result[] = [
-                'trip_num'         => $i++,
-                'start_date'       => $p->start_date,
-                'end_date'         => $p->end_date,
-                'days'             => $days,
-                'destination'      => $p->label,
-                'purpose'          => $p->purpose,
-                'related_expenses' => $related_expenses,
+                'trip_num'    => $i++,
+                'start_date'  => $p->start_date,
+                'end_date'    => $p->end_date,
+                'days'        => $days,
+                'destination' => $p->label,
+                'purpose'     => $p->purpose,
             ];
         }
         return $result;
@@ -5077,7 +5068,6 @@ class EL_Bookkeeping_Module {
     private function get_contractors_for_export( int $tax_year ): array {
         global $wpdb;
         $tbl_c   = $this->table( 'el_bk_contractors' );
-        $tbl_ca  = $this->table( 'el_bk_contractor_assignments' );
         $tbl_txn = $this->table( 'el_bk_transactions' );
 
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -5087,12 +5077,12 @@ class EL_Bookkeeping_Module {
 
         $result = [];
         foreach ( $contractors as $c ) {
+            // Sum by contractor_id column on the transaction — same as the Contractors tab UI.
             $total_paid = (float) $wpdb->get_var( $wpdb->prepare(
                 // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-                "SELECT COALESCE(SUM(t.amount),0)
-                 FROM {$tbl_txn} t
-                 INNER JOIN {$tbl_ca} ca ON ca.transaction_id = t.id
-                 WHERE ca.contractor_id = %d AND t.tax_year = %d AND t.status != 'split'",
+                "SELECT COALESCE(SUM(amount),0)
+                 FROM {$tbl_txn}
+                 WHERE contractor_id = %d AND tax_year = %d AND type = 'expense' AND status != 'split'",
                 (int) $c->id,
                 $tax_year
             ) );
@@ -5512,7 +5502,7 @@ class EL_Bookkeeping_Module {
         $sheet = $spreadsheet->createSheet();
         $sheet->setTitle( 'Travel Log' );
 
-        $this->xl_write_headers( $sheet, [ 'Trip #', 'Start Date', 'End Date', 'Days', 'Destination/Label', 'Purpose', 'Related Expenses' ], 1 );
+        $this->xl_write_headers( $sheet, [ 'Trip #', 'Start Date', 'End Date', 'Days', 'Destination/Label', 'Purpose' ], 1 );
         $sheet->freezePane( 'A2' );
 
         $row = 2;
@@ -5523,19 +5513,10 @@ class EL_Bookkeeping_Module {
             $sheet->setCellValue( "D{$row}", $t['days'] );
             $sheet->setCellValue( "E{$row}", $t['destination'] );
             $sheet->setCellValue( "F{$row}", $t['purpose'] );
-            $sheet->setCellValue( "G{$row}", $t['related_expenses'] );
-            $this->xl_set_currency( $sheet, "G{$row}" );
             $row++;
         }
 
-        if ( $row > 2 ) {
-            $last = $row - 1;
-            $sheet->setCellValue( "G{$row}", "=SUM(G2:G{$last})" );
-            $sheet->getStyle( "G{$row}" )->getFont()->setBold( true );
-            $this->xl_set_currency( $sheet, "G{$row}" );
-        }
-
-        foreach ( [ 'A' => 8, 'B' => 12, 'C' => 12, 'D' => 8, 'E' => 28, 'F' => 35, 'G' => 18 ] as $col => $w ) {
+        foreach ( [ 'A' => 8, 'B' => 12, 'C' => 12, 'D' => 8, 'E' => 28, 'F' => 35 ] as $col => $w ) {
             $sheet->getColumnDimension( $col )->setWidth( $w );
         }
     }
@@ -5642,11 +5623,23 @@ class EL_Bookkeeping_Module {
         $sheet->getStyle( 'A1' )->getFont()->setBold( true )->setSize( 14 );
         $sheet->mergeCells( 'A1:B1' );
 
-        if ( ! $data['enabled'] ) {
-            $sheet->setCellValue( 'A3', 'Vehicle deduction is not enabled.' );
-            $sheet->getColumnDimension( 'A' )->setWidth( 38 );
+        $has_data = $data['total_miles'] > 0 || $data['business_miles'] > 0
+                 || $data['gas'] > 0 || $data['description'] !== '';
+
+        if ( ! $data['enabled'] && ! $has_data ) {
+            $sheet->setCellValue( 'A3', 'Vehicle deduction is not enabled and no vehicle data has been entered.' );
+            $sheet->getColumnDimension( 'A' )->setWidth( 52 );
             $sheet->getColumnDimension( 'B' )->setWidth( 20 );
             return;
+        }
+
+        $start_row = 3;
+        if ( ! $data['enabled'] ) {
+            $sheet->setCellValue( 'A3', 'Note: Vehicle deduction checkbox is not enabled in Settings — data shown for reference only.' );
+            $sheet->getStyle( 'A3' )->getFont()->setItalic( true );
+            $sheet->getStyle( 'A3' )->getFont()->getColor()->setARGB( 'FFCC6600' );
+            $sheet->mergeCells( 'A3:B3' );
+            $start_row = 4;
         }
 
         $method_label = $data['method'] === 'standard' ? 'Standard Mileage' : 'Actual Expenses';
@@ -5677,7 +5670,7 @@ class EL_Bookkeeping_Module {
             $items[] = [ 'Business Portion (Deduction)', $data['deduction'], true ];
         }
 
-        $row = 3;
+        $row = $start_row;
         foreach ( $items as [ $label, $value, $is_currency ] ) {
             $sheet->setCellValue( "A{$row}", $label );
             $sheet->setCellValue( "B{$row}", $value );
