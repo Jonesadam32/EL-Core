@@ -4099,8 +4099,10 @@ if ($('#el-bk-gmail-accounts-list').length) {
 
 // Connect button
 $(document).on('click', '#el-bk-gmail-connect-btn', function () {
-    var $btn = $(this).prop('disabled', true).text('Redirecting to Google…');
-    elBkAjax('bk_gmail_build_auth_url', {}, function (data) {
+    var $btn       = $(this).prop('disabled', true).text('Redirecting to Google…');
+    var clientId   = $('#el-bk-gmail-client-id').val().trim();
+    var clientSec  = $('#el-bk-gmail-client-secret').val().trim();
+    elBkAjax('bk_gmail_build_auth_url', { client_id: clientId, client_secret: clientSec }, function (data) {
         window.location.href = data.url;
     }, function (msg) {
         $btn.prop('disabled', false).text('Connect Gmail Account');

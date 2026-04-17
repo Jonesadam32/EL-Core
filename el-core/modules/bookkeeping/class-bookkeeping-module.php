@@ -6122,10 +6122,28 @@ class EL_Bookkeeping_Module {
             return;
         }
 
-        $client_id = $this->get_setting( 'gmail_client_id', '' );
+        // Accept credentials passed directly from the form fields so the user
+        // doesn't need to hit "Save Settings" before clicking "Connect".
+        $client_id     = sanitize_text_field( $data['client_id']     ?? '' );
+        $client_secret = sanitize_text_field( $data['client_secret'] ?? '' );
+
+        // Fall back to already-saved values if the fields were empty in the POST.
         if ( ! $client_id ) {
-            EL_AJAX_Handler::error( __( 'No Gmail Client ID configured. Add your Google OAuth credentials in Settings → Gmail Receipt Scanner.', 'el-core' ) );
+            $client_id = $this->get_setting( 'gmail_client_id', '' );
+        }
+        if ( ! $client_secret ) {
+            $client_secret = $this->get_setting( 'gmail_client_secret', '' );
+        }
+
+        if ( ! $client_id ) {
+            EL_AJAX_Handler::error( __( 'No Gmail Client ID configured. Fill in the Client ID and Client Secret fields above, then click Connect.', 'el-core' ) );
             return;
+        }
+
+        // Auto-save credentials so they persist even if the main form wasn't submitted.
+        if ( $this->core ) {
+            $this->core->settings->set( 'mod_bookkeeping', 'gmail_client_id',     $client_id );
+            $this->core->settings->set( 'mod_bookkeeping', 'gmail_client_secret', $client_secret );
         }
 
         $url = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query( [
