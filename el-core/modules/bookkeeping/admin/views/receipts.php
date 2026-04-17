@@ -35,11 +35,14 @@ $all       = $module->get_receipts( '', $tax_year );
 
 <!-- Manual Receipt Entry Form -->
 <div class="el-bk-card el-bk-manual-receipt-card">
-    <div class="el-bk-card-header">
-        <h3><?php esc_html_e( 'Manual Receipt Entry', 'el-core' ); ?></h3>
-        <p class="el-bk-tab-desc"><?php esc_html_e( 'For old, faded, or handwritten receipts the AI cannot read.', 'el-core' ); ?></p>
+    <div class="el-bk-card-header el-bk-manual-receipt-toggle" id="el-bk-manual-receipt-toggle" style="cursor:pointer;">
+        <h3 style="margin:0;display:flex;align-items:center;gap:8px;">
+            <span id="el-bk-manual-receipt-icon" style="font-size:12px;">&#9654;</span>
+            <?php esc_html_e( 'Manual Receipt Entry', 'el-core' ); ?>
+        </h3>
+        <p class="el-bk-tab-desc" style="margin:4px 0 0;"><?php esc_html_e( 'For old, faded, or handwritten receipts the AI cannot read.', 'el-core' ); ?></p>
     </div>
-    <div class="el-bk-manual-receipt-form">
+    <div class="el-bk-manual-receipt-form" id="el-bk-manual-receipt-body" style="display:none;">
 
         <div class="el-bk-form-row-inline">
             <div class="el-bk-form-row">
@@ -240,9 +243,13 @@ $all       = $module->get_receipts( '', $tax_year );
     <?php echo EL_Admin_UI::notice( [ 'message' => __( 'No receipts uploaded yet. Use the drop zone above to get started.', 'el-core' ), 'type' => 'info' ] ); // phpcs:ignore ?>
 <?php else : ?>
 <div class="el-bk-card">
-    <div class="el-bk-card-header">
-        <h3><?php echo esc_html( sprintf( __( 'All Receipts (%d)', 'el-core' ), count( $all ) ) ); ?></h3>
+    <div class="el-bk-card-header el-bk-all-receipts-toggle" id="el-bk-all-receipts-toggle" style="cursor:pointer;">
+        <h3 style="margin:0;display:flex;align-items:center;gap:8px;">
+            <span id="el-bk-all-receipts-icon" style="font-size:12px;">&#9654;</span>
+            <?php echo esc_html( sprintf( __( 'All Receipts (%d)', 'el-core' ), count( $all ) ) ); ?>
+        </h3>
     </div>
+    <div id="el-bk-all-receipts-body" style="display:none;">
     <table class="el-bk-receipts-table widefat">
         <thead>
             <tr>
@@ -332,6 +339,7 @@ $all       = $module->get_receipts( '', $tax_year );
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 <?php endif; ?>
 

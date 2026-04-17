@@ -4154,6 +4154,32 @@ $(document).on('click', '#el-bk-gmail-scanner-toggle', function () {
     }
 });
 
+// Toggle Manual Receipt Entry card open/close
+$(document).on('click', '#el-bk-manual-receipt-toggle', function () {
+    var $body = $('#el-bk-manual-receipt-body');
+    var $icon = $('#el-bk-manual-receipt-icon');
+    if ($body.is(':visible')) {
+        $body.slideUp(150);
+        $icon.html('&#9654;');
+    } else {
+        $body.slideDown(150);
+        $icon.html('&#9660;');
+    }
+});
+
+// Toggle All Receipts table open/close
+$(document).on('click', '#el-bk-all-receipts-toggle', function () {
+    var $body = $('#el-bk-all-receipts-body');
+    var $icon = $('#el-bk-all-receipts-icon');
+    if ($body.is(':visible')) {
+        $body.slideUp(150);
+        $icon.html('&#9654;');
+    } else {
+        $body.slideDown(150);
+        $icon.html('&#9660;');
+    }
+});
+
 function elBkGmailLoadAccountDropdown() {
     elBkAjax('bk_gmail_get_accounts', {}, function (res) {
         var accounts = res.data || [];
