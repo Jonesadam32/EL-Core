@@ -83,7 +83,7 @@ class EL_AJAX_Handler {
             if ( is_array( $value ) ) {
                 $clean[ $key ] = $this->sanitize_input( $value );
             } else {
-                $clean[ $key ] = sanitize_text_field( $value );
+                $clean[ $key ] = sanitize_text_field( wp_unslash( $value ) );
             }
         }
         return $clean;

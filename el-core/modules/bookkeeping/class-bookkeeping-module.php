@@ -2881,7 +2881,7 @@ class EL_Bookkeeping_Module {
         }
 
         global $wpdb;
-        $wpdb->delete( $this->table( 'el_bk_contractors' ),            [ 'contractor_id' => $id ] );
+        $wpdb->delete( $this->table( 'el_bk_contractors' ),            [ 'id'            => $id ] );
         $wpdb->delete( $this->table( 'el_bk_contractor_assignments' ), [ 'contractor_id' => $id ] );
 
         EL_AJAX_Handler::success( null, __( 'Contractor deleted.', 'el-core' ) );
@@ -2896,21 +2896,32 @@ class EL_Bookkeeping_Module {
         $transaction_id = absint( $data['transaction_id'] ?? 0 );
         $contractor_id  = absint( $data['contractor_id']  ?? 0 );
 
-        if ( ! $transaction_id || ! $contractor_id ) {
-            EL_AJAX_Handler::error( __( 'Invalid IDs.', 'el-core' ) );
+        if ( ! $transaction_id ) {
+            EL_AJAX_Handler::error( __( 'Invalid transaction ID.', 'el-core' ) );
             return;
         }
 
         global $wpdb;
-        $table = $this->table( 'el_bk_contractor_assignments' );
+        $tbl_txn = $this->table( 'el_bk_transactions' );
+        $tbl_ca  = $this->table( 'el_bk_contractor_assignments' );
 
-        // Remove existing assignment for this transaction first
-        $wpdb->delete( $table, [ 'transaction_id' => $transaction_id ] );
+        // Update contractor_id directly on the transaction row (this is what the view reads).
+        $wpdb->update(
+            $tbl_txn,
+            [ 'contractor_id' => $contractor_id ],
+            [ 'id'            => $transaction_id ],
+            [ '%d' ],
+            [ '%d' ]
+        );
 
-        $wpdb->insert( $table, [
-            'transaction_id' => $transaction_id,
-            'contractor_id'  => $contractor_id,
-        ] );
+        // Keep assignments table in sync.
+        $wpdb->delete( $tbl_ca, [ 'transaction_id' => $transaction_id ] );
+        if ( $contractor_id ) {
+            $wpdb->insert( $tbl_ca, [
+                'transaction_id' => $transaction_id,
+                'contractor_id'  => $contractor_id,
+            ] );
+        }
 
         EL_AJAX_Handler::success( null, __( 'Contractor assigned.', 'el-core' ) );
     }
