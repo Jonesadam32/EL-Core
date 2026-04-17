@@ -388,7 +388,11 @@ class EL_Bookkeeping_Module {
     }
 
     public static function get_expense_categories_grouped(): array {
-        return [
+        static $cache = null;
+        if ( $cache !== null ) {
+            return $cache;
+        }
+        $cache = [
             'business' => [
                 'Accounting Fees',
                 'Advertising & Promotion',
@@ -436,6 +440,7 @@ class EL_Bookkeeping_Module {
                 'Student Loan',
             ],
         ];
+        return $cache;
     }
 
     public static function get_category_type( string $category ): string {

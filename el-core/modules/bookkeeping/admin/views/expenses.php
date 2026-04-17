@@ -270,22 +270,13 @@ if ( ! empty( $_receipt_ids ) ) {
                                 title="<?php esc_attr_e( 'Remove split — restore to single transaction', 'el-core' ); ?>">×</button>
                         </span>
                     <?php else : ?>
-                        <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $t->id ); ?>">
-                            <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
-                            <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
-                                <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
-                                    <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
-                                        <?php echo esc_html( $cat ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </optgroup>
-                            <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
-                                <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
-                                    <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $t->category, $cat ); ?>>
-                                        <?php echo esc_html( $cat ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </optgroup>
+                        <select class="el-bk-inline-select el-bk-cat-placeholder"
+                                data-field="category"
+                                data-id="<?php echo esc_attr( $t->id ); ?>"
+                                data-current="<?php echo esc_attr( $t->category ?? '' ); ?>">
+                            <option value="<?php echo esc_attr( $t->category ?? '' ); ?>">
+                                <?php echo ( $t->category ) ? esc_html( $t->category ) : esc_html__( '— Unclassified —', 'el-core' ); ?>
+                            </option>
                         </select>
                         <?php if ( $t->status === 'classified' ) echo '<span class="el-bk-lock-badge" title="' . esc_attr__( 'Locked — won\'t change on Re-Classify', 'el-core' ) . '">🔒</span>'; ?>
                         <?php if ( $travel_badge ) echo '<span title="' . esc_attr__( 'Travel period', 'el-core' ) . '">✈</span>'; ?>
@@ -373,22 +364,13 @@ if ( ! empty( $_receipt_ids ) ) {
             >
                 <td></td>
                 <td>
-                    <select class="el-bk-inline-select" data-field="category" data-id="<?php echo esc_attr( $child->id ); ?>">
-                        <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
-                        <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
-                            <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
-                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $child->category, $cat ); ?>>
-                                    <?php echo esc_html( $cat ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </optgroup>
-                        <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
-                            <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
-                                <option value="<?php echo esc_attr( $cat ); ?>" <?php selected( $child->category, $cat ); ?>>
-                                    <?php echo esc_html( $cat ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </optgroup>
+                    <select class="el-bk-inline-select el-bk-cat-placeholder"
+                            data-field="category"
+                            data-id="<?php echo esc_attr( $child->id ); ?>"
+                            data-current="<?php echo esc_attr( $child->category ?? '' ); ?>">
+                        <option value="<?php echo esc_attr( $child->category ?? '' ); ?>">
+                            <?php echo ( $child->category ) ? esc_html( $child->category ) : esc_html__( '— Unclassified —', 'el-core' ); ?>
+                        </option>
                     </select>
                 </td>
                 <td><?php echo esc_html( $child->business ); ?></td>
@@ -695,3 +677,18 @@ var elBkReceiptMap = <?php echo wp_json_encode( $_receipt_map ); ?>;
         </div>
     </div>
 </div>
+
+<!-- Category select template — cloned by JS on demand, never shown directly -->
+<select id="el-bk-cat-select-template" style="display:none;" aria-hidden="true">
+    <option value=""><?php esc_html_e( '— Unclassified —', 'el-core' ); ?></option>
+    <optgroup label="<?php esc_attr_e( 'Business', 'el-core' ); ?>">
+        <?php foreach ( $cat_grouped['business'] as $cat ) : ?>
+            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+        <?php endforeach; ?>
+    </optgroup>
+    <optgroup label="<?php esc_attr_e( 'Personal', 'el-core' ); ?>">
+        <?php foreach ( $cat_grouped['personal'] as $cat ) : ?>
+            <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+        <?php endforeach; ?>
+    </optgroup>
+</select>

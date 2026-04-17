@@ -34,6 +34,14 @@
         });
     }
 
+    function debounce(fn, delay) {
+        var timer;
+        return function () {
+            clearTimeout(timer);
+            timer = setTimeout(fn, delay);
+        };
+    }
+
     function autoSelectColumn($select, hints) {
         $select.find('option').each(function () {
             var val = $(this).val().toLowerCase();
@@ -74,6 +82,29 @@
                 $(this).css('outline', '').dequeue();
             });
         });
+    });
+
+    // Expand category placeholder to full option list on first user interaction
+    $(document).on('focus click', '.el-bk-cat-placeholder', function () {
+        var $el = $(this);
+        if ($el.hasClass('el-bk-cat-expanded')) return;
+
+        var currentVal = $el.attr('data-current') || '';
+        var id         = $el.attr('data-id');
+
+        var $template = $('#el-bk-cat-select-template').clone();
+        $template
+            .removeAttr('id')
+            .removeAttr('style')
+            .removeAttr('aria-hidden')
+            .addClass('el-bk-inline-select el-bk-cat-expanded')
+            .removeClass('el-bk-cat-placeholder')
+            .attr('data-field', 'category')
+            .attr('data-id', id)
+            .val(currentVal);
+
+        $el.replaceWith($template);
+        $template.focus();
     });
 
     $(document).on('blur', '.el-bk-inline-input', function () {
@@ -390,7 +421,7 @@
         }
     }
 
-    $('#el-bk-exp-search').on('input', filterExpenseTable);
+    $('#el-bk-exp-search').on('input', debounce(filterExpenseTable, 300));
     $('#el-bk-exp-cat-filter, #el-bk-exp-bank-filter, #el-bk-exp-status-filter, #el-bk-exp-type-filter').on('change', filterExpenseTable);
     $('#el-bk-exp-from, #el-bk-exp-to').on('change', filterExpenseTable);
 
