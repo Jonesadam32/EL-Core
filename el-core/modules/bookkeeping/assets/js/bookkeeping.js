@@ -1384,7 +1384,8 @@
 
         var receiptId   = $btn.data('receiptId') || $btn.data('receipt-id');
         var $receiptRow = $section.closest('tr.el-bk-receipt-match-row').prev('tr.el-bk-receipt-row');
-        var receiptDate = $receiptRow.data('date') || '';
+        // Use .attr() to get raw string — .data() can coerce types unexpectedly
+        var receiptDate = ($receiptRow.attr('data-date') || '').trim();
         var allExpenses = (typeof elBkManualExpenses !== 'undefined') ? elBkManualExpenses : [];
 
         var $newWrap = $('<div class="el-bk-manual-pick-wrap">');
@@ -1445,33 +1446,34 @@
             return $t;
         }
 
-        var filtered = [];
+        var filtered    = [];
+        var sortedByProximity = allExpenses.slice();
         if (receiptDate) {
-            filtered = allExpenses
-                .map(function (e) { return { e: e, diff: daysDiff(e.date, receiptDate) }; })
+            var withDiff = allExpenses.map(function (e) {
+                return { e: e, diff: daysDiff(e.date, receiptDate) };
+            });
+            filtered = withDiff
                 .filter(function (x) { return x.diff <= 10; })
+                .sort(function (a, b) { return a.diff - b.diff; })
+                .map(function (x) { return x.e; });
+            sortedByProximity = withDiff
                 .sort(function (a, b) { return a.diff - b.diff; })
                 .map(function (x) { return x.e; });
         }
 
         function render(showAll) {
             var list;
-            if (showAll || !receiptDate) {
+            if (!receiptDate) {
                 list = allExpenses;
-                $status.text(
-                    receiptDate
-                        ? 'Showing all ' + allExpenses.length + ' unattached expenses for the year.'
-                        : 'Showing all ' + allExpenses.length + ' unattached expenses (receipt has no date).'
-                );
+                $status.html('<strong>No receipt date found.</strong> Showing all ' + allExpenses.length + ' unattached expenses for the year.');
+            } else if (showAll) {
+                list = sortedByProximity;
+                $status.html('Receipt date: <strong>' + receiptDate + '</strong>. Showing all ' + allExpenses.length + ' unattached expenses, sorted by closest date first.');
             } else {
                 list = filtered;
-                $status.text(
-                    'Showing ' + filtered.length + ' expense(s) within ±10 days of the receipt date (' + receiptDate + ').' +
-                    ' Check "Show all expenses" to see every unattached expense.'
-                );
+                $status.html('Receipt date: <strong>' + receiptDate + '</strong>. Showing ' + filtered.length + ' expense(s) within ±10 days. Check "Show all expenses" to see every unattached expense.');
             }
             $tableWrap.empty().append(buildTable(list));
-            // Re-apply any active search term
             var $filterInput = $newWrap.find('.el-bk-manual-pick-filter');
             if ($filterInput.val()) {
                 $filterInput.trigger('input');
