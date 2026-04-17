@@ -1368,7 +1368,7 @@
         });
     });
 
-    // Pick Manually — toggle searchable expense list in match panel
+    // Pick Manually — server-side query within ±10 days of the receipt date
     $(document).on('click', '.el-bk-pick-manually-btn', function () {
         var $btn     = $(this);
         var $section = $btn.closest('.el-bk-pick-manually-section');
@@ -1382,34 +1382,22 @@
 
         $btn.text('Hide Manual Pick');
 
-        var receiptId   = $btn.data('receiptId') || $btn.data('receipt-id');
-        var $receiptRow = $section.closest('tr.el-bk-receipt-match-row').prev('tr.el-bk-receipt-row');
-        // Use .attr() to get raw string — .data() can coerce types unexpectedly
-        var receiptDate = ($receiptRow.attr('data-date') || '').trim();
-        var allExpenses = (typeof elBkManualExpenses !== 'undefined') ? elBkManualExpenses : [];
+        var receiptId = $btn.data('receiptId') || $btn.data('receipt-id');
 
         var $newWrap = $('<div class="el-bk-manual-pick-wrap">');
 
         $newWrap.append(
             '<div class="el-bk-manual-pick-search" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
-                '<input type="text" class="el-input el-bk-manual-pick-filter" placeholder="Search by merchant or date…" style="flex:1;min-width:200px;">' +
+                '<input type="text" class="el-input el-bk-manual-pick-filter" placeholder="Search by merchant…" style="flex:1;min-width:200px;">' +
                 '<label style="font-size:13px;cursor:pointer;white-space:nowrap;">' +
-                    '<input type="checkbox" class="el-bk-manual-pick-showall"> Show all expenses' +
+                    '<input type="checkbox" class="el-bk-manual-pick-showall"> Show all expenses for the year' +
                 '</label>' +
             '</div>'
         );
 
-        var $status    = $('<p class="el-bk-hint" style="margin:6px 0 10px;"></p>');
+        var $status    = $('<p class="el-bk-hint" style="margin:6px 0 10px;">Loading candidates…</p>');
         var $tableWrap = $('<div class="el-bk-manual-pick-table-wrap"></div>');
         $newWrap.append($status).append($tableWrap);
-
-        function daysDiff(a, b) {
-            if (!a || !b) return Infinity;
-            var da = new Date(a + 'T00:00:00');
-            var db = new Date(b + 'T00:00:00');
-            if (isNaN(da) || isNaN(db)) return Infinity;
-            return Math.abs((da - db) / 86400000);
-        }
 
         function buildTable(list) {
             if (!list.length) {
@@ -1446,44 +1434,44 @@
             return $t;
         }
 
-        var filtered    = [];
-        var sortedByProximity = allExpenses.slice();
-        if (receiptDate) {
-            var withDiff = allExpenses.map(function (e) {
-                return { e: e, diff: daysDiff(e.date, receiptDate) };
+        function loadCandidates(showAll) {
+            $status.html('Loading candidates…');
+            $tableWrap.empty();
+
+            elBkAjax('bk_get_manual_match_candidates', {
+                receipt_id:  receiptId,
+                date_window: 10,
+                show_all:    showAll ? 1 : 0,
+                tax_year:    (window.elBookkeeping && elBookkeeping.taxYear) || 0
+            }, function (res) {
+                var payload      = res.data || {};
+                var expenses     = payload.expenses || [];
+                var receiptDate  = payload.receipt_date || '';
+                var dateWindow   = payload.date_window || 10;
+
+                if (!receiptDate) {
+                    $status.html('<strong>No receipt date found.</strong> Showing ' + expenses.length + ' unattached expenses for the year.');
+                } else if (showAll) {
+                    $status.html('Receipt date: <strong>' + receiptDate + '</strong>. Showing all ' + expenses.length + ' unattached expenses, sorted by closest date first.');
+                } else {
+                    $status.html('Receipt date: <strong>' + receiptDate + '</strong>. Showing ' + expenses.length + ' expense(s) within ±' + dateWindow + ' days. Check "Show all expenses for the year" to widen the search.');
+                }
+
+                $tableWrap.append(buildTable(expenses));
+
+                var $filterInput = $newWrap.find('.el-bk-manual-pick-filter');
+                if ($filterInput.val()) {
+                    $filterInput.trigger('input');
+                }
+            }, function (msg) {
+                $status.html('<span style="color:#dc2626;">Error: ' + $('<span>').text(msg).html() + '</span>');
             });
-            filtered = withDiff
-                .filter(function (x) { return x.diff <= 10; })
-                .sort(function (a, b) { return a.diff - b.diff; })
-                .map(function (x) { return x.e; });
-            sortedByProximity = withDiff
-                .sort(function (a, b) { return a.diff - b.diff; })
-                .map(function (x) { return x.e; });
         }
 
-        function render(showAll) {
-            var list;
-            if (!receiptDate) {
-                list = allExpenses;
-                $status.html('<strong>No receipt date found.</strong> Showing all ' + allExpenses.length + ' unattached expenses for the year.');
-            } else if (showAll) {
-                list = sortedByProximity;
-                $status.html('Receipt date: <strong>' + receiptDate + '</strong>. Showing all ' + allExpenses.length + ' unattached expenses, sorted by closest date first.');
-            } else {
-                list = filtered;
-                $status.html('Receipt date: <strong>' + receiptDate + '</strong>. Showing ' + filtered.length + ' expense(s) within ±10 days. Check "Show all expenses" to see every unattached expense.');
-            }
-            $tableWrap.empty().append(buildTable(list));
-            var $filterInput = $newWrap.find('.el-bk-manual-pick-filter');
-            if ($filterInput.val()) {
-                $filterInput.trigger('input');
-            }
-        }
-
-        render(false);
+        loadCandidates(false);
 
         $newWrap.find('.el-bk-manual-pick-showall').on('change', function () {
-            render($(this).is(':checked'));
+            loadCandidates($(this).is(':checked'));
         });
 
         $section.append($newWrap);

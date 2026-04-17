@@ -142,6 +142,7 @@ class EL_Bookkeeping_Module {
         add_action( 'el_core_ajax_bk_gmail_scan_month',     [ $this, 'handle_gmail_scan_month' ] );
         add_action( 'el_core_ajax_bk_gmail_save_receipts',  [ $this, 'handle_gmail_save_receipts' ] );
         add_action( 'el_core_ajax_bk_gmail_get_scan_log',   [ $this, 'handle_gmail_get_scan_log' ] );
+        add_action( 'el_core_ajax_bk_get_manual_match_candidates', [ $this, 'handle_get_manual_match_candidates' ] );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -6391,5 +6392,80 @@ class EL_Bookkeeping_Module {
         ) );
 
         EL_AJAX_Handler::success( $logs );
+    }
+
+    /**
+     * Fetch unattached expense candidates for manual receipt matching.
+     * Server-side query — avoids the 1000-row preload limit that would
+     * silently drop older expenses in high-volume years.
+     *
+     * @param array $data
+     *   - receipt_id (int)           — used to read the receipt date on the server
+     *   - date_window (int, default 10) — days before/after the receipt date
+     *   - show_all (bool)            — if true, return all unattached expenses for the receipt's tax year, sorted by proximity to receipt date
+     *   - tax_year (int)             — optional, used when receipt has no date
+     */
+    public function handle_get_manual_match_candidates( array $data ): void {
+        if ( ! el_core_can( 'manage_bookkeeping' ) ) {
+            EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
+            return;
+        }
+
+        global $wpdb;
+
+        $receipt_id  = absint( $data['receipt_id']  ?? 0 );
+        $date_window = max( 0, absint( $data['date_window'] ?? 10 ) );
+        $show_all    = ! empty( $data['show_all'] );
+        $tax_year    = absint( $data['tax_year'] ?? 0 );
+
+        $receipt_date = '';
+        if ( $receipt_id ) {
+            $receipt_date = $wpdb->get_var( $wpdb->prepare(
+                "SELECT ai_extracted_date FROM {$this->table('el_bk_receipts')} WHERE id = %d",
+                $receipt_id
+            ) );
+            $receipt_date = $receipt_date ? (string) $receipt_date : '';
+        }
+
+        $tx_table = $this->table( 'el_bk_transactions' );
+
+        $where   = [ "type = 'expense'", '( receipt_id IS NULL OR receipt_id = 0 )' ];
+        $values  = [];
+
+        if ( ! $show_all && $receipt_date ) {
+            $where[]  = 'date BETWEEN DATE_SUB( %s, INTERVAL %d DAY ) AND DATE_ADD( %s, INTERVAL %d DAY )';
+            $values[] = $receipt_date;
+            $values[] = $date_window;
+            $values[] = $receipt_date;
+            $values[] = $date_window;
+        } elseif ( $tax_year ) {
+            $where[]  = 'YEAR(date) = %d';
+            $values[] = $tax_year;
+        }
+
+        $where_sql = implode( ' AND ', $where );
+
+        if ( $receipt_date ) {
+            // Sort by proximity to the receipt date (closest first).
+            $order_sql = 'ABS( DATEDIFF( date, %s ) ) ASC, date ASC';
+            $values[]  = $receipt_date;
+        } else {
+            $order_sql = 'date DESC';
+        }
+
+        $sql = "SELECT id, merchant, date, amount, category FROM {$tx_table} WHERE {$where_sql} ORDER BY {$order_sql} LIMIT 5000";
+
+        $rows = $values
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            ? $wpdb->get_results( $wpdb->prepare( $sql, ...$values ) )
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            : $wpdb->get_results( $sql );
+
+        EL_AJAX_Handler::success( [
+            'receipt_date' => $receipt_date,
+            'show_all'     => $show_all,
+            'date_window'  => $date_window,
+            'expenses'     => $rows ?: [],
+        ] );
     }
 }
