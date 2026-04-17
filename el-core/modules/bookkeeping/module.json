@@ -23,7 +23,7 @@
     },
 
     "database": {
-        "version": 14,
+        "version": 15,
         "tables": {
             "el_bk_transactions": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -90,11 +90,14 @@
                 "notes": "text NOT NULL DEFAULT ''",
                 "match_source": "varchar(20) NOT NULL DEFAULT ''",
                 "ai_raw_response": "text NOT NULL DEFAULT ''",
+                "sender_email": "varchar(255) NOT NULL DEFAULT ''",
+                "order_number": "varchar(100) NOT NULL DEFAULT ''",
                 "status": "varchar(20) NOT NULL DEFAULT 'unmatched'",
                 "created_at": "datetime NOT NULL DEFAULT CURRENT_TIMESTAMP",
                 "PRIMARY KEY": "(id)",
                 "KEY idx_transaction": "(transaction_id)",
-                "KEY idx_status": "(status)"
+                "KEY idx_status": "(status)",
+                "KEY idx_order": "(order_number)"
             },
             "el_bk_contractors": {
                 "id": "bigint(20) NOT NULL AUTO_INCREMENT",
@@ -215,7 +218,8 @@
             "11": "ALTER TABLE {prefix}el_bk_transactions ADD COLUMN IF NOT EXISTS parent_id bigint(20) NOT NULL DEFAULT 0",
             "12": "ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS contractor_id bigint(20) NOT NULL DEFAULT 0",
             "13": "CREATE TABLE IF NOT EXISTS el_bk_gmail_accounts ( id bigint(20) NOT NULL AUTO_INCREMENT, label varchar(100) NOT NULL DEFAULT '', email varchar(200) NOT NULL DEFAULT '', access_token text NOT NULL DEFAULT '', refresh_token text NOT NULL DEFAULT '', token_expires datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, status enum('active','expired','error') NOT NULL DEFAULT 'active', created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (id), KEY idx_email (email), KEY idx_status (status) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-            "14": "CREATE TABLE IF NOT EXISTS el_bk_gmail_scan_log ( id bigint(20) NOT NULL AUTO_INCREMENT, account_id bigint(20) NOT NULL DEFAULT 0, scan_month varchar(7) NOT NULL DEFAULT '', scanned_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, emails_found int(11) NOT NULL DEFAULT 0, receipts_extracted int(11) NOT NULL DEFAULT 0, PRIMARY KEY (id), KEY idx_account_month (account_id, scan_month) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            "14": "CREATE TABLE IF NOT EXISTS el_bk_gmail_scan_log ( id bigint(20) NOT NULL AUTO_INCREMENT, account_id bigint(20) NOT NULL DEFAULT 0, scan_month varchar(7) NOT NULL DEFAULT '', scanned_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, emails_found int(11) NOT NULL DEFAULT 0, receipts_extracted int(11) NOT NULL DEFAULT 0, PRIMARY KEY (id), KEY idx_account_month (account_id, scan_month) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "15": "ALTER TABLE el_bk_receipts ADD COLUMN IF NOT EXISTS sender_email varchar(255) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS order_number varchar(100) NOT NULL DEFAULT '', ADD KEY idx_order (order_number)"
         }
     },
 

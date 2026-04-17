@@ -4356,13 +4356,27 @@ function elBkGmailRenderQueue(receipts, emailsFound, monthDisplay) {
         var $catClone       = $catTemplate.clone().removeAttr('id').removeAttr('style')
                                 .addClass('el-bk-gmail-cat-select el-select');
 
+        var mergedBadge = '';
+        if (r.merged_count && r.merged_count > 1) {
+            mergedBadge = '<span style="font-size:10px;font-weight:600;color:#1d4ed8;background:#dbeafe;padding:2px 6px;border-radius:10px;margin-left:6px;">' + r.merged_count + ' emails merged</span>';
+        }
+
+        var senderLine = '';
+        if (r.sender_email) {
+            senderLine = '<div style="font-size:11px;color:#6b7280;margin-top:2px;">From: ' + $('<span>').text(r.sender_email).html() + '</div>';
+        }
+
         var $card = $('<div class="el-bk-gmail-review-card" data-index="' + i + '">'
             + '<div class="el-bk-gmail-review-card-header">'
-            + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
+            + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;">'
             + '<input type="checkbox" class="el-bk-gmail-receipt-chk" checked>'
-            + '<span class="el-bk-gmail-subject" style="font-size:13px;color:#374151;">'
+            + '<div style="flex:1;min-width:0;">'
+            + '<div class="el-bk-gmail-subject" style="font-size:13px;color:#374151;">'
             + $('<span>').text(r.subject || '(no subject)').html()
-            + '</span>'
+            + mergedBadge
+            + '</div>'
+            + senderLine
+            + '</div>'
             + '</label>'
             + '<span class="el-bk-confidence-badge" style="font-size:11px;font-weight:600;color:' + confidenceColor + ';text-transform:uppercase;">'
             + $('<span>').text(r.confidence || 'medium').html()
@@ -4380,6 +4394,10 @@ function elBkGmailRenderQueue(receipts, emailsFound, monthDisplay) {
             + '<div class="el-bk-gmail-field-group">'
             + '<label>Amount</label>'
             + '<input type="text" class="el-input el-bk-gmail-amount" value="' + $('<span>').text(r.amount).html() + '">'
+            + '</div>'
+            + '<div class="el-bk-gmail-field-group">'
+            + '<label>Order #</label>'
+            + '<input type="text" class="el-input el-bk-gmail-order" value="' + $('<span>').text(r.order_number || '').html() + '">'
             + '</div>'
             + '<div class="el-bk-gmail-field-group el-bk-gmail-field-group--wide">'
             + '<label>Category</label>'
@@ -4418,10 +4436,12 @@ $(document).on('click', '#el-bk-gmail-save-btn', function () {
         var orig = $card.data('receipt') || {};
         toSave.push({
             gmail_message_id: orig.gmail_message_id || '',
+            sender_email:     orig.sender_email     || '',
             merchant:         $card.find('.el-bk-gmail-merchant').val(),
             date:             $card.find('.el-bk-gmail-date').val(),
             amount:           $card.find('.el-bk-gmail-amount').val(),
             category:         $card.find('.el-bk-gmail-cat-select').val(),
+            order_number:     $card.find('.el-bk-gmail-order').val(),
             notes:            $card.find('.el-bk-gmail-notes').val()
         });
     });

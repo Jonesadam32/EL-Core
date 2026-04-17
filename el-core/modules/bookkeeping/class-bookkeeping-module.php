@@ -6218,9 +6218,14 @@ class EL_Bookkeeping_Module {
             ? sprintf( '%d/01/01', $year + 1 )
             : sprintf( '%d/%02d/01', $year, $month + 1 );
 
-        $query = "after:{$date_from} before:{$date_to} (receipt OR invoice OR order OR confirmation OR purchase)";
+        // Broadened keyword set — receipt emails often use any of these.
+        $query = "after:{$date_from} before:{$date_to} ("
+            . "receipt OR invoice OR order OR confirmation OR purchase OR "
+            . "payment OR delivery OR delivered OR shipped OR charged OR "
+            . "subscription OR \"thank you for your order\" OR \"your order\""
+            . ")";
 
-        $search_url    = add_query_arg( [ 'q' => $query, 'maxResults' => 50 ],
+        $search_url    = add_query_arg( [ 'q' => $query, 'maxResults' => 100 ],
                             'https://gmail.googleapis.com/gmail/v1/users/me/messages' );
         $search_result = $this->gmail_api_get( $search_url, $account->access_token );
 
@@ -6243,7 +6248,7 @@ class EL_Bookkeeping_Module {
             'Vehicle - Fuel', 'Vehicle - Repairs and Maintenance', 'Vehicles Insurance',
         ] );
 
-        set_time_limit( 120 );
+        set_time_limit( 180 );
 
         foreach ( $messages as $msg_stub ) {
             $msg_id = $msg_stub['id'] ?? '';
@@ -6253,13 +6258,24 @@ class EL_Bookkeeping_Module {
             $message = $this->gmail_api_get( $msg_url, $account->access_token );
             if ( ! $message ) continue;
 
-            // Extract subject from headers.
-            $subject = '';
+            // Extract subject + from headers.
+            $subject  = '';
+            $from_raw = '';
             foreach ( $message['payload']['headers'] ?? [] as $header ) {
-                if ( strtolower( $header['name'] ) === 'subject' ) {
+                $hname = strtolower( $header['name'] );
+                if ( $hname === 'subject' ) {
                     $subject = $header['value'];
-                    break;
+                } elseif ( $hname === 'from' ) {
+                    $from_raw = $header['value'];
                 }
+            }
+
+            // Isolate raw email address from "Display Name <user@domain>" style headers.
+            $sender_email = '';
+            if ( preg_match( '/<([^>]+)>/', $from_raw, $m ) ) {
+                $sender_email = strtolower( trim( $m[1] ) );
+            } elseif ( filter_var( trim( $from_raw ), FILTER_VALIDATE_EMAIL ) ) {
+                $sender_email = strtolower( trim( $from_raw ) );
             }
 
             $body_data = $this->gmail_extract_body( $message['payload'] ?? [] );
@@ -6267,18 +6283,21 @@ class EL_Bookkeeping_Module {
 
             if ( empty( $body_text ) && empty( $subject ) ) continue;
 
-            $prompt = "You are a receipt extraction assistant. Given the subject and body of an email, extract receipt information if present.\n\n"
-                . "Return ONLY a JSON object — no explanation, no markdown, no code fences. If this email does not contain a receipt, return: {\"is_receipt\": false}\n\n"
+            $prompt = "You are a receipt extraction assistant. Given the subject, sender, and body of an email, extract receipt information if present.\n\n"
+                . "Return ONLY a JSON object — no explanation, no markdown, no code fences. If this email does not contain a receipt (marketing email, password reset, general notification), return: {\"is_receipt\": false}\n\n"
                 . "If it is a receipt, return:\n"
-                . "{\n  \"is_receipt\": true,\n  \"merchant\": \"Store or vendor name\",\n"
-                . "  \"date\": \"YYYY-MM-DD\",\n  \"amount\": \"0.00\",\n"
+                . "{\n  \"is_receipt\": true,\n"
+                . "  \"merchant\": \"Store or vendor name — for Amazon-delivered items this is the actual store (e.g., Whole Foods Market), not Amazon\",\n"
+                . "  \"date\": \"YYYY-MM-DD — the purchase or order date\",\n"
+                . "  \"amount\": \"0.00 — the final total, including tip if applicable\",\n"
                 . "  \"category\": \"Best matching category from the list below\",\n"
+                . "  \"order_number\": \"The order / confirmation / invoice number exactly as shown (e.g., '123-4567890-1234567'). Empty string only if truly none exists.\",\n"
                 . "  \"notes\": \"Brief description of what was purchased\",\n"
                 . "  \"confidence\": \"high | medium | low\"\n}\n\n"
                 . "Valid categories: {$categories_list}\n\n"
-                . "Email subject: {$subject}\nEmail body:\n{$body_text}";
+                . "Email sender: {$sender_email}\nEmail subject: {$subject}\nEmail body:\n{$body_text}";
 
-            $ai_args = [ 'prompt' => $prompt, 'max_tokens' => 300 ];
+            $ai_args = [ 'prompt' => $prompt, 'max_tokens' => 400 ];
 
             if ( $body_data['image_base64'] ) {
                 $ai_args['image_base64'] = $body_data['image_base64'];
@@ -6301,14 +6320,49 @@ class EL_Bookkeeping_Module {
             $receipts[] = [
                 'gmail_message_id' => $msg_id,
                 'subject'          => $subject,
-                'merchant'         => $parsed['merchant']   ?? '',
-                'date'             => $parsed['date']       ?? '',
-                'amount'           => $parsed['amount']     ?? '0.00',
-                'category'         => $parsed['category']   ?? '',
-                'notes'            => $parsed['notes']      ?? '',
-                'confidence'       => $parsed['confidence'] ?? 'medium',
+                'sender_email'     => $sender_email,
+                'merchant'         => $parsed['merchant']     ?? '',
+                'date'             => $parsed['date']         ?? '',
+                'amount'           => $parsed['amount']       ?? '0.00',
+                'category'         => $parsed['category']     ?? '',
+                'order_number'     => $parsed['order_number'] ?? '',
+                'notes'            => $parsed['notes']        ?? '',
+                'confidence'       => $parsed['confidence']   ?? 'medium',
             ];
         }
+
+        // De-duplicate by order_number: when multiple emails share the same order #
+        // (order confirmation → shipped → tip added), keep the one with the highest
+        // amount since that represents the final charge.
+        $by_order = [];
+        $no_order = [];
+        foreach ( $receipts as $r ) {
+            $key = preg_replace( '/\s+/', '', strtolower( $r['order_number'] ?? '' ) );
+            if ( $key === '' ) {
+                $no_order[] = $r;
+                continue;
+            }
+            if ( ! isset( $by_order[ $key ] ) ) {
+                $by_order[ $key ] = [ 'best' => $r, 'merged' => 1 ];
+                continue;
+            }
+            $by_order[ $key ]['merged']++;
+            if ( (float) ( $r['amount'] ?? 0 ) > (float) ( $by_order[ $key ]['best']['amount'] ?? 0 ) ) {
+                $by_order[ $key ]['best'] = $r;
+            }
+        }
+
+        $deduped = [];
+        foreach ( $by_order as $entry ) {
+            $row                 = $entry['best'];
+            $row['merged_count'] = $entry['merged'];
+            $deduped[]           = $row;
+        }
+        foreach ( $no_order as $r ) {
+            $r['merged_count'] = 1;
+            $deduped[]         = $r;
+        }
+        $receipts = $deduped;
 
         // Write scan log row.
         $wpdb->insert( $this->table( 'el_bk_gmail_scan_log' ), [
@@ -6358,6 +6412,8 @@ class EL_Bookkeeping_Module {
                     'ai_extracted_category' => sanitize_text_field( $receipt['category'] ?? '' ),
                     'location'              => '',
                     'notes'                 => sanitize_text_field( $receipt['notes'] ?? '' ),
+                    'sender_email'          => sanitize_email( $receipt['sender_email'] ?? '' ),
+                    'order_number'          => sanitize_text_field( $receipt['order_number'] ?? '' ),
                     'ai_raw_response'       => 'email:' . sanitize_text_field( $receipt['gmail_message_id'] ?? '' ),
                     'status'                => 'unmatched',
                 ]
