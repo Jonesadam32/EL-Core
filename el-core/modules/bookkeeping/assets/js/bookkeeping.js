@@ -1382,19 +1382,38 @@
 
         $btn.text('Hide Manual Pick');
 
-        var receiptId = $btn.data('receiptId') || $btn.data('receipt-id');
-        var expenses  = (typeof elBkManualExpenses !== 'undefined') ? elBkManualExpenses : [];
+        var receiptId   = $btn.data('receiptId') || $btn.data('receipt-id');
+        var $receiptRow = $section.closest('tr.el-bk-receipt-match-row').prev('tr.el-bk-receipt-row');
+        var receiptDate = $receiptRow.data('date') || '';
+        var allExpenses = (typeof elBkManualExpenses !== 'undefined') ? elBkManualExpenses : [];
 
         var $newWrap = $('<div class="el-bk-manual-pick-wrap">');
+
         $newWrap.append(
-            '<div class="el-bk-manual-pick-search">' +
-                '<input type="text" class="el-input el-bk-manual-pick-filter" placeholder="Search by merchant or date…">' +
+            '<div class="el-bk-manual-pick-search" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+                '<input type="text" class="el-input el-bk-manual-pick-filter" placeholder="Search by merchant or date…" style="flex:1;min-width:200px;">' +
+                '<label style="font-size:13px;cursor:pointer;white-space:nowrap;">' +
+                    '<input type="checkbox" class="el-bk-manual-pick-showall"> Show all expenses' +
+                '</label>' +
             '</div>'
         );
 
-        if (!expenses.length) {
-            $newWrap.append('<p class="el-bk-receipt-match-empty">No unattached expense transactions found for this tax year.</p>');
-        } else {
+        var $status    = $('<p class="el-bk-hint" style="margin:6px 0 10px;"></p>');
+        var $tableWrap = $('<div class="el-bk-manual-pick-table-wrap"></div>');
+        $newWrap.append($status).append($tableWrap);
+
+        function daysDiff(a, b) {
+            if (!a || !b) return Infinity;
+            var da = new Date(a + 'T00:00:00');
+            var db = new Date(b + 'T00:00:00');
+            if (isNaN(da) || isNaN(db)) return Infinity;
+            return Math.abs((da - db) / 86400000);
+        }
+
+        function buildTable(list) {
+            if (!list.length) {
+                return $('<p class="el-bk-receipt-match-empty">No matching expenses found.</p>');
+            }
             var $t = $(
                 '<table class="el-bk-receipt-match-table el-bk-manual-pick-table widefat">' +
                     '<thead><tr>' +
@@ -1407,8 +1426,7 @@
                     '<tbody></tbody>' +
                 '</table>'
             );
-
-            expenses.forEach(function (e) {
+            list.forEach(function (e) {
                 $t.find('tbody').append(
                     $('<tr class="el-bk-manual-pick-row">').append(
                         $('<td class="el-bk-manual-pick-merchant">').text(e.merchant || '—'),
@@ -1424,9 +1442,47 @@
                     )
                 );
             });
-
-            $newWrap.append($t);
+            return $t;
         }
+
+        var filtered = [];
+        if (receiptDate) {
+            filtered = allExpenses
+                .map(function (e) { return { e: e, diff: daysDiff(e.date, receiptDate) }; })
+                .filter(function (x) { return x.diff <= 10; })
+                .sort(function (a, b) { return a.diff - b.diff; })
+                .map(function (x) { return x.e; });
+        }
+
+        function render(showAll) {
+            var list;
+            if (showAll || !receiptDate) {
+                list = allExpenses;
+                $status.text(
+                    receiptDate
+                        ? 'Showing all ' + allExpenses.length + ' unattached expenses for the year.'
+                        : 'Showing all ' + allExpenses.length + ' unattached expenses (receipt has no date).'
+                );
+            } else {
+                list = filtered;
+                $status.text(
+                    'Showing ' + filtered.length + ' expense(s) within ±10 days of the receipt date (' + receiptDate + ').' +
+                    ' Check "Show all expenses" to see every unattached expense.'
+                );
+            }
+            $tableWrap.empty().append(buildTable(list));
+            // Re-apply any active search term
+            var $filterInput = $newWrap.find('.el-bk-manual-pick-filter');
+            if ($filterInput.val()) {
+                $filterInput.trigger('input');
+            }
+        }
+
+        render(false);
+
+        $newWrap.find('.el-bk-manual-pick-showall').on('change', function () {
+            render($(this).is(':checked'));
+        });
 
         $section.append($newWrap);
     });
