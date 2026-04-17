@@ -4067,7 +4067,8 @@ $(document).on('click', '.el-bk-export-pl-btn', function () {
 function elBkGmailLoadAccounts() {
     var $list = $('#el-bk-gmail-accounts-list');
     if (!$list.length) return;
-    elBkAjax('bk_gmail_get_accounts', {}, function (accounts) {
+    elBkAjax('bk_gmail_get_accounts', {}, function (res) {
+        var accounts = res.data || [];
         if (!accounts || !accounts.length) {
             $list.html('<p class="el-bk-hint">No Gmail accounts connected yet.</p>');
             return;
@@ -4102,8 +4103,10 @@ $(document).on('click', '#el-bk-gmail-connect-btn', function () {
     var $btn       = $(this).prop('disabled', true).text('Redirecting to Google…');
     var clientId   = $('#el-bk-gmail-client-id').val().trim();
     var clientSec  = $('#el-bk-gmail-client-secret').val().trim();
-    elBkAjax('bk_gmail_build_auth_url', { client_id: clientId, client_secret: clientSec }, function (data) {
-        window.location.href = data.url;
+    elBkAjax('bk_gmail_build_auth_url', { client_id: clientId, client_secret: clientSec }, function (res) {
+        var url = res.data && res.data.url ? res.data.url : null;
+        if (!url) { $btn.prop('disabled', false).text('Connect Gmail Account'); alert('Could not build auth URL.'); return; }
+        window.location.href = url;
     }, function (msg) {
         $btn.prop('disabled', false).text('Connect Gmail Account');
         alert(msg);
@@ -4152,7 +4155,8 @@ $(document).on('click', '#el-bk-gmail-scanner-toggle', function () {
 });
 
 function elBkGmailLoadAccountDropdown() {
-    elBkAjax('bk_gmail_get_accounts', {}, function (accounts) {
+    elBkAjax('bk_gmail_get_accounts', {}, function (res) {
+        var accounts = res.data || [];
         var $sel = $('#el-bk-gmail-account-select');
         $sel.find('option:not(:first)').remove();
         if (!accounts || !accounts.length) {
@@ -4178,9 +4182,10 @@ $(document).on('change', '#el-bk-gmail-account-select', function () {
 });
 
 function elBkGmailRefreshScanLog(accountId) {
-    elBkAjax('bk_gmail_get_scan_log', { account_id: accountId }, function (logs) {
+    elBkAjax('bk_gmail_get_scan_log', { account_id: accountId }, function (res) {
+        var logs = res.data || [];
         elBkGmailScanLog = {};
-        $.each(logs || [], function (i, row) {
+        $.each(logs, function (i, row) {
             elBkGmailScanLog[row.scan_month] = row;
         });
         elBkGmailUpdateGrid();
@@ -4239,7 +4244,8 @@ $(document).on('click', '#el-bk-gmail-scan-btn', function () {
         account_id: accountId,
         scan_month: scanMonth,
         tax_year:   year
-    }, function (data) {
+    }, function (res) {
+        var data = res.data || {};
         $('#el-bk-gmail-scan-progress').hide();
         $('#el-bk-gmail-scan-btn').prop('disabled', false);
 
@@ -4250,7 +4256,7 @@ $(document).on('click', '#el-bk-gmail-scan-btn', function () {
         }
 
         if (!data.receipts || !data.receipts.length) {
-            alert('Scanned ' + data.emails_found + ' email(s) — no receipts found.');
+            alert('Scanned ' + (data.emails_found || 0) + ' email(s) — no receipts found.');
             return;
         }
 
