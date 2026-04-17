@@ -3988,4 +3988,73 @@ $('#el-bk-export-accountant-btn').on('click', function() {
     });
 });
 
+// ── CSV EXPORT — Expenses & Income tabs ───────────────────────────────────────
+
+function elBkDownloadCsv(params, origBtnText, $btn) {
+    var body = new URLSearchParams(Object.assign({
+        action:    'el_core_action',
+        el_action: 'bk_export_csv',
+        nonce:     elBookkeeping.nonce,
+        tax_year:  elBookkeeping.taxYear
+    }, params)).toString();
+
+    fetch(elBookkeeping.ajaxUrl, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    body
+    })
+    .then(function (response) {
+        if (!response.ok) throw new Error('Server returned ' + response.status);
+        var disposition = response.headers.get('Content-Disposition') || '';
+        var match       = disposition.match(/filename="?([^"]+)"?/);
+        var filename    = match ? match[1] : ('export-' + (params.type || 'data') + '.csv');
+        return response.blob().then(function (blob) { return { blob: blob, filename: filename }; });
+    })
+    .then(function (data) {
+        var url  = URL.createObjectURL(data.blob);
+        var link = document.createElement('a');
+        link.href     = url;
+        link.download = data.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        $btn.prop('disabled', false).text(origBtnText);
+    })
+    .catch(function (err) {
+        $btn.prop('disabled', false).text(origBtnText);
+        alert('Export failed: ' + err.message);
+    });
+}
+
+$(document).on('click', '.el-bk-export-btn', function () {
+    var $btn     = $(this);
+    var origText = $btn.text();
+    var type     = $btn.data('type') || 'expenses';
+    $btn.prop('disabled', true).text('Generating\u2026');
+    elBkDownloadCsv({ type: type }, origText, $btn);
+});
+
+// ── CSV EXPORT — P&L tab ──────────────────────────────────────────────────────
+
+$(document).on('click', '.el-bk-export-pl-btn', function () {
+    var $btn     = $(this);
+    var format   = $btn.data('format') || 'csv';
+    var origText = $btn.text();
+
+    if (format === 'pdf') {
+        alert('PDF export is not yet available. Use the Download Tax Export (.xlsx) button for a full accountant-ready document.');
+        return;
+    }
+
+    // Read current P&L filter state from the URL.
+    var urlParams = new URLSearchParams(window.location.search);
+    var plFrom    = urlParams.get('pl_from') || (elBookkeeping.taxYear + '-01-01');
+    var plTo      = urlParams.get('pl_to')   || (elBookkeeping.taxYear + '-12-31');
+    var plView    = urlParams.get('pl_view') || 'business';
+
+    $btn.prop('disabled', true).text('Generating\u2026');
+    elBkDownloadCsv({ type: 'pl', pl_from: plFrom, pl_to: plTo, pl_view: plView }, origText, $btn);
+});
+
 }(jQuery));

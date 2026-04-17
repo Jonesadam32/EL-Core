@@ -1444,8 +1444,204 @@ class EL_Bookkeeping_Module {
             EL_AJAX_Handler::error( __( 'Permission denied.', 'el-core' ), 403 );
             return;
         }
-        // Phase 2
-        EL_AJAX_Handler::error( __( 'Export not yet implemented.', 'el-core' ) );
+
+        $type     = sanitize_text_field( $data['type']     ?? 'expenses' );
+        $tax_year = absint( $data['tax_year'] ?? (int) gmdate( 'Y' ) );
+        $pl_view  = in_array( $data['pl_view'] ?? 'business', [ 'business', 'all' ], true )
+                    ? $data['pl_view']
+                    : 'business';
+        $pl_from  = sanitize_text_field( $data['pl_from'] ?? ( $tax_year . '-01-01' ) );
+        $pl_to    = sanitize_text_field( $data['pl_to']   ?? ( $tax_year . '-12-31' ) );
+
+        global $wpdb;
+        $table = $this->table( 'el_bk_transactions' );
+
+        // ── EXPENSES CSV ───────────────────────────────────────────────────────
+        if ( $type === 'expenses' ) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT date, merchant, amount, category, bank_account, comments
+                 FROM {$table}
+                 WHERE type = 'expense' AND tax_year = %d AND status != 'split'
+                 ORDER BY CASE WHEN category = '' OR category IS NULL THEN 1 ELSE 0 END ASC,
+                          category ASC, date ASC",
+                $tax_year
+            ) ) ?: [];
+
+            $filename = "expenses-by-category-{$tax_year}.csv";
+            header( 'Content-Type: text/csv; charset=utf-8' );
+            header( "Content-Disposition: attachment; filename=\"{$filename}\"" );
+            header( 'Cache-Control: no-cache, no-store, must-revalidate' );
+            header( 'Pragma: no-cache' );
+
+            $out         = fopen( 'php://output', 'w' );
+            fputcsv( $out, [ 'Category', 'Date', 'Merchant / Description', 'Amount', 'Bank Account', 'Comments' ] );
+
+            $current_cat = null;
+            $cat_total   = 0.0;
+            $grand_total = 0.0;
+
+            foreach ( $rows as $r ) {
+                $cat    = $r->category ?: '— Unclassified —';
+                $amount = (float) $r->amount;
+
+                if ( $cat !== $current_cat ) {
+                    if ( $current_cat !== null ) {
+                        fputcsv( $out, [ '', '', 'SUBTOTAL — ' . $current_cat, number_format( $cat_total, 2, '.', '' ), '', '' ] );
+                        fputcsv( $out, [] );
+                    }
+                    $current_cat = $cat;
+                    $cat_total   = 0.0;
+                }
+
+                $cat_total   += $amount;
+                $grand_total += $amount;
+
+                fputcsv( $out, [
+                    $cat,
+                    $r->date,
+                    $r->merchant,
+                    number_format( $amount, 2, '.', '' ),
+                    $r->bank_account,
+                    $r->comments,
+                ] );
+            }
+
+            if ( $current_cat !== null ) {
+                fputcsv( $out, [ '', '', 'SUBTOTAL — ' . $current_cat, number_format( $cat_total, 2, '.', '' ), '', '' ] );
+            }
+
+            fputcsv( $out, [] );
+            fputcsv( $out, [ '', '', 'GRAND TOTAL', number_format( $grand_total, 2, '.', '' ), '', '' ] );
+            fclose( $out );
+            exit;
+        }
+
+        // ── INCOME CSV ─────────────────────────────────────────────────────────
+        if ( $type === 'income' ) {
+            $excluded = [ 'Other', 'Bank Transfer', 'Ignore', 'Distributions', 'Shareholder Loan', 'Refund', 'Travel Credit' ];
+
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT date, merchant, amount, category, bank_account, comments
+                 FROM {$table}
+                 WHERE type = 'income' AND tax_year = %d
+                 ORDER BY date ASC",
+                $tax_year
+            ) ) ?: [];
+
+            $filename = "income-{$tax_year}.csv";
+            header( 'Content-Type: text/csv; charset=utf-8' );
+            header( "Content-Disposition: attachment; filename=\"{$filename}\"" );
+            header( 'Cache-Control: no-cache, no-store, must-revalidate' );
+            header( 'Pragma: no-cache' );
+
+            $out = fopen( 'php://output', 'w' );
+            fputcsv( $out, [ 'Date', 'Merchant / Description', 'Amount', 'Category', 'Bank Account', 'Comments', 'Taxable?' ] );
+
+            $taxable_total  = 0.0;
+            $excluded_total = 0.0;
+
+            foreach ( $rows as $r ) {
+                $is_taxable = ! in_array( $r->category, $excluded, true );
+                $amount     = (float) $r->amount;
+
+                if ( $is_taxable ) {
+                    $taxable_total += $amount;
+                } else {
+                    $excluded_total += $amount;
+                }
+
+                fputcsv( $out, [
+                    $r->date,
+                    $r->merchant,
+                    number_format( $amount, 2, '.', '' ),
+                    $r->category ?: '— Unclassified —',
+                    $r->bank_account,
+                    $r->comments,
+                    $is_taxable ? 'Yes' : 'No (excluded)',
+                ] );
+            }
+
+            fputcsv( $out, [] );
+            fputcsv( $out, [ '', 'NET TAXABLE INCOME', number_format( $taxable_total, 2, '.', '' ), '', '', '', '' ] );
+            fputcsv( $out, [ '', 'Excluded (transfers/refunds/etc.)', number_format( $excluded_total, 2, '.', '' ), '', '', '', '' ] );
+            fputcsv( $out, [ '', 'TOTAL DEPOSITS', number_format( $taxable_total + $excluded_total, 2, '.', '' ), '', '', '', '' ] );
+            fclose( $out );
+            exit;
+        }
+
+        // ── P&L CSV ────────────────────────────────────────────────────────────
+        if ( $type === 'pl' ) {
+            $personal_cats   = self::get_expense_categories_grouped()['personal'];
+            $income_excluded = [ 'Other', 'Bank Transfer', 'Ignore', 'Distributions', 'Shareholder Loan', 'Refund', 'Travel Credit' ];
+
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $all_rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT type, date, merchant, amount, category, status
+                 FROM {$table}
+                 WHERE date BETWEEN %s AND %s
+                 ORDER BY type DESC, category ASC, date ASC",
+                $pl_from,
+                $pl_to
+            ) ) ?: [];
+
+            $income_rows  = array_filter( $all_rows, fn( $r ) => $r->type === 'income' );
+            $expense_rows = array_filter( $all_rows, fn( $r ) => $r->type === 'expense' && $r->status !== 'split' );
+
+            $taxable_income = array_filter( $income_rows, fn( $r ) => ! in_array( $r->category, $income_excluded, true ) );
+            $distributions  = array_filter( $income_rows, fn( $r ) => $r->category === 'Distributions' );
+            $total_income   = array_sum( array_map( fn( $r ) => (float) $r->amount, $taxable_income ) );
+            $total_dist     = array_sum( array_map( fn( $r ) => (float) $r->amount, $distributions ) );
+
+            $expense_cats = [];
+            foreach ( $expense_rows as $r ) {
+                if ( $pl_view === 'business' && in_array( $r->category, $personal_cats, true ) ) {
+                    continue;
+                }
+                $cat = $r->category ?: 'Unclassified';
+                $expense_cats[ $cat ] = ( $expense_cats[ $cat ] ?? 0.0 ) + (float) $r->amount;
+            }
+            arsort( $expense_cats );
+            $total_expenses = array_sum( $expense_cats );
+            $net_income     = $total_income - $total_dist - $total_expenses;
+
+            $view_label = $pl_view === 'business' ? 'Business Only (Schedule C)' : 'All Transactions';
+            $filename   = "profit-loss-{$pl_from}-to-{$pl_to}.csv";
+
+            header( 'Content-Type: text/csv; charset=utf-8' );
+            header( "Content-Disposition: attachment; filename=\"{$filename}\"" );
+            header( 'Cache-Control: no-cache, no-store, must-revalidate' );
+            header( 'Pragma: no-cache' );
+
+            $out = fopen( 'php://output', 'w' );
+
+            fputcsv( $out, [ 'Profit & Loss — ' . $this->get_business_name() ] );
+            fputcsv( $out, [ 'Period: ' . $pl_from . ' to ' . $pl_to . ' — ' . $view_label ] );
+            fputcsv( $out, [] );
+
+            // Summary
+            fputcsv( $out, [ 'SUMMARY', '' ] );
+            fputcsv( $out, [ 'Net Taxable Income',      number_format( $total_income, 2, '.', '' ) ] );
+            if ( $total_dist > 0 ) {
+                fputcsv( $out, [ 'Less: Distributions',  number_format( $total_dist, 2, '.', '' ) ] );
+            }
+            fputcsv( $out, [ 'Total Expenses',           number_format( $total_expenses, 2, '.', '' ) ] );
+            fputcsv( $out, [ 'Net Income (Schedule C)',  number_format( $net_income, 2, '.', '' ) ] );
+            fputcsv( $out, [] );
+
+            // Expenses by category
+            fputcsv( $out, [ 'EXPENSES BY CATEGORY', 'Amount' ] );
+            foreach ( $expense_cats as $cat => $total ) {
+                fputcsv( $out, [ $cat, number_format( $total, 2, '.', '' ) ] );
+            }
+            fputcsv( $out, [ 'TOTAL EXPENSES', number_format( $total_expenses, 2, '.', '' ) ] );
+
+            fclose( $out );
+            exit;
+        }
+
+        EL_AJAX_Handler::error( __( 'Unknown export type.', 'el-core' ) );
     }
 
     public function handle_export_pl( array $data ): void {
