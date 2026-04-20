@@ -1,0 +1,172 @@
+---
+description: Start Here Next Session — EL Core Bookkeeping status and next steps
+alwaysApply: true
+---
+
+# EL Core — Session Handoff
+
+**Session #5 ended — April 17, 2026**
+
+## Current Version
+`v1.38.103` — built, committed, pushed to GitHub, ready to deploy.
+
+---
+
+## This Session — What Was Built (v1.38.89 → v1.38.103)
+
+### v1.38.89 — Expenses Page Performance Fixes
+- **Fix A:** Static `$cache` guard on `get_expense_categories_grouped()` — array built once per PHP request
+- **Fix B:** `debounce()` utility added to `bookkeeping.js`; `#el-bk-exp-search` input now fires 300ms after typing stops
+- **Fix C:** Lazy-load category `<select>` — replaced 42-option inline selects with 1-option placeholders (`el-bk-cat-placeholder`); single hidden `#el-bk-cat-select-template` cloned on first focus/click. Eliminated ~33,600 DOM option elements at page load with 800 rows.
+
+### v1.38.90 — Convert to Expense Offset (Refund Handling)
+- **↩ button** added to every Income tab row (purple, left of trash icon)
+- Opens modal showing transaction info; user picks expense category (defaults to Travel Expense) and adds a comment
+- One click: creates negative expense entry (e.g. `−$450.00 / Travel Expense`) + marks income row as "Refund" (excluded from taxable income)
+- Solves Orbitz/travel refund problem without needing to match individual transactions
+- PHP: `handle_convert_refund_offset` — new AJAX handler
+
+### v1.38.91 — CSV Exports Implemented (all Download CSV buttons now work)
+- **Expenses tab "Download CSV"** → `expenses-by-category-{year}.csv` — sorted alphabetically by category, SUBTOTAL row after each group, GRAND TOTAL at bottom
+- **Income tab "Download CSV"** → `income-{year}.csv` — sorted by date, `Taxable?` column on each row, summary rows at bottom (Net Taxable, Excluded, Total)
+- **P&L tab "Download CSV"** → `profit-loss-{from}-to-{to}.csv` — respects current date range and Business Only/All mode; Summary section + Expenses by Category breakdown
+- **P&L tab "Download PDF"** → friendly message directing to Excel accountant export (PDF needs library, deferred)
+- All three used to be empty stubs ("Phase 2/7 — not yet implemented")
+
+### v1.38.92 — Accountant Export (.xlsx) Fixes
+- **Vehicle worksheet:** Was showing "not enabled" and bailing out if `vehicle_enabled` checkbox was unchecked. Now always shows entered data; if checkbox is off, shows orange italic note at top instead of hiding everything
+- **Contractors Paid:** Was querying `el_bk_contractor_assignments` table (never populated) — always showed $0. Fixed to query `contractor_id` on the transaction directly (same as Contractors tab UI)
+- **Travel Log:** Removed "Related Expenses" column — no reliable way to match booked-in-advance travel expenses to specific trips
+
+### v1.38.93 — Vehicle Miles Not Saving Fix
+- **Root cause:** Settings form had two sections (Standard Mileage + Actual Expenses) both using `name="vehicle_total_miles"` and `name="vehicle_business_miles"`. PHP takes the last POST value — the hidden Actual section's fields (value=0) silently overwrote the typed values on every save
+- **Fix:** Hidden section's inputs get `disabled` attribute (PHP initial state + JS toggle on method switch). Disabled fields are never submitted in POST
+
+### v1.38.94 — Contractor Bugs (4 fixes)
+- **Delete not working:** `$wpdb->delete` used `['contractor_id' => $id]` but table PK is `id`. Fixed to `['id' => $id]`
+- **Apostrophe creating backslash:** WordPress magic quotes adds `\` before apostrophes in all `$_POST` data. `sanitize_input()` in `class-ajax-handler.php` was calling `sanitize_text_field($value)` without `wp_unslash()`. Fixed globally — affects all AJAX handlers in the plugin
+- **Contractor assignment not persisting:** `handle_assign_contractor` was writing to `el_bk_contractor_assignments` side table, but the Contractors view reads `contractor_id` on the transaction row directly. Fixed to `UPDATE el_bk_transactions SET contractor_id = X` + also keep assignments table in sync
+- **Unassign blocked:** Old handler rejected `contractor_id = 0` with an error. Now `0` clears the assignment correctly
+
+### v1.38.95 — Contractor Assignment Persisting Fix
+- **Root cause:** `contractor_id` column was **never added to the `el_bk_transactions` table** — it existed in the PHP handler and view code, but was missing from `module.json` schema and migrations. `$wpdb->update()` silently failed every time; the green flash showed because AJAX returned success regardless
+- **Fix:** Added `contractor_id bigint(20) NOT NULL DEFAULT 0` to `el_bk_transactions` schema in `module.json`; added migration `"12"` to `ALTER TABLE el_bk_transactions ADD COLUMN IF NOT EXISTS contractor_id ...`; bumped DB version 11 → 12
+
+### v1.38.96 — AI Email Receipt Agent
+- **Gmail OAuth:** Connect multiple Gmail accounts via OAuth 2.0 in Settings → Gmail Receipt Scanner. Client ID + Client Secret saved to `mod_bookkeeping` settings. OAuth callback via early-priority `wp_ajax_el_core_action` hook intercepting `$_GET['el_action'] === 'bk_gmail_oauth_callback'`
+- **Two new DB tables** (migrations 13 + 14): `el_bk_gmail_accounts` (tokens, status), `el_bk_gmail_scan_log` (account+month scan history)
+- **Receipts tab — Email Agent section:** Account dropdown, month/year pickers, 12-cell month status grid (gray/yellow/green), Scan Now button, review queue with editable cards, Save Selected
+- **Scanning:** `bk_gmail_scan_month` — Gmail REST API, up to 50 emails/month, token refresh before each scan, body capped at 2000 chars, `$this->core->ai->complete()` / `complete_with_image()` with `max_tokens: 300`
+- **Review queue:** Each extracted receipt is an editable card (merchant, date, amount, category select, notes); checkbox to include/exclude; Save Selected POSTs to `bk_gmail_save_receipts` → inserts into `el_bk_receipts`
+- **Pre-requisite for Fred:** Google Cloud Console → create project → enable Gmail API → create OAuth 2.0 Web Application credentials → add Redirect URI: `https://[site]/wp-admin/admin-ajax.php?action=el_core_action&el_action=bk_gmail_oauth_callback` → paste Client ID + Client Secret into Settings → Gmail Receipt Scanner → Save Settings → Connect Gmail Account
+
+### v1.38.97 — Gmail Connect Auto-Save Fix
+- **Root cause:** "Connect Gmail Account" button fired before user clicked "Save Settings", so `gmail_client_id` / `gmail_client_secret` were still empty in the DB. `handle_gmail_build_auth_url` read from saved settings → "No Gmail Client ID configured" error
+- **Fix:** `handle_gmail_build_auth_url` now accepts `client_id` and `client_secret` directly in the AJAX POST and auto-saves them before building the OAuth URL. JS "Connect" button now passes the live form field values.
+
+### v1.38.98 — Gmail AJAX Response Unwrapping Fix
+- **Root cause:** `EL_AJAX_Handler::success($data)` wraps data in `{ success: true, data: { message: "", data: $data } }`. All Gmail JS callbacks were reading `data.url`, `data.accounts`, etc. directly from the first-level `data` object — the actual payload was one level deeper (`data.data`). This caused the OAuth redirect to go to `/wp-admin/undefined` and silent failures for account/scan-log loading.
+- **Fix:** All Gmail AJAX callbacks now use `res.data` to unwrap: `var url = res.data.url`, `var accounts = res.data || []`, etc.
+
+### v1.38.99 — Collapsible Manual Receipt + All Receipts Sections
+- Both sections on the Receipts tab are now collapsible (▶ click to expand / ▼ to collapse), defaulting to closed — reduces visual noise on busy pages
+- Matches the same toggle pattern used by the Gmail scanner section
+
+### v1.38.100 — Pick Manually ±10 Day Window (JS-side filter)
+- **Problem:** Clicking Pick Manually dumped the entire year's unattached expenses, sorted newest-first — painful with 1000+ rows
+- **Attempt:** Pre-filter the preloaded `elBkManualExpenses` array to ±10 days of the receipt date on the JS side. Good idea, but turned out to hit a deeper bug (see v1.38.102)
+
+### v1.38.101 — Pick Manually Date Read Hardening
+- Switched from `.data('date')` to `.attr('data-date')` for receipt date read (jQuery `.data()` can coerce types)
+- Status line now always shows the detected receipt date so you can verify at a glance
+
+### v1.38.102 — Pick Manually Server-Side Date Query (REAL FIX)
+- **Root cause of the January-expenses bug:** The preloaded `elBkManualExpenses` JSON was capped at `limit => 1000` in PHP. Fred has >1000 unattached expenses for 2024, so MySQL returned the 1000 newest (Sept–Dec) and everything earlier (including January) was never sent to the browser. The JS ±10 day filter was correct but had no January data to filter
+- **Fix:** Added `bk_get_manual_match_candidates` AJAX handler that queries `el_bk_transactions` directly via `WHERE date BETWEEN DATE_SUB(receipt_date, INTERVAL 10 DAY) AND DATE_ADD(receipt_date, INTERVAL 10 DAY) AND type = 'expense' AND receipt_id IS NULL`. Server-side, no cap (5000 row safety limit)
+- **"Show all expenses for the year" checkbox** triggers a second AJAX call returning all unattached 2024 expenses sorted by proximity to the receipt date (closest first), so even outside the 10-day window, January receipts will see January expenses at the top
+- `elBkManualExpenses` preload in `receipts.php` is now unused but left in place for compatibility
+
+### v1.38.103 — Gmail Scanner: Sender Email + Order Number + Dedupe
+- **Sender email captured:** Scanner now reads the `From:` header of every email. Review card shows a gray "From: sender@domain.com" line under the subject. Useful for Amazon-delivered third-party receipts (e.g., Whole Foods via Amazon)
+- **Order number extracted:** AI prompt updated to extract `order_number` field exactly as shown in the email. New editable "Order #" input on each review card
+- **De-duplication by order number:** When multiple emails share the same order # (confirmation → shipped → delivered with tip added), PHP collapses them into one receipt, keeping the highest amount (final charge). Review card shows a blue "N emails merged" badge so you know it happened
+- **Broader search keywords:** Added `payment`, `delivery`, `delivered`, `shipped`, `charged`, `subscription`, `"thank you for your order"`, `"your order"`. Should catch the missing Whole Foods orders Fred was seeing in his mailbox but not in scan results
+- **maxResults** raised from 50 → 100; `set_time_limit()` raised 120 → 180
+- **DB migration 15:** Added `sender_email` (varchar 255) and `order_number` (varchar 100, indexed) columns to `el_bk_receipts`. Runs automatically on plugin activation
+- **AI prompt tweak:** Explicitly tells the AI that for Amazon-delivered items, the merchant should be the actual store (Whole Foods Market), not Amazon — and the sender field provides the platform context separately
+
+ Accounting Fees, Advertising & Promotion, California FTB Payment, California Franchise Tax Board, Computer - Hardware, Computer - Hosting, Computer - Software, Contract Labor, Dues & Subscriptions, Education & Training, Georgia Department of Revenue, Georgia Tax Payment, Health Care Insurance, Home Office Expense, Insurance-General Liability, Meals & Entertainment, Merchant Account Fees, Office Supplies, Out of pocket Medical Expenses, Parking & tolls, Professional Fees, Rent Expense, Telephone - Wireless, Travel Expense, Vehicle - Fuel, Vehicle - Repairs and Maintenance, Vehicles Insurance
+
+**Personal:** Auto Loan Payment, Bank Service Charges, Credit Card Payment, Interest Expense, IRS Payment, Merrill Lynch Investment Account, Owner Draw, Owner Draw - Cleaners, Owner Draw - Entertainment, Owner Draw - Groceries, Owner Draw - House Repair, Owner Draw - Personal Meals, Owner Draw - Pet, SBA Loan, Student Loan
+
+---
+
+## Repo State
+- Branch: `main`
+- All changes committed through v1.38.103 and pushed to `origin/main` on GitHub
+- Build tool: `build-zip.ps1` — always use it, never `Compress-Archive`
+- ZIP goes to: `Downloads/`, `releases/`, `old-versions/vX.X.X/`, `el-core-releases/`
+- PHP portable at `C:\php-portable\` (needed to run composer if dependencies change)
+- `vendor/` is committed to git (PhpSpreadsheet 1.30.3 — required for Excel export)
+
+---
+
+## Architecture Notes (important for next session)
+
+### How contractor assignment works (v1.38.94+)
+- `contractor_id` column lives on `el_bk_transactions` — this is the source of truth
+- `el_bk_contractor_assignments` table is kept in sync but is NOT used for display or export
+- `get_contractors_for_export()` queries `WHERE contractor_id = %d` on transactions directly
+- Contractors tab view uses `$t->contractor_id` from transaction row
+
+### How CSV export works (v1.38.91+)
+- All three Download CSV buttons use the same `bk_export_csv` AJAX action
+- `type` param: `expenses`, `income`, or `pl`
+- For `pl` type, also passes `pl_from`, `pl_to`, `pl_view` from current URL
+- PHP streams CSV directly — no file saved to disk
+
+### How Gmail OAuth works (v1.38.96+)
+- Redirect URI for Google Cloud Console: `https://[site]/wp-admin/admin-ajax.php?action=el_core_action&el_action=bk_gmail_oauth_callback`
+- OAuth callback intercepted in `maybe_handle_gmail_oauth_get()` — registered at priority 1 on `wp_ajax_el_core_action`
+- Token exchange + Gmail profile fetch happens server-side; account row inserted into `el_bk_gmail_accounts`
+- Token refresh handled by `gmail_refresh_token_if_needed()` — called before every API call in `handle_gmail_scan_month`
+- **AJAX response structure:** `elBkAjax` onSuccess receives `res = { success: true, data: { message: "", data: <actual payload> } }`. Always use `res.data` (NOT `res.data.data`) to get the payload — as of v1.38.98 callbacks correctly use `res.data`.
+
+### How Pick Manually works (v1.38.102+)
+- Fires `bk_get_manual_match_candidates` AJAX with `receipt_id`, `date_window` (default 10), optional `show_all` flag
+- Server reads `ai_extracted_date` from the receipt, then queries `el_bk_transactions` WHERE `type='expense' AND (receipt_id IS NULL OR 0) AND date BETWEEN (receipt_date - 10d) AND (receipt_date + 10d)` ORDER BY `ABS(DATEDIFF(date, receipt_date)) ASC` LIMIT 5000
+- "Show all expenses for the year" widens to `YEAR(date) = tax_year`, still sorted by proximity
+- Returns `{ receipt_date, date_window, show_all, expenses: [...] }` — status line in UI always shows the detected `receipt_date`
+
+### How Gmail scanner dedupes / enriches (v1.38.103+)
+- Gmail API query broadened: 13 keyword terms + 2 quoted phrases
+- `maxResults = 100`, `set_time_limit(180)`
+- For each message: reads `Subject` and `From` headers; parses sender email from `"Name" <addr>` format
+- AI prompt includes the sender email as a hint (NOT as the merchant); asks for `merchant`, `date`, `amount`, `category`, `order_number`, `notes`, `confidence`
+- After all emails processed, dedupes by normalized `order_number` (lowercased, whitespace stripped) — keeps the row with highest amount, tracks `merged_count`
+- Receipts with empty order numbers are kept as-is (no dedupe)
+- `sender_email` and `order_number` persisted to `el_bk_receipts` columns (DB migration 15)
+
+ (v1.38.90+)
+- Income rows with the ↩ button create a negative expense entry (`source_file = 'refund-offset'`)
+- Income row category is set to `Refund` (already in the excluded list)
+- No matching/linking between the two rows — they're independent
+
+---
+
+## Known / Pending Items
+- **Contractors tab CSV export** — button exists (`data-type="contractors"`) but not yet handled by `handle_export_csv`. Will show error on click. Low priority.
+- Fred needs to re-enter vehicle miles in Settings after installing v1.38.93 (prior saves were wiped by the duplicate field bug)
+- Any contractors with existing assignments should be re-assigned after v1.38.94 (old assignments were in the wrong table)
+- **v1.38.103 NEEDS TESTING:** Re-scan January 2024 in the Gmail Receipt Scanner to verify: (a) more than 9 receipts returned (broader keywords + 100 maxResults should catch missing Whole Foods orders), (b) sender email shown under each card's subject, (c) Order # field populated on cards, (d) "N emails merged" blue badges appear when Amazon sends multiple emails for the same order. DB migration 15 runs automatically on activation.
+- **Receipts saved before v1.38.103** have empty `sender_email` and `order_number` columns. Not a problem — just won't show that context until re-scanned.
+
+---
+
+## Next Session — Suggested Directions
+- **More expense categories** as Fred encounters new transaction types
+- **Schedule C view** — group P&L expenses by Schedule C line number
+- **C.3: Export history** — track past exports with timestamps
+- **Rules improvements** — bulk rule creation from unclassified transactions
+- **Contractors CSV export** — implement `type=contractors` in `handle_export_csv`
+- **Anything else Fred needs**
