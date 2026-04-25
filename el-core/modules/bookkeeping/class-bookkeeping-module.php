@@ -1468,17 +1468,38 @@ class EL_Bookkeeping_Module {
 
         // ── EXPENSES CSV ───────────────────────────────────────────────────────
         if ( $type === 'expenses' ) {
+            // 'business' = exclude personal categories (default)
+            // 'personal' = only personal categories
+            // ''/'all'   = everything
+            $expense_type = sanitize_text_field( $data['expense_type'] ?? 'business' );
+
+            // Build a type filter clause using the personal categories list
+            $personal_cats = self::get_expense_categories_grouped()['personal'];
+            $type_where    = '';
+            if ( $expense_type === 'business' ) {
+                $placeholders = implode( ',', array_fill( 0, count( $personal_cats ), '%s' ) );
+                // Include unclassified rows (potential business expenses) + all non-personal categories
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                $type_where = $wpdb->prepare( " AND (category IS NULL OR category = '' OR category NOT IN ({$placeholders}))", ...$personal_cats );
+            } elseif ( $expense_type === 'personal' ) {
+                $placeholders = implode( ',', array_fill( 0, count( $personal_cats ), '%s' ) );
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                $type_where = $wpdb->prepare( " AND category IN ({$placeholders})", ...$personal_cats );
+            }
+
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             $rows = $wpdb->get_results( $wpdb->prepare(
                 "SELECT date, merchant, amount, category, bank_account, comments
                  FROM {$table}
                  WHERE type = 'expense' AND tax_year = %d AND status != 'split'
+                 {$type_where}
                  ORDER BY CASE WHEN category = '' OR category IS NULL THEN 1 ELSE 0 END ASC,
                           category ASC, date ASC",
                 $tax_year
             ) ) ?: [];
 
-            $filename = "expenses-by-category-{$tax_year}.csv";
+            $label    = $expense_type === 'personal' ? 'personal' : ( $expense_type === 'business' ? 'business' : 'all' );
+            $filename = "expenses-{$label}-{$tax_year}.csv";
             header( 'Content-Type: text/csv; charset=utf-8' );
             header( "Content-Disposition: attachment; filename=\"{$filename}\"" );
             header( 'Cache-Control: no-cache, no-store, must-revalidate' );

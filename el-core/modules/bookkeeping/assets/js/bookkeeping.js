@@ -4080,8 +4080,16 @@ $(document).on('click', '.el-bk-export-btn', function () {
     var $btn     = $(this);
     var origText = $btn.text();
     var type     = $btn.data('type') || 'expenses';
+    var params   = { type: type };
+
+    // For the expenses tab, pass the active Expense Type filter (default: business only)
+    if (type === 'expenses') {
+        var filterVal = $('#el-bk-exp-type-filter').val();
+        params.expense_type = filterVal || 'business';
+    }
+
     $btn.prop('disabled', true).text('Generating\u2026');
-    elBkDownloadCsv({ type: type }, origText, $btn);
+    elBkDownloadCsv(params, origText, $btn);
 });
 
 // ── CSV EXPORT — P&L tab ──────────────────────────────────────────────────────

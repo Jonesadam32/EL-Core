@@ -6,6 +6,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.38.104] — 2026-04-25
+
+### Fixed
+- **Expense CSV export now respects the Expense Type filter:** Previously "Download CSV" on the Expenses tab always exported all transactions (business + personal) regardless of the active filter. Now it reads the current "Expense Type" dropdown value and passes it to the server. Default (no filter selected) exports **business expenses only**. Select "Personal" to export personal only, or "All" to export everything. The downloaded filename now reflects the type (e.g. `expenses-business-2025.csv`).
+
+---
+
 ## [1.38.11] — 2026-03-10
 
 ### Added
